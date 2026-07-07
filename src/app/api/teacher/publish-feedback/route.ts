@@ -16,7 +16,6 @@ const detailSchema = z.object({
 const payloadSchema = z.object({
   submissionId: z.string().uuid(),
   overallComment: z.string(),
-  transcript: z.string().default(""),
   details: z.array(detailSchema)
 });
 
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
         submission_id: payload.submissionId,
         overall_score,
         overall_comment: payload.overallComment,
-        transcript: payload.transcript,
+        transcript: "",
         details: payload.details,
         published_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

@@ -11,7 +11,7 @@ Formal web app for IELTS speaking homework.
 - Student can delete and re-record before submitting.
 - Recordings upload to Supabase Storage.
 - Submissions are saved in Supabase Database.
-- Teacher listens to recordings, generates AI draft transcript and feedback, edits the feedback, then publishes it.
+- Teacher listens to recordings, edits comments and scores, optionally generates AI draft scores, then publishes feedback.
 - Student refreshes the same submission link to view published feedback.
 
 ## Setup
@@ -33,7 +33,6 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_RECORDINGS_BUCKET=speaking-recordings
 TEACHER_ACCESS_TOKEN=choose-a-private-teacher-token
 OPENAI_API_KEY=your-openai-key
-OPENAI_TRANSCRIBE_MODEL=whisper-1
 OPENAI_FEEDBACK_MODEL=gpt-4.1-mini
 ```
 

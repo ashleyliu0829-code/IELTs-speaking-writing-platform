@@ -131,7 +131,7 @@ export function StudentAssignment({
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setMessage(data.error || "Submission failed. Please try again.");
+      setMessage(data.error || "Submission failed. Please try again. If this repeats, re-record and submit again.");
       return;
     }
 

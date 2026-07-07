@@ -137,7 +137,6 @@ export function TeacherDashboard() {
         body: JSON.stringify({
           submissionId: selectedSubmissionId,
           overallComment: feedbackDraft.overall_comment,
-          transcript: feedbackDraft.transcript,
           details: feedbackDraft.details
         })
       });
@@ -146,6 +145,26 @@ export function TeacherDashboard() {
       setMessage("Feedback published.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Publish failed.");
+    }
+  }
+
+  async function deleteSubmission() {
+    if (!selectedSubmission) return;
+    const confirmed = window.confirm(`Delete ${selectedSubmission.student_name}'s submission and all recordings?`);
+    if (!confirmed) return;
+
+    setLoading(true);
+    setMessage("");
+    try {
+      await api(`/api/teacher/submissions?submissionId=${selectedSubmission.id}`, {
+        method: "DELETE"
+      });
+      await loadSubmissions();
+      setMessage("Submission deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -253,9 +272,14 @@ export function TeacherDashboard() {
                   <h2>{selectedSubmission.student_name}</h2>
                   <div className="hint">Recordings and feedback</div>
                 </div>
-                <span className={`pill ${feedbackDraft?.published_at ? "ok" : "warn"}`}>
-                  {feedbackDraft?.published_at ? "Published" : feedbackDraft ? "Draft" : "Pending"}
-                </span>
+                <div className="stack">
+                  <span className={`pill ${feedbackDraft?.published_at ? "ok" : "warn"}`}>
+                    {feedbackDraft?.published_at ? "Published" : feedbackDraft ? "Draft" : "Pending"}
+                  </span>
+                  <button className="btn danger" onClick={deleteSubmission} disabled={loading} type="button">
+                    Delete submission
+                  </button>
+                </div>
               </div>
               <RecordingList recordings={selectedSubmission.recordings || []} />
               <button className="btn secondary" onClick={analyzeSubmission} disabled={loading} type="button">
@@ -264,7 +288,6 @@ export function TeacherDashboard() {
               <FeedbackEditor
                 feedback={feedbackDraft || createManualFeedback(selectedSubmission)}
                 updateComment={(overall_comment) => setFeedbackDraft({ ...(feedbackDraft || createManualFeedback(selectedSubmission)), overall_comment })}
-                updateTranscript={(transcript) => setFeedbackDraft({ ...(feedbackDraft || createManualFeedback(selectedSubmission)), transcript })}
                 updateDetail={updateDetail}
                 publish={publishFeedback}
               />
@@ -281,7 +304,6 @@ function feedbackForSubmission(submission: Submission) {
   if (!feedback) return createManualFeedback(submission);
   return {
     ...feedback,
-    transcript: feedback.transcript || buildTranscript(submission),
     details: mergeFeedbackDetails(feedback.details || [], submission)
   };
 }
@@ -291,16 +313,9 @@ function createManualFeedback(submission: Submission): Feedback {
     submission_id: submission.id,
     overall_score: 0,
     overall_comment: "",
-    transcript: buildTranscript(submission),
+    transcript: "",
     details: mergeFeedbackDetails([], submission)
   };
-}
-
-function buildTranscript(submission: Submission) {
-  return (submission.recordings || [])
-    .map((recording) => `${recording.question_label}\n${recording.transcript_text || ""}`.trim())
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 function AssignmentPicker({
@@ -414,10 +429,6 @@ function RecordingList({ recordings }: { recordings: Recording[] }) {
             <div className="question-title">{recording.question_text}</div>
           </div>
           {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">Recording link is unavailable.</p>}
-          <div className="overall">
-            <label>Record Transcript</label>
-            <p className="hint">{recording.transcript_text || "Transcript has not been generated yet."}</p>
-          </div>
         </article>
       ))}
     </div>
@@ -427,13 +438,11 @@ function RecordingList({ recordings }: { recordings: Recording[] }) {
 function FeedbackEditor({
   feedback,
   updateComment,
-  updateTranscript,
   updateDetail,
   publish
 }: {
   feedback: Feedback;
   updateComment: (value: string) => void;
-  updateTranscript: (value: string) => void;
   updateDetail: (index: number, patch: Partial<FeedbackDetail>) => void;
   publish: () => void;
 }) {
@@ -450,10 +459,6 @@ function FeedbackEditor({
         </div>
         <label>General Comment</label>
         <textarea value={feedback.overall_comment} onChange={(event) => updateComment(event.target.value)} />
-      </div>
-      <div>
-        <label>Record Transcript</label>
-        <textarea value={feedback.transcript} onChange={(event) => updateTranscript(event.target.value)} />
       </div>
       <div className="stack">
         <label>Score Area: Fluency, Grammar, Vocabulary</label>

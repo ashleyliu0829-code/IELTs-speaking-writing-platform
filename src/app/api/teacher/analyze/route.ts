@@ -1,22 +1,15 @@
 import { NextRequest } from "next/server";
-import OpenAI, { toFile } from "openai";
+import OpenAI from "openai";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { defaultScoreDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore } from "@/lib/questions";
-import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import type { FeedbackDetail, Recording } from "@/lib/types";
 
 const payloadSchema = z.object({
   submissionId: z.string().uuid()
 });
-
-type TranscriptBlock = {
-  part: string;
-  label: string;
-  question: string;
-  transcript: string;
-};
 
 export async function POST(request: NextRequest) {
   const unauthorized = requireTeacher(request);
@@ -39,39 +32,12 @@ export async function POST(request: NextRequest) {
   if (error) return Response.json({ error: error.message }, { status: 500 });
   if (!recordings?.length) return Response.json({ error: "No recordings found." }, { status: 404 });
 
-  const transcriptBlocks: TranscriptBlock[] = [];
-  for (const recording of recordings as Recording[]) {
-    let transcriptText = recording.transcript_text || "";
-
-    if (!transcriptText) {
-      const { data: audio, error: downloadError } = await supabase.storage
-        .from(recordingsBucket)
-        .download(recording.storage_path);
-
-      if (downloadError || !audio) {
-        return Response.json({ error: downloadError?.message || "Audio download failed." }, { status: 500 });
-      }
-
-      const buffer = Buffer.from(await audio.arrayBuffer());
-      const file = await toFile(buffer, `${recording.question_key}.webm`, { type: "audio/webm" });
-      const transcript = await openai.audio.transcriptions.create({
-        file,
-        model: process.env.OPENAI_TRANSCRIBE_MODEL || "whisper-1"
-      });
-      transcriptText = transcript.text || "";
-
-      if (transcriptText) {
-        await supabase.from("recordings").update({ transcript_text: transcriptText }).eq("id", recording.id);
-      }
-    }
-
-    transcriptBlocks.push({
-      part: recording.question_key,
-      label: recording.question_label,
-      question: recording.question_text,
-      transcript: transcriptText
-    });
-  }
+  const recordingBlocks = (recordings as Recording[]).map((recording) => ({
+    part: recording.question_key,
+    label: recording.question_label,
+    question: recording.question_text,
+    duration_seconds: recording.duration_seconds
+  }));
 
   const scoring = await openai.chat.completions.create({
     model: process.env.OPENAI_FEEDBACK_MODEL || "gpt-4.1-mini",
@@ -80,14 +46,14 @@ export async function POST(request: NextRequest) {
       {
         role: "system",
         content:
-          "You are an IELTS Speaking teacher. Give practical homework feedback. Score Fluency, Grammar, and Vocabulary from 0 to 9 in 0.5 increments. Return strict JSON only."
+          "You are an IELTS Speaking teacher. You only have question text and recording duration. Give conservative draft scores for Fluency, Grammar, and Vocabulary from 0 to 9 in 0.5 increments. Return strict JSON only."
       },
       {
         role: "user",
         content: JSON.stringify({
           task:
-            "Evaluate the IELTS speaking homework. Return {overall_comment:string, details:[{part,label,question,score,comment}]}. The details array must contain exactly three items with part values: fluency, grammar, vocabulary. Use labels: Fluency, Grammar, Vocabulary. The question field should name the rubric area. Each comment should include evidence from the transcript and one concrete next step.",
-          answers: transcriptBlocks
+            "Return {overall_comment:string, details:[{part,label,question,score,comment}]}. The details array must contain exactly three items with part values: fluency, grammar, vocabulary. Use labels: Fluency, Grammar, Vocabulary. Keep comments brief and mark them as draft because the teacher should listen before publishing final feedback.",
+          recordings: recordingBlocks
         })
       }
     ],
@@ -97,7 +63,7 @@ export async function POST(request: NextRequest) {
   const parsed = parseFeedback(scoring.choices[0]?.message?.content || "{}");
   const details = [
     ...normalizeDetails(parsed.details || []),
-    ...transcriptBlocks.map((block) => ({
+    ...recordingBlocks.map((block) => ({
       part: `comment:${block.part}`,
       label: block.label,
       question: block.question,
@@ -106,16 +72,15 @@ export async function POST(request: NextRequest) {
     }))
   ];
   const overall_score = averageScore(scoreDetails(details));
-  const transcriptText = transcriptBlocks.map((block) => `${block.label}\n${block.transcript}`).join("\n\n");
 
   const feedback = {
     submission_id: submissionId,
     overall_score,
     overall_comment:
       parsed.overall_comment ||
-      "The student completed the homework. Review answer development, vocabulary precision, grammar control, and fluency before publishing final feedback.",
+      "Draft feedback created from assignment metadata. Please listen to the recordings before publishing final comments.",
     details,
-    transcript: transcriptText,
+    transcript: "",
     published_at: null
   };
 
@@ -147,7 +112,7 @@ function normalizeDetails(details: FeedbackDetail[]) {
       label: criterion.label,
       question: criterion.question,
       score: clampScore(Number(detail?.score || 0)),
-      comment: detail?.comment || "This area needs teacher review before final feedback is published."
+      comment: ""
     };
   });
 }

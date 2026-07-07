@@ -35,3 +35,36 @@ export async function GET(request: NextRequest) {
 
   return Response.json({ submissions });
 }
+
+export async function DELETE(request: NextRequest) {
+  const unauthorized = requireTeacher(request);
+  if (unauthorized) return unauthorized;
+
+  const submissionId = request.nextUrl.searchParams.get("submissionId");
+  if (!submissionId) {
+    return Response.json({ error: "Missing submissionId." }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: recordings, error: recordingsError } = await supabase
+    .from("recordings")
+    .select("storage_path")
+    .eq("submission_id", submissionId);
+
+  if (recordingsError) {
+    return Response.json({ error: recordingsError.message }, { status: 500 });
+  }
+
+  const paths = (recordings || []).map((recording) => recording.storage_path).filter(Boolean);
+  if (paths.length) {
+    const { error: storageError } = await supabase.storage.from(recordingsBucket).remove(paths);
+    if (storageError) {
+      return Response.json({ error: storageError.message }, { status: 500 });
+    }
+  }
+
+  const { error } = await supabase.from("submissions").delete().eq("id", submissionId);
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  return Response.json({ ok: true });
+}
