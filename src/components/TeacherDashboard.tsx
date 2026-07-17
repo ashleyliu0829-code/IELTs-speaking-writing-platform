@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import type { Assignment, Feedback, FeedbackDetail, Recording, Submission } from "@/lib/types";
 import { mergeFeedbackDetails, questionCommentDetails, scoreDetails } from "@/lib/feedback";
+import { p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { averageScore, defaultAssignment } from "@/lib/questions";
+import { LearningProgressPanel } from "@/components/LearningProgress";
 
 type DraftAssignment = Omit<Assignment, "created_at" | "updated_at">;
 
@@ -15,6 +17,7 @@ export function TeacherDashboard() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
   const [feedbackDraft, setFeedbackDraft] = useState<Feedback | null>(null);
+  const [studentProgress, setStudentProgress] = useState<Submission[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -68,6 +71,16 @@ export function TeacherDashboard() {
     setSubmissions(loaded);
     setSelectedSubmissionId(first?.id || "");
     setFeedbackDraft(first ? feedbackForSubmission(first) : null);
+    if (first?.student_name) {
+      await loadStudentProgress(first.student_name);
+    } else {
+      setStudentProgress([]);
+    }
+  }
+
+  async function loadStudentProgress(studentName: string) {
+    const data = await api(`/api/teacher/submissions?studentName=${encodeURIComponent(studentName)}`);
+    setStudentProgress(data.submissions || []);
   }
 
   function selectAssignment(id: string) {
@@ -76,6 +89,7 @@ export function TeacherDashboard() {
     if (assignment) {
       setDraft(assignment);
       void loadSubmissions(id);
+      setStudentProgress([]);
     }
   }
 
@@ -85,17 +99,19 @@ export function TeacherDashboard() {
     setSubmissions([]);
     setSelectedSubmissionId("");
     setFeedbackDraft(null);
+    setStudentProgress([]);
   }
 
-  async function saveAssignment() {
+  async function saveAssignment(asNew = false) {
     setMessage("");
     try {
       const payload = {
         ...draft,
         p1_questions: draft.p1_questions.map((question) => question.trim()).filter(Boolean),
-        p3_questions: draft.p3_questions.map((question) => question.trim()).filter(Boolean)
+        p3_questions: draft.p3_questions.map((question) => question.trim()).filter(Boolean),
+        assigned_students: cleanStudentNames(draft.assigned_students || [])
       };
-      if (!payload.id) delete (payload as Partial<DraftAssignment>).id;
+      if (asNew || !payload.id) delete (payload as Partial<DraftAssignment>).id;
       const data = await api("/api/teacher/assignments", {
         method: "POST",
         body: JSON.stringify(payload)
@@ -103,7 +119,7 @@ export function TeacherDashboard() {
       setDraft(data.assignment);
       setSelectedId(data.assignment.id);
       await loadAssignments();
-      setMessage("Assignment saved.");
+      setMessage(asNew ? "New homework saved." : "Assignment saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Save failed.");
     }
@@ -120,6 +136,7 @@ export function TeacherDashboard() {
       });
       setFeedbackDraft(data.feedback);
       await loadSubmissions();
+      if (selectedSubmission?.student_name) await loadStudentProgress(selectedSubmission.student_name);
       setMessage("AI draft feedback generated.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "AI analysis failed.");
@@ -142,6 +159,7 @@ export function TeacherDashboard() {
       });
       setFeedbackDraft(data.feedback);
       await loadSubmissions();
+      if (selectedSubmission?.student_name) await loadStudentProgress(selectedSubmission.student_name);
       setMessage("Feedback published.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Publish failed.");
@@ -172,11 +190,12 @@ export function TeacherDashboard() {
     const submission = submissions.find((item) => item.id === id);
     setSelectedSubmissionId(id);
     setFeedbackDraft(submission ? feedbackForSubmission(submission) : null);
+    if (submission?.student_name) void loadStudentProgress(submission.student_name);
   }
 
   function updateDetail(index: number, patch: Partial<FeedbackDetail>) {
     const base = feedbackDraft || (selectedSubmission ? createManualFeedback(selectedSubmission) : null);
-    if (!base) return;
+    if (!base || index < 0) return;
     const details = base.details.map((detail, detailIndex) =>
       detailIndex === index ? { ...detail, ...patch } : detail
     );
@@ -216,9 +235,14 @@ export function TeacherDashboard() {
           </div>
           <AssignmentPicker value={selectedId} assignments={assignments} onChange={selectAssignment} />
           <AssignmentEditor draft={draft} setDraft={setDraft} />
-          <button className="btn" onClick={saveAssignment} disabled={!token} type="button">
-            Save homework
-          </button>
+          <div className="bank-actions">
+            <button className="btn" onClick={() => saveAssignment(false)} disabled={!token} type="button">
+              Save homework
+            </button>
+            <button className="btn secondary" onClick={() => saveAssignment(true)} disabled={!token} type="button">
+              Save as new homework
+            </button>
+          </div>
           {studentLink && (
             <div className="question-card">
               <label>Student link</label>
@@ -252,6 +276,7 @@ export function TeacherDashboard() {
                   type="button"
                 >
                   <strong>{submission.student_name}</strong>
+                  <span>{submission.submission_title || submissionTitle(submission)}</span>
                   <span className="hint">{new Date(submission.submitted_at).toLocaleString("zh-CN")}</span>
                   <span className={`pill ${submission.feedback && !Array.isArray(submission.feedback) && submission.feedback.published_at ? "ok" : "warn"}`}>
                     {submission.feedback && !Array.isArray(submission.feedback) && submission.feedback.published_at
@@ -270,7 +295,7 @@ export function TeacherDashboard() {
               <div className="section-head">
                 <div>
                   <h2>{selectedSubmission.student_name}</h2>
-                  <div className="hint">Recordings and feedback</div>
+                  <div className="hint">{selectedSubmission.submission_title || submissionTitle(selectedSubmission)}</div>
                 </div>
                 <div className="stack">
                   <span className={`pill ${feedbackDraft?.published_at ? "ok" : "warn"}`}>
@@ -281,7 +306,12 @@ export function TeacherDashboard() {
                   </button>
                 </div>
               </div>
-              <RecordingList recordings={selectedSubmission.recordings || []} />
+              <RecordingList
+                recordings={selectedSubmission.recordings || []}
+                feedback={feedbackDraft || createManualFeedback(selectedSubmission)}
+                updateDetail={updateDetail}
+              />
+              <LearningProgressPanel submissions={studentProgress} />
               <button className="btn secondary" onClick={analyzeSubmission} disabled={loading} type="button">
                 {loading ? "Generating..." : "Generate AI draft feedback"}
               </button>
@@ -316,6 +346,11 @@ function createManualFeedback(submission: Submission): Feedback {
     transcript: "",
     details: mergeFeedbackDetails([], submission)
   };
+}
+
+function submissionTitle(submission: Submission) {
+  const assignment = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
+  return assignment?.title || "Speaking homework";
 }
 
 function AssignmentPicker({
@@ -353,6 +388,34 @@ function AssignmentEditor({
   draft: DraftAssignment;
   setDraft: (draft: DraftAssignment) => void;
 }) {
+  const [selectedP1SetId, setSelectedP1SetId] = useState(p1QuestionBank[0]?.id || "");
+  const [selectedP2P3SetId, setSelectedP2P3SetId] = useState(p2P3QuestionBank[0]?.id || "");
+
+  const selectedP1Set = p1QuestionBank.find((set) => set.id === selectedP1SetId) || p1QuestionBank[0];
+  const selectedP2P3Set = p2P3QuestionBank.find((set) => set.id === selectedP2P3SetId) || p2P3QuestionBank[0];
+
+  function addP1Set() {
+    if (!selectedP1Set) return;
+    setDraft({
+      ...draft,
+      p1_questions: appendUniqueQuestions(draft.p1_questions, selectedP1Set.questions)
+    });
+  }
+
+  function replaceP1Set() {
+    if (!selectedP1Set) return;
+    setDraft({ ...draft, p1_questions: selectedP1Set.questions });
+  }
+
+  function applyP2P3Set() {
+    if (!selectedP2P3Set) return;
+    setDraft({
+      ...draft,
+      p2_prompt: selectedP2P3Set.p2Prompt,
+      p3_questions: selectedP2P3Set.p3Questions
+    });
+  }
+
   return (
     <div className="stack">
       <div>
@@ -367,7 +430,67 @@ function AssignmentEditor({
         <label>Training note</label>
         <textarea value={draft.training_note} onChange={(event) => setDraft({ ...draft, training_note: event.target.value })} />
       </div>
+      <div>
+        <label>Assigned students</label>
+        <textarea
+          value={(draft.assigned_students || []).join("\n")}
+          placeholder="Leave blank for all students. Put one student name per line."
+          onChange={(event) => setDraft({ ...draft, assigned_students: parseStudentNames(event.target.value) })}
+        />
+        <p className="hint">Only these students will see this homework after entering their name. Leave blank to make it visible to everyone.</p>
+      </div>
+      <div className="bank-panel">
+        <div>
+          <label>Part 1 question bank</label>
+          <select value={selectedP1SetId} onChange={(event) => setSelectedP1SetId(event.target.value)}>
+            {p1QuestionBank.map((set) => (
+              <option key={set.id} value={set.id}>
+                {set.topic}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selectedP1Set && (
+          <div className="bank-preview">
+            {selectedP1Set.questions.map((question, index) => (
+              <div key={question}>{`${index + 1}. ${question}`}</div>
+            ))}
+          </div>
+        )}
+        <div className="bank-actions">
+          <button className="btn ghost" type="button" onClick={addP1Set}>
+            Add to Part 1
+          </button>
+          <button className="btn secondary" type="button" onClick={replaceP1Set}>
+            Replace Part 1
+          </button>
+        </div>
+      </div>
       <QuestionInputs title="Part 1 questions" values={draft.p1_questions} onChange={(p1_questions) => setDraft({ ...draft, p1_questions })} />
+      <div className="bank-panel">
+        <div>
+          <label>Part 2 & 3 question bank</label>
+          <select value={selectedP2P3SetId} onChange={(event) => setSelectedP2P3SetId(event.target.value)}>
+            {p2P3QuestionBank.map((set) => (
+              <option key={set.id} value={set.id}>
+                {set.topic}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selectedP2P3Set && (
+          <div className="bank-preview">
+            <strong>{selectedP2P3Set.topic}</strong>
+            <span>{selectedP2P3Set.p2Prompt.split("\n")[0]}</span>
+            {selectedP2P3Set.p3Questions.map((question, index) => (
+              <div key={question}>{`P3-${index + 1}. ${question}`}</div>
+            ))}
+          </div>
+        )}
+        <button className="btn ghost" type="button" onClick={applyP2P3Set}>
+          Apply to Part 2 & 3
+        </button>
+      </div>
       <div>
         <label>Part 2 cue card</label>
         <textarea value={draft.p2_prompt} onChange={(event) => setDraft({ ...draft, p2_prompt: event.target.value })} />
@@ -375,6 +498,38 @@ function AssignmentEditor({
       <QuestionInputs title="Part 3 questions" values={draft.p3_questions} onChange={(p3_questions) => setDraft({ ...draft, p3_questions })} />
     </div>
   );
+}
+
+function appendUniqueQuestions(current: string[], incoming: string[]) {
+  const existing = new Set(current.map((question) => question.trim().toLowerCase()).filter(Boolean));
+  const next = [...current];
+  incoming.forEach((question) => {
+    if (!existing.has(question.trim().toLowerCase())) {
+      next.push(question);
+    }
+  });
+  return next;
+}
+
+function parseStudentNames(value: string) {
+  return value
+    .split(/[\n,，;；]+/)
+    .map((student) => student.trim())
+    .filter(Boolean);
+}
+
+function cleanStudentNames(values: string[]) {
+  const seen = new Set<string>();
+  const students: string[] = [];
+  values.forEach((value) => {
+    const student = value.trim();
+    const key = student.toLowerCase();
+    if (student && !seen.has(key)) {
+      seen.add(key);
+      students.push(student);
+    }
+  });
+  return students;
 }
 
 function QuestionInputs({
@@ -416,21 +571,45 @@ function QuestionInputs({
   );
 }
 
-function RecordingList({ recordings }: { recordings: Recording[] }) {
+function RecordingList({
+  recordings,
+  feedback,
+  updateDetail
+}: {
+  recordings: Recording[];
+  feedback: Feedback;
+  updateDetail: (index: number, patch: Partial<FeedbackDetail>) => void;
+}) {
+  const comments = questionCommentDetails(feedback.details || []);
+
   return (
     <div className="stack">
       <label>Recordings</label>
-      {recordings.map((recording) => (
-        <article className="question-card" key={recording.id}>
-          <div>
-            <div className="hint">
-              {recording.question_label} | {formatTime(recording.duration_seconds)}
+      {recordings.map((recording) => {
+        const comment = comments.find((detail) => detail.part === `comment:${recording.question_key}`);
+        const commentIndex = feedback.details.findIndex((detail) => detail.part === comment?.part);
+
+        return (
+          <article className="question-card" key={recording.id}>
+            <div>
+              <div className="hint">
+                {recording.question_label} | {formatTime(recording.duration_seconds)}
+              </div>
+              <div className="question-title">{recording.question_text}</div>
             </div>
-            <div className="question-title">{recording.question_text}</div>
-          </div>
-          {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">Recording link is unavailable.</p>}
-        </article>
-      ))}
+            {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">Recording link is unavailable.</p>}
+            {comment && (
+              <div className="inline-comment">
+                <label>Comment for this question</label>
+                <textarea
+                  value={comment.comment}
+                  onChange={(event) => updateDetail(commentIndex, { comment: event.target.value })}
+                />
+              </div>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -447,7 +626,6 @@ function FeedbackEditor({
   publish: () => void;
 }) {
   const scores = scoreDetails(feedback.details || []);
-  const comments = questionCommentDetails(feedback.details || []);
   const average = averageScore(scores);
 
   return (
@@ -480,21 +658,6 @@ function FeedbackEditor({
             </div>
             <p className="hint">{detail.question}</p>
           </article>
-          );
-        })}
-      </div>
-      <div className="stack">
-        <label>Comment Area: one comment after each question</label>
-        {comments.map((detail) => {
-          const index = feedback.details.findIndex((item) => item.part === detail.part);
-          return (
-            <article className="detail-item" key={detail.part}>
-              <div>
-                <div className="hint">{detail.label}</div>
-                <div className="question-title">{detail.question}</div>
-              </div>
-              <textarea value={detail.comment} onChange={(event) => updateDetail(index, { comment: event.target.value })} />
-            </article>
           );
         })}
       </div>

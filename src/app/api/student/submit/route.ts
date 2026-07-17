@@ -21,14 +21,22 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdmin();
-  const { data: assignment } = await supabase.from("assignments").select("id").eq("id", assignmentId).eq("is_active", true).single();
+  const { data: assignment } = await supabase
+    .from("assignments")
+    .select("id, title, assigned_students")
+    .eq("id", assignmentId)
+    .eq("is_active", true)
+    .single();
   if (!assignment) {
     return Response.json({ error: "Assignment not found." }, { status: 404 });
+  }
+  if (!canStudentSubmit(studentName, assignment.assigned_students || [])) {
+    return Response.json({ error: "This homework is not assigned to this student name." }, { status: 403 });
   }
 
   const { data: submission, error: submissionError } = await supabase
     .from("submissions")
-    .insert({ assignment_id: assignmentId, student_name: studentName })
+    .insert({ assignment_id: assignmentId, student_name: studentName, submission_title: assignment.title })
     .select("id")
     .single();
 
@@ -45,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Number(formData.get(`duration_${item.key}`) || 0);
-    const path = `${assignmentId}/${submission.id}/${item.key}.webm`;
+    const path = `${assignmentId}/${submission.id}/${item.key}.${audioExtension(audio.type)}`;
     const buffer = Buffer.from(await audio.arrayBuffer());
 
     const { error: uploadError } = await supabase.storage.from(recordingsBucket).upload(path, buffer, {
@@ -88,4 +96,27 @@ export async function POST(request: NextRequest) {
   }
 
   return Response.json({ submissionId: submission.id });
+}
+
+function audioExtension(mimeType: string) {
+  if (mimeType.includes("mp4")) {
+    return "mp4";
+  }
+  if (mimeType.includes("aac")) {
+    return "aac";
+  }
+  if (mimeType.includes("mpeg")) {
+    return "mp3";
+  }
+  return "webm";
+}
+
+function canStudentSubmit(studentName: string, assignedStudents: string[]) {
+  if (!assignedStudents.length) return true;
+  const normalizedStudent = normalizeStudentName(studentName);
+  return assignedStudents.some((student) => normalizeStudentName(student) === normalizedStudent);
+}
+
+function normalizeStudentName(value: string) {
+  return value.trim().toLowerCase();
 }

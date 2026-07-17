@@ -21,6 +21,7 @@ export const defaultAssignment: Omit<Assignment, "id"> = {
     "How has technology changed the way people learn?"
   ],
   training_note: defaultTrainingNote,
+  assigned_students: [],
   is_active: true
 };
 

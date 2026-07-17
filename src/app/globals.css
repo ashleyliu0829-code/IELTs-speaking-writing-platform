@@ -26,6 +26,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -140,6 +141,12 @@ h3 {
   gap: 14px;
 }
 
+.view-switch {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -216,6 +223,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -233,6 +241,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   border-color: rgba(23, 107, 106, .65);
   box-shadow: 0 0 0 3px rgba(23, 107, 106, .12);
@@ -247,6 +256,137 @@ textarea:focus {
   background: var(--paper);
 }
 
+.history-list {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.history-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.history-card summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  cursor: pointer;
+  list-style: none;
+}
+
+.history-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.history-card[open] summary {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-card h3 {
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.history-recording {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.feedback-compact {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.score-chart {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.score-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.score-chart line,
+.score-chart polyline {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 3;
+}
+
+.score-chart line {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.score-chart .grid-line {
+  stroke: rgba(100, 113, 123, .22);
+  stroke-width: 1;
+}
+
+.score-chart circle {
+  fill: var(--brand);
+}
+
+.score-chart text {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.score-chart .point-label {
+  fill: var(--brand-dark);
+  text-anchor: middle;
+}
+
+.progress-table {
+  display: grid;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.progress-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.6fr) minmax(90px, .8fr) repeat(4, minmax(72px, .6fr));
+  gap: 10px;
+  align-items: center;
+  min-width: 720px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.progress-row:first-child {
+  border-top: 0;
+}
+
+.progress-head {
+  color: var(--muted);
+  background: var(--paper);
+  font-weight: 760;
+}
+
 .question-title {
   font-weight: 760;
   line-height: 1.55;
@@ -255,14 +395,52 @@ textarea:focus {
 
 .recorder-row {
   display: grid;
-  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  grid-template-columns: auto auto auto minmax(180px, 1fr) auto;
   gap: 10px;
   align-items: center;
+}
+
+.file-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 760;
+  text-align: center;
+}
+
+.file-upload input {
+  display: none;
 }
 
 audio {
   width: 100%;
   min-width: 180px;
+}
+
+.inline-comment {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.inline-comment label {
+  margin-bottom: 0;
+}
+
+.inline-comment textarea {
+  min-height: 96px;
 }
 
 .timer {
@@ -329,6 +507,33 @@ audio {
   align-items: center;
 }
 
+.bank-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.bank-preview {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bank-preview strong {
+  color: var(--ink);
+}
+
+.bank-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .error {
   color: var(--danger);
 }
@@ -351,6 +556,14 @@ audio {
 
   .question-edit-row {
     grid-template-columns: 1fr;
+  }
+
+  .bank-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .history-card summary {
+    display: grid;
   }
 
   audio {

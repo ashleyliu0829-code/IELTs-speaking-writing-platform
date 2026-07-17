@@ -12,11 +12,30 @@ const assignmentSchema = z.object({
   p2_prompt: z.string().min(1),
   p3_questions: z.array(z.string()).transform(cleanQuestions).pipe(z.array(z.string().min(1)).min(1)),
   training_note: z.string().min(1),
+  assigned_students: z.array(z.string()).transform(cleanStudents).default([]),
   is_active: z.boolean().default(true)
 });
 
 function cleanQuestions(values: string[]) {
   return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function cleanStudents(values: string[]) {
+  const seen = new Set<string>();
+  const students: string[] = [];
+  values.forEach((value) => {
+    const student = value.trim();
+    const key = normalizeStudentName(student);
+    if (student && !seen.has(key)) {
+      seen.add(key);
+      students.push(student);
+    }
+  });
+  return students;
+}
+
+function normalizeStudentName(value: string) {
+  return value.trim().toLowerCase();
 }
 
 export async function GET(request: NextRequest) {

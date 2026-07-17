@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const { data: assignment } = await supabase
     .from("assignments")
-    .select("id")
+    .select("id, title")
     .eq("id", payload.assignmentId)
     .eq("is_active", true)
     .single();
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   const { data: submission, error } = await supabase
     .from("submissions")
-    .insert({ assignment_id: payload.assignmentId, student_name: payload.studentName.trim() })
+    .insert({ assignment_id: payload.assignmentId, student_name: payload.studentName.trim(), submission_title: assignment.title })
     .select("id")
     .single();
 

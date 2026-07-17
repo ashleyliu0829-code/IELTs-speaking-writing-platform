@@ -6,6 +6,7 @@ export type Assignment = {
   p2_prompt: string;
   p3_questions: string[];
   training_note: string;
+  assigned_students: string[];
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -30,6 +31,12 @@ export type Recording = {
   signed_url?: string;
 };
 
+export type SubmissionAssignment = {
+  id: string;
+  title: string;
+  deadline_text: string;
+};
+
 export type FeedbackDetail = {
   part: string;
   label: string;
@@ -52,7 +59,9 @@ export type Submission = {
   id: string;
   assignment_id: string;
   student_name: string;
+  submission_title?: string;
   submitted_at: string;
+  assignments?: SubmissionAssignment | SubmissionAssignment[] | null;
   recordings?: Recording[];
   feedback?: Feedback | Feedback[] | null;
 };

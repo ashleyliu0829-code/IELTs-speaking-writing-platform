@@ -8,9 +8,14 @@ export async function GET(request: NextRequest) {
   if (unauthorized) return unauthorized;
 
   const assignmentId = request.nextUrl.searchParams.get("assignmentId");
+  const studentName = request.nextUrl.searchParams.get("studentName");
   const supabase = getSupabaseAdmin();
-  let query = supabase.from("submissions").select("*, recordings(*), feedback(*)").order("submitted_at", { ascending: false });
+  let query = supabase
+    .from("submissions")
+    .select("*, assignments(title, deadline_text), recordings(*), feedback(*)")
+    .order("submitted_at", { ascending: false });
   if (assignmentId) query = query.eq("assignment_id", assignmentId);
+  if (studentName) query = query.ilike("student_name", studentName.trim());
 
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });

@@ -8,6 +8,7 @@ create table if not exists assignments (
   p2_prompt text not null,
   p3_questions jsonb not null default '[]'::jsonb,
   training_note text not null default '',
+  assigned_students jsonb not null default '[]'::jsonb,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -17,6 +18,7 @@ create table if not exists submissions (
   id uuid primary key default gen_random_uuid(),
   assignment_id uuid not null references assignments(id) on delete cascade,
   student_name text not null,
+  submission_title text not null default '',
   submitted_at timestamptz not null default now()
 );
 
