@@ -4,8 +4,10 @@ export const defaultTrainingNote =
   "Browse all topics first. Think about your own stories and examples, check expressions you are unsure about, practise until you can speak smoothly, then record your answers.";
 
 export const defaultAssignment: Omit<Assignment, "id"> = {
-  title: "7/12 IELTS Speaking Lesson 1 Pre-class Homework",
+  assignment_type: "speaking",
+  title: "P1 - NA; P2 - NA",
   deadline_text: "2026-07-12 before class",
+  due_date: "",
   p1_questions: [
     "Do you work or study?",
     "What subject are you studying?",
@@ -20,9 +22,47 @@ export const defaultAssignment: Omit<Assignment, "id"> = {
     "Should schools teach more practical skills?",
     "How has technology changed the way people learn?"
   ],
+  writing_tasks: [
+    {
+      key: "writing_task_1",
+      label: "Writing Task 1",
+      title: "Writing Task 1",
+      prompt: "",
+      word_limit: "150+ words",
+      task1_type: "",
+      image_urls: []
+    }
+  ],
   training_note: defaultTrainingNote,
   assigned_students: [],
   is_active: true
+};
+
+export const defaultWritingAssignment: Omit<Assignment, "id"> = {
+  ...defaultAssignment,
+  assignment_type: "writing",
+  title: "IELTS Writing Homework",
+  training_note: "Read the task carefully, plan your main ideas, write your answer, then save your work. You can come back and continue later.",
+  writing_tasks: [
+    {
+      key: "writing_task_1",
+      label: "Writing Task 1",
+      title: "Writing Task 1",
+      prompt: "",
+      word_limit: "150+ words",
+      task1_type: "",
+      image_urls: []
+    },
+    {
+      key: "writing_task_2",
+      label: "Writing Task 2",
+      title: "Writing Task 2",
+      prompt: "",
+      word_limit: "250+ words",
+      task2_type: "",
+      topic: ""
+    }
+  ]
 };
 
 export function getQuestionItems(assignment: Assignment): QuestionItem[] {

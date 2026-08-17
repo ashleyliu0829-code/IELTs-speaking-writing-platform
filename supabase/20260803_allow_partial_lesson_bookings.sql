@@ -1,0 +1,1 @@
+drop index if exists lesson_bookings_one_active_per_slot_idx;

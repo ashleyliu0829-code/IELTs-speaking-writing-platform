@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, type MutableRefObject } from "react";
-import type { Assignment, Feedback, FeedbackDetail, QuestionItem, Recording, Submission } from "@/lib/types";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import type { Assignment, Feedback, FeedbackDetail, QuestionItem, Recording, Submission, WritingResponse, WritingTask } from "@/lib/types";
 import { questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
+import { TranscriptDiff } from "@/components/TranscriptDiff";
+import { parseWritingReviewComment } from "@/lib/writingReview";
 
 type LocalRecording = {
   blob: Blob;
@@ -12,7 +14,18 @@ type LocalRecording = {
   duration: number;
 };
 
-type StudentAssignmentSummary = Pick<Assignment, "id" | "title" | "deadline_text" | "created_at">;
+type UploadStatus = {
+  status: "queued" | "uploading" | "done" | "failed";
+  message?: string;
+};
+
+type StudentAssignmentSummary = Pick<Assignment, "id" | "title" | "deadline_text" | "due_date" | "assignment_type" | "created_at">;
+type AuthAccount = {
+  id: string;
+  role: "teacher" | "student";
+  phone: string;
+  display_name: string;
+};
 
 const LABEL_LATEST = "\u67e5\u770b\u6700\u65b0\u4f5c\u4e1a";
 const LABEL_HISTORY = "\u67e5\u770b\u5386\u53f2\u4f5c\u4e1a";
@@ -27,12 +40,32 @@ export function StudentAssignment({
   publishedFeedback?: Feedback | null;
 }) {
   const items = useMemo(() => getQuestionItems(assignment), [assignment]);
+  const isWriting = assignment.assignment_type === "writing";
+  const [activeArea, setActiveArea] = useState<"speaking" | "writing">(assignment.assignment_type || "speaking");
+  const activeAreaIsWriting = activeArea === "writing";
+  const isCurrentAreaAssignment = activeArea === (assignment.assignment_type || "speaking");
+  const areaTitle = activeAreaIsWriting ? "写作作业" : "口语作业";
+  const writingTasks = assignment.writing_tasks || [];
+  const [account, setAccount] = useState<AuthAccount | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authPhone, setAuthPhone] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [accountChecked, setAccountChecked] = useState(false);
   const [recordings, setRecordings] = useState<Record<string, LocalRecording>>({});
+  const [savedRecordings, setSavedRecordings] = useState<Record<string, Recording>>({});
+  const [uploadStatuses, setUploadStatuses] = useState<Record<string, UploadStatus>>({});
+  const [writingDrafts, setWritingDrafts] = useState<Record<string, string>>({});
+  const [savedWritingResponses, setSavedWritingResponses] = useState<Record<string, WritingResponse>>({});
+  const [submissionId, setSubmissionId] = useState("");
+  const [submissionStatus, setSubmissionStatus] = useState<"in_progress" | "submitted" | "reviewed">("in_progress");
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [processingRecordingKey, setProcessingRecordingKey] = useState<string | null>(null);
   const [seconds, setSeconds] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(publishedFeedback || null);
   const [history, setHistory] = useState<Submission[]>([]);
   const [availableAssignments, setAvailableAssignments] = useState<StudentAssignmentSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -42,25 +75,159 @@ export function StudentAssignment({
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
 
-  const isComplete = items.every((item) => recordings[item.key]);
-  const p1Count = items.filter((item) => item.part === "p1" && recordings[item.key]).length;
-  const p3Count = items.filter((item) => item.part === "p3" && recordings[item.key]).length;
+  const recordedKeys = new Set([...Object.keys(savedRecordings), ...Object.keys(recordings)]);
+  const savedWritingKeys = new Set(Object.keys(savedWritingResponses));
+  const changedWritingKeys = writingTasks
+    .filter((task) => (writingDrafts[task.key] || "").trim() && (writingDrafts[task.key] || "") !== (savedWritingResponses[task.key]?.response_text || ""))
+    .map((task) => task.key);
+  const hasAnyWriting = writingTasks.some((task) => (writingDrafts[task.key] || savedWritingResponses[task.key]?.response_text || "").trim());
+  const isComplete = isWriting ? writingTasks.every((task) => savedWritingKeys.has(task.key)) : items.every((item) => recordedKeys.has(item.key));
+  const hasAnyRecording = items.some((item) => recordedKeys.has(item.key));
+  const unsavedCount = Object.keys(recordings).length;
+  const unsavedWritingCount = changedWritingKeys.length;
+  const uploadStatusValues = Object.values(uploadStatuses);
+  const uploadTotalCount = uploadStatusValues.length;
+  const uploadDoneCount = uploadStatusValues.filter((status) => status.status === "done").length;
+  const uploadFailedCount = uploadStatusValues.filter((status) => status.status === "failed").length;
+  const p1Count = items.filter((item) => item.part === "p1" && recordedKeys.has(item.key)).length;
+  const p3Count = items.filter((item) => item.part === "p3" && recordedKeys.has(item.key)).length;
+  const isPreparingRecording = Boolean(activeKey || processingRecordingKey);
+  const canViewCurrentAssignment = canStudentViewAssignment(studentName, assignment.assigned_students || []);
+
+  useEffect(() => {
+    void loadCurrentAccount();
+  }, []);
+
+  async function loadCurrentAccount() {
+    try {
+      const response = await fetch("/api/auth/me");
+      const data = await response.json().catch(() => ({}));
+      if (data.account?.role === "student") {
+        setAccount(data.account);
+        setStudentName(data.account.display_name);
+        setAuthName(data.account.display_name);
+        setAuthPhone(data.account.phone);
+        await loadSubmissionDraftForName(data.account.display_name);
+      }
+    } finally {
+      setAccountChecked(true);
+    }
+  }
+
+  async function submitAuth() {
+    setMessage("");
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/auth/${authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "student",
+          phone: authPhone,
+          displayName: authName,
+          password: authPassword
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "账号操作失败。");
+      setAccount(data.account);
+      setStudentName(data.account.display_name);
+      setAuthName(data.account.display_name);
+      setAuthPhone(data.account.phone);
+      await loadSubmissionDraftForName(data.account.display_name);
+      setMessage("学生账号已准备好。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "账号操作失败。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    setAccount(null);
+    setSubmissionId("");
+    setSavedRecordings({});
+    setSavedWritingResponses({});
+    setWritingDrafts({});
+    setHistory([]);
+    setAvailableAssignments([]);
+    setCurrentFeedback(null);
+    setMessage("已退出登录。");
+  }
+
+  async function saveStudentProfile() {
+    const name = studentName.trim();
+    if (!name) return;
+    await fetch("/api/student/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentName: name })
+    }).catch(() => null);
+  }
+
+  async function loadSubmissionDraft(create = false) {
+    return loadSubmissionDraftForName(studentName, create);
+  }
+
+  async function loadSubmissionDraftForName(nameValue: string, create = false) {
+    const name = nameValue.trim();
+    if (!name) return "";
+
+    const response = await fetch("/api/student/submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignmentId: assignment.id, studentName: name, create })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.error || "无法加载已保存内容。");
+      return "";
+    }
+
+    const saved = Object.fromEntries(
+      ((data.recordings || []) as Recording[]).map((recording) => [recording.question_key, recording])
+    );
+    const savedWriting = Object.fromEntries(
+      ((data.writingResponses || []) as WritingResponse[]).map((response) => [response.task_key, response])
+    );
+    setSubmissionId(data.submissionId || "");
+    setSubmissionStatus(data.submissionStatus || "in_progress");
+    setSavedRecordings(saved);
+    setSavedWritingResponses(savedWriting);
+    setCurrentFeedback(data.feedback || null);
+    setWritingDrafts((current) => ({
+      ...Object.fromEntries(((data.writingResponses || []) as WritingResponse[]).map((response) => [response.task_key, response.response_text])),
+      ...current
+    }));
+    setSeconds((current) => ({
+      ...current,
+      ...Object.fromEntries(((data.recordings || []) as Recording[]).map((recording) => [recording.question_key, recording.duration_seconds]))
+    }));
+    return data.submissionId || "";
+  }
+
+  async function saveProfileAndLoadDraft() {
+    await saveStudentProfile();
+    await loadSubmissionDraft();
+  }
 
   async function toggleRecording(key: string) {
     if (activeKey) {
       if (activeKey !== key) {
-        setMessage("Stop the current recording before starting another question.");
+        setMessage("请先停止当前录音，再开始下一题。");
         return;
       }
 
       recorderRef.current?.stop();
       stopTimer(timerRef);
+      setProcessingRecordingKey(key);
       setActiveKey(null);
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setMessage("This browser does not support web recording. Please use Chrome, Edge, or Safari.");
+      setMessage("当前浏览器不支持网页录音，请使用 Chrome、Edge 或 Safari。");
       return;
     }
 
@@ -89,6 +256,11 @@ export function StudentAssignment({
         stream.getTracks().forEach((track) => track.stop());
         const blobType = recorder.mimeType || chunksRef.current[0]?.type || "audio/webm";
         const blob = new Blob(chunksRef.current, { type: blobType });
+        if (!blob.size) {
+          setProcessingRecordingKey(null);
+          setMessage("录音为空，请重新录制这一题。");
+          return;
+        }
         setRecordings((current) => {
           current[key]?.url && URL.revokeObjectURL(current[key].url);
           return {
@@ -100,17 +272,24 @@ export function StudentAssignment({
             }
           };
         });
+        setUploadStatuses((current) => ({ ...current, [key]: { status: "queued" } }));
+        setProcessingRecordingKey(null);
       };
 
       recorder.start(1000);
     } catch {
-      setMessage("Microphone permission was not granted. Please allow microphone access and try again.");
+      setMessage("没有获得麦克风权限。请允许麦克风访问后重试。");
     }
   }
 
   function deleteRecording(key: string) {
     setRecordings((current) => {
       current[key]?.url && URL.revokeObjectURL(current[key].url);
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setUploadStatuses((current) => {
       const next = { ...current };
       delete next[key];
       return next;
@@ -131,17 +310,20 @@ export function StudentAssignment({
         }
       };
     });
-    setMessage("Audio file added. You can submit after every question has a recording or uploaded file.");
+    setUploadStatuses((current) => ({ ...current, [key]: { status: "queued" } }));
+    setMessage("音频已添加，现在可以保存这段录音。");
   }
 
-  async function loadStudentData() {
+  async function loadStudentData(area = activeArea) {
     if (!studentName.trim()) {
-      setMessage("Please enter your name first.");
+      setMessage("请先输入姓名。");
       return;
     }
 
     setHistoryLoading(true);
     setMessage("");
+    await saveStudentProfile();
+    await loadSubmissionDraft();
     const [historyResponse, assignmentsResponse] = await Promise.all([
       fetch("/api/student/history", {
         method: "POST",
@@ -155,16 +337,25 @@ export function StudentAssignment({
     const historyData = await historyResponse.json().catch(() => ({}));
     const assignmentsData = await assignmentsResponse.json().catch(() => ({}));
     if (!historyResponse.ok) {
-      setMessage(historyData.error || "Could not load previous homework.");
+      setMessage(historyData.error || "无法加载历史作业。");
       return;
     }
     if (!assignmentsResponse.ok) {
-      setMessage(assignmentsData.error || "Could not load homework list.");
+      setMessage(assignmentsData.error || "无法加载作业列表。");
       return;
     }
 
-    setHistory(historyData.submissions || []);
-    setAvailableAssignments(assignmentsData.assignments || []);
+    setHistory(
+      (historyData.submissions || []).filter((submission: Submission) => {
+        const item = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
+        return (item?.assignment_type || "speaking") === area;
+      })
+    );
+    setAvailableAssignments(
+      (assignmentsData.assignments || []).filter(
+        (item: StudentAssignmentSummary) => (item.assignment_type || "speaking") === area
+      )
+    );
   }
 
   async function openHistory() {
@@ -172,114 +363,493 @@ export function StudentAssignment({
     await loadStudentData();
   }
 
-  async function submit() {
+  async function switchArea(area: "speaking" | "writing") {
+    setActiveArea(area);
+    setView("latest");
+    setMessage("");
+    if (studentName.trim()) {
+      await loadStudentData(area);
+    }
+  }
+
+  async function saveRecordings() {
     if (!studentName.trim()) {
-      setMessage("Please enter your name first.");
+      setMessage("请先输入姓名。");
       return;
     }
-    if (!isComplete) {
-      setMessage("Please record every question before submitting.");
+    if (!hasAnyRecording) {
+      setMessage("请至少完成一题录音后再保存。");
+      return;
+    }
+    if (isPreparingRecording) {
+      setMessage("请稍等最后一段录音准备完成后再保存。");
+      return;
+    }
+    if (!unsavedCount) {
+      setMessage("已保存的录音会保留在账号里。点击提交后，老师才能看到。");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("assignmentId", assignment.id);
-    formData.append("studentName", studentName.trim());
-    formData.append("items", JSON.stringify(items));
+    await saveStudentProfile();
+    const activeSubmissionId = validSubmissionId(submissionId) || (await loadSubmissionDraft(true));
+    const itemsToSubmit = items.filter((item) => recordings[item.key]);
 
-    items.forEach((item) => {
-      const recording = recordings[item.key];
-      formData.append(`audio_${item.key}`, recording.blob, `${item.key}.${audioExtension(recording.blob.type)}`);
-      formData.append(`duration_${item.key}`, String(recording.duration));
-    });
+    if (!activeSubmissionId) {
+      setMessage("无法准备本次提交，请刷新后重试。");
+      return;
+    }
 
     setSubmitting(true);
     setMessage("");
-    const response = await fetch("/api/student/submit", {
-      method: "POST",
-      body: formData
-    });
+    setSubmissionId(activeSubmissionId);
+    window.history.replaceState(null, "", `/s/${assignment.id}?submissionId=${activeSubmissionId}`);
+    setUploadStatuses((current) => ({
+      ...current,
+      ...Object.fromEntries(itemsToSubmit.map((item) => [item.key, { status: "queued" as const }]))
+    }));
+
+    let uploadedCount = 0;
+    const failed: { key: string; label: string; error: string }[] = [];
+
+    for (const item of itemsToSubmit) {
+      const recording = recordings[item.key];
+      if (!recording) continue;
+
+      setUploadStatuses((current) => ({
+        ...current,
+        [item.key]: {
+          status: "uploading",
+          message: `正在上传 ${uploadedCount + failed.length + 1}/${itemsToSubmit.length}`
+        }
+      }));
+
+      const formData = new FormData();
+      formData.append("assignmentId", assignment.id);
+      formData.append("submissionId", activeSubmissionId);
+      formData.append("item", JSON.stringify(item));
+      formData.append("audio", recording.blob, `${item.key}.${audioExtension(recording.blob.type)}`);
+      formData.append("duration", String(recording.duration));
+
+      const response = await fetch("/api/student/recording", {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const error = data.error || "上传失败。";
+        failed.push({ key: item.key, label: item.label, error });
+        setUploadStatuses((current) => ({
+          ...current,
+          [item.key]: { status: "failed", message: error }
+        }));
+        continue;
+      }
+
+      uploadedCount += 1;
+      setUploadStatuses((current) => ({
+        ...current,
+        [item.key]: { status: "done", message: "已上传" }
+      }));
+    }
+
     setSubmitting(false);
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      const details =
-        Array.isArray(data.failures) && data.failures.length
-          ? ` Details: ${data.failures.map((failure: { label: string; error: string }) => `${failure.label}: ${failure.error}`).join("; ")}`
-          : "";
+    const failedKeys = new Set(failed.map((failure) => failure.key));
+    if (uploadedCount) {
+      setRecordings((current) => {
+        Object.entries(current).forEach(([key, recording]) => {
+          if (!failedKeys.has(key)) URL.revokeObjectURL(recording.url);
+        });
+        return Object.fromEntries(Object.entries(current).filter(([key]) => failedKeys.has(key)));
+      });
+      await loadSubmissionDraft();
+      void loadStudentData();
+    }
+
+    if (failed.length) {
       setMessage(
-        `${data.error || "Submission failed. Please try again. If this repeats, re-record and submit again."}${details}`
+        `已上传 ${uploadedCount}/${itemsToSubmit.length} 段录音。失败：${failed
+          .map((failure) => `${failure.label}: ${failure.error}`)
+          .join("; ")}`
       );
       return;
     }
 
-    const data = await response.json();
+    setUploadStatuses({});
+    setMessage(`已保存 ${uploadedCount}/${itemsToSubmit.length} 段录音。下次打开仍有记录；点击提交后老师才能看到。`);
+  }
+
+  async function submitHomework() {
+    if (!studentName.trim()) {
+      setMessage("请先输入姓名。");
+      return;
+    }
+    if (isPreparingRecording) {
+      setMessage("请稍等最后一段录音准备完成后再提交。");
+      return;
+    }
+    if (unsavedCount) {
+      setMessage("还有录音未保存。请先点击“保存已录内容”，再提交。");
+      return;
+    }
+    if (!Object.keys(savedRecordings).length) {
+      setMessage("请先至少保存一段录音后再提交。");
+      return;
+    }
+    const activeSubmissionId = validSubmissionId(submissionId) || (await loadSubmissionDraft(false));
+    if (!activeSubmissionId) {
+      setMessage("没有找到已保存内容，请先保存录音。");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage("");
+    const response = await fetch("/api/student/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignmentId: assignment.id, submissionId: activeSubmissionId, studentName: studentName.trim() })
+    });
+    setSubmitting(false);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.error || "提交失败。");
+      return;
+    }
+    setSubmissionStatus(data.submissionStatus || "submitted");
+    setMessage("已提交给老师。");
+  }
+
+  async function saveWriting(mode: "save" | "submit" = "save") {
+    if (!studentName.trim()) {
+      setMessage("请先输入姓名。");
+      return;
+    }
+    if (!hasAnyWriting) {
+      setMessage(mode === "submit" ? "请至少完成一项写作任务后再提交。" : "请至少完成一项写作任务后再保存。");
+      return;
+    }
+    if (mode === "save" && !unsavedWritingCount) {
+      setMessage("写作内容已经保存。你可以继续修改后再保存。");
+      return;
+    }
+
+    await saveStudentProfile();
+    const activeSubmissionId = validSubmissionId(submissionId) || (await loadSubmissionDraft(true));
+    if (mode === "submit" && !unsavedWritingCount) {
+      await submitSavedWriting(activeSubmissionId);
+      return;
+    }
+    const responses = writingTasks
+      .filter((task) => changedWritingKeys.includes(task.key))
+      .map((task) => ({
+        taskKey: task.key,
+        taskLabel: task.label,
+        taskTitle: task.title,
+        taskPrompt: task.prompt || "",
+        responseText: writingDrafts[task.key].trim()
+      }));
+
+    setSubmitting(true);
+    setMessage("");
+    const response = await fetch("/api/student/writing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assignmentId: assignment.id,
+        submissionId: validSubmissionId(activeSubmissionId),
+        studentName: studentName.trim(),
+        mode,
+        responses
+      })
+    });
+    setSubmitting(false);
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.error || "写作保存失败，请重试。");
+      return;
+    }
     if (data.submissionId) {
+      setSubmissionId(data.submissionId);
       window.history.replaceState(null, "", `/s/${assignment.id}?submissionId=${data.submissionId}`);
     }
+    setSubmissionStatus(data.submissionStatus || (mode === "submit" ? "submitted" : "in_progress"));
+    await loadSubmissionDraft();
     void loadStudentData();
-    setMessage("Submitted. Refresh this link after your teacher publishes feedback.");
+    setMessage(mode === "submit" ? "已提交给老师。" : "已保存。下次打开仍有记录；点击提交后老师才能看到。");
+  }
+
+  async function submitSavedWriting(activeSubmissionId: string) {
+    if (!activeSubmissionId) {
+      setMessage("没有找到已保存内容，请先保存写作。");
+      return;
+    }
+    setSubmitting(true);
+    setMessage("");
+    const response = await fetch("/api/student/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignmentId: assignment.id, submissionId: activeSubmissionId, studentName: studentName.trim() })
+    });
+    setSubmitting(false);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.error || "提交失败。");
+      return;
+    }
+    setSubmissionStatus(data.submissionStatus || "submitted");
+    void loadStudentData();
+    setMessage("已提交给老师。");
+  }
+
+  if (!accountChecked) {
+    return (
+      <main className="shell">
+        <article className="card stack">
+          <h1>加载中...</h1>
+          <p className="hint">正在检查学生账号。</p>
+        </article>
+      </main>
+    );
+  }
+
+  if (!account) {
+    return (
+      <main className="shell">
+        <section className="auth-shell">
+          <article className="card stack">
+            <div>
+              <h1>学生登录</h1>
+              <p className="hint">请使用手机号登录或注册后查看这份作业。</p>
+            </div>
+            <StudentAccountBox
+              account={account}
+              authMode={authMode}
+              phone={authPhone}
+              name={authName}
+              password={authPassword}
+              submitting={submitting}
+              setAuthMode={setAuthMode}
+              setPhone={setAuthPhone}
+              setName={setAuthName}
+              setPassword={setAuthPassword}
+              submitAuth={submitAuth}
+              logout={logout}
+            />
+            {message && <p className={message.includes("failed") || message.includes("incorrect") ? "error" : "hint"}>{message}</p>}
+          </article>
+        </section>
+      </main>
+    );
+  }
+
+  if (!canViewCurrentAssignment) {
+    return (
+      <main className="shell">
+        <section className="auth-shell">
+          <article className="card stack">
+            <div>
+              <h1>无法查看该作业</h1>
+              <p className="hint">这份作业分配给了其他学生。如需切换账号，请先退出登录。</p>
+            </div>
+            <StudentAccountBox
+              account={account}
+              authMode={authMode}
+              phone={authPhone}
+              name={authName}
+              password={authPassword}
+              submitting={submitting}
+              setAuthMode={setAuthMode}
+              setPhone={setAuthPhone}
+              setName={setAuthName}
+              setPassword={setAuthPassword}
+              submitAuth={submitAuth}
+              logout={logout}
+            />
+            <button className="btn secondary" disabled={historyLoading} onClick={() => loadStudentData(activeArea)} type="button">
+              {historyLoading ? "加载中..." : "加载我的可完成作业"}
+            </button>
+            {availableAssignments.length > 0 && (
+              <AreaHomeworkList
+                activeArea={activeArea}
+                assignments={availableAssignments}
+                currentAssignmentId={assignment.id}
+                needsName={false}
+              />
+            )}
+            {message && <p className={message.includes("failed") || message.includes("not assigned") ? "error" : "hint"}>{message}</p>}
+          </article>
+        </section>
+      </main>
+    );
   }
 
   return (
     <main className="shell">
       <section className="hero">
         <div>
-          <h1>{assignment.title}</h1>
-          <p>{assignment.training_note}</p>
+          <h1>{isCurrentAreaAssignment ? assignment.title : areaTitle}</h1>
+          <div className="area-label">{activeAreaIsWriting ? "写作区" : "口语区"}</div>
+          <p>
+            {isCurrentAreaAssignment
+              ? assignment.training_note
+              : `请在下方打开一项${activeAreaIsWriting ? "写作" : "口语"}作业。`}
+          </p>
         </div>
         <aside className="panel stack">
-          <div>
-            <label>Student name</label>
-            <input value={studentName} onChange={(event) => setStudentName(event.target.value)} placeholder="Enter your name" />
+          <div className="section-head">
+            <span className="muted">创建日期</span>
+            <strong>{formatDate(assignment.created_at)}</strong>
           </div>
           <div className="section-head">
-            <span className="muted">Deadline</span>
-            <strong>{assignment.deadline_text}</strong>
+            <span className="muted">截止日期</span>
+            <strong>{assignmentDateLabel(assignment)}</strong>
           </div>
-          <span className={`pill ${isComplete ? "ok" : ""}`}>{isComplete ? "Ready to submit" : "Incomplete"}</span>
+          <span className={`pill ${isCurrentAreaAssignment && isComplete ? "ok" : isCurrentAreaAssignment && (hasAnyRecording || hasAnyWriting) ? "warn" : ""}`}>
+            {!isCurrentAreaAssignment ? "选择作业" : isComplete ? "已完成" : hasAnyRecording || hasAnyWriting ? "进行中" : "未完成"}
+          </span>
         </aside>
+      </section>
+
+      <section className="area-tabs student-area-tabs">
+        <button
+          className={`area-tab ${activeArea === "speaking" ? "active" : ""}`}
+          type="button"
+          onClick={() => void switchArea("speaking")}
+        >
+          <strong>口语区</strong>
+          <span>只看口语作业</span>
+        </button>
+        <button
+          className={`area-tab ${activeArea === "writing" ? "active" : ""}`}
+          type="button"
+          onClick={() => void switchArea("writing")}
+        >
+          <strong>写作区</strong>
+          <span>只看写作作业</span>
+        </button>
       </section>
 
       <section className="grid">
         <aside className="panel stack">
-          <h2>Student panel</h2>
+          <h2>{activeAreaIsWriting ? "写作面板" : "口语面板"}</h2>
           <div className="view-switch">
             <button className={`btn ${view === "latest" ? "" : "secondary"}`} type="button" onClick={() => setView("latest")}>
               {LABEL_LATEST}
             </button>
             <button className={`btn ${view === "history" ? "" : "secondary"}`} disabled={!studentName.trim() || historyLoading} onClick={openHistory} type="button">
-              {historyLoading ? "Loading..." : LABEL_HISTORY}
+              {historyLoading ? "加载中..." : LABEL_HISTORY}
             </button>
           </div>
           <p className="hint">
-            Part 1 and Part 3 are recorded question by question. Part 2 is one complete cue-card answer. You can delete
-            and re-record before submitting.
+            {activeAreaIsWriting
+              ? "请在任务框内写作。你可以先保存单个任务，下次打开后继续修改。"
+              : "Part 1 和 Part 3 按题录音。Part 2 录制一段完整回答。保存前可以删除并重新录制。"}
           </p>
-          <span className="pill">{`${Object.keys(recordings).length}/${items.length} recordings`}</span>
+          {isCurrentAreaAssignment ? (
+            <>
+              <span className="pill">
+                {isWriting ? `${savedWritingKeys.size}/${writingTasks.length} 项写作已保存` : `${recordedKeys.size}/${items.length} 段录音`}
+              </span>
+              {isWriting
+                ? unsavedWritingCount > 0 && <span className="pill warn">{`${unsavedWritingCount} 项未保存`}</span>
+                : unsavedCount > 0 && <span className="pill warn">{`${unsavedCount} 段未保存`}</span>}
+              {!isWriting && uploadTotalCount > 0 && (
+                <span className={`pill ${uploadFailedCount ? "danger" : uploadDoneCount === uploadTotalCount ? "ok" : "warn"}`}>
+                  {`上传进度：${uploadDoneCount}/${uploadTotalCount}${uploadFailedCount ? `，${uploadFailedCount} 段失败` : ""}`}
+                </span>
+              )}
+              <span className={`pill ${submissionStatus === "in_progress" ? "warn" : "ok"}`}>{submissionStatus === "reviewed" ? "已批改" : submissionStatus === "submitted" ? "已提交" : "草稿未提交"}</span>
+            </>
+          ) : (
+            <span className="pill">请在下方打开一项{activeAreaIsWriting ? "写作" : "口语"}作业</span>
+          )}
           {message && <p className={message.includes("failed") ? "error" : "hint"}>{message}</p>}
-          <button className="btn" disabled={!isComplete || !studentName.trim() || submitting} onClick={submit}>
-            {submitting ? "Submitting..." : "Submit homework"}
-          </button>
+          {isCurrentAreaAssignment ? (
+            isWriting ? (
+              <div className="practice-save-actions">
+                <button
+                  className="btn secondary"
+                  disabled={!hasAnyWriting || submitting || !unsavedWritingCount}
+                  onClick={() => void saveWriting("save")}
+                  type="button"
+                >
+                  {submitting ? "保存中..." : "保存写作"}
+                </button>
+                <button
+                  className="btn"
+                  disabled={!hasAnyWriting || submitting}
+                  onClick={() => void saveWriting("submit")}
+                  type="button"
+                >
+                  {submitting ? "提交中..." : "提交给老师"}
+                </button>
+              </div>
+            ) : (
+              <div className="practice-save-actions">
+                <button
+                  className="btn secondary"
+                  disabled={!hasAnyRecording || submitting || isPreparingRecording || !unsavedCount}
+                  onClick={saveRecordings}
+                  type="button"
+                >
+                  {submitting ? "保存中..." : isPreparingRecording ? "正在准备录音..." : "保存已录内容"}
+                </button>
+                <button
+                  className="btn"
+                  disabled={submitting || isPreparingRecording || Boolean(unsavedCount) || !Object.keys(savedRecordings).length}
+                  onClick={submitHomework}
+                  type="button"
+                >
+                  {submitting ? "提交中..." : "提交给老师"}
+                </button>
+              </div>
+            )
+          ) : (
+            <button className="btn secondary" disabled={!studentName.trim() || historyLoading} onClick={() => loadStudentData(activeArea)} type="button">
+              {historyLoading ? "加载中..." : `加载${activeAreaIsWriting ? "写作" : "口语"}作业`}
+            </button>
+          )}
         </aside>
 
         <div className="stack">
-          {view === "latest" ? (
-            <LatestAssignmentView
-              assignment={assignment}
-              items={items}
-              recordings={recordings}
-              seconds={seconds}
-              activeKey={activeKey}
-              p1Count={p1Count}
-              p3Count={p3Count}
-              toggleRecording={toggleRecording}
-              deleteRecording={deleteRecording}
-              uploadRecordingFile={uploadRecordingFile}
-              publishedFeedback={publishedFeedback}
+          {view === "latest" && !isCurrentAreaAssignment ? (
+            <AreaHomeworkList
+              activeArea={activeArea}
+              assignments={availableAssignments}
+              currentAssignmentId={assignment.id}
+              needsName={!studentName.trim()}
             />
+          ) : view === "latest" ? (
+            isWriting ? (
+              <LatestWritingView
+                tasks={writingTasks}
+                drafts={writingDrafts}
+                savedResponses={savedWritingResponses}
+                setDraft={(taskKey, value) => setWritingDrafts((current) => ({ ...current, [taskKey]: value }))}
+                publishedFeedback={currentFeedback}
+              />
+            ) : (
+              <LatestAssignmentView
+                assignment={assignment}
+                items={items}
+                recordings={recordings}
+                savedRecordings={savedRecordings}
+                uploadStatuses={uploadStatuses}
+                seconds={seconds}
+                activeKey={activeKey}
+                processingRecordingKey={processingRecordingKey}
+                p1Count={p1Count}
+                p3Count={p3Count}
+                toggleRecording={toggleRecording}
+                deleteRecording={deleteRecording}
+                uploadRecordingFile={uploadRecordingFile}
+                publishedFeedback={currentFeedback}
+              />
+            )
           ) : (
-            <HistoryView currentAssignmentId={assignment.id} submissions={history} assignments={availableAssignments} />
+            <HistoryView currentAssignmentId={assignment.id} activeArea={activeArea} submissions={history} assignments={availableAssignments} />
           )}
         </div>
       </section>
@@ -287,12 +857,212 @@ export function StudentAssignment({
   );
 }
 
+function StudentAccountBox({
+  account,
+  authMode,
+  phone,
+  name,
+  password,
+  submitting,
+  setAuthMode,
+  setPhone,
+  setName,
+  setPassword,
+  submitAuth,
+  logout
+}: {
+  account: AuthAccount | null;
+  authMode: "login" | "register";
+  phone: string;
+  name: string;
+  password: string;
+  submitting: boolean;
+  setAuthMode: (mode: "login" | "register") => void;
+  setPhone: (value: string) => void;
+  setName: (value: string) => void;
+  setPassword: (value: string) => void;
+  submitAuth: () => void;
+  logout: () => void;
+}) {
+  if (account) {
+    return (
+      <div className="account-box">
+        <label>学生账号</label>
+        <strong>{account.display_name}</strong>
+        <p className="hint">{account.phone}</p>
+        <button className="btn secondary" type="button" onClick={logout}>
+          退出登录
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="account-box">
+      <label>学生账号</label>
+      <div className="segmented">
+        <button className={`btn ${authMode === "login" ? "" : "secondary"}`} type="button" onClick={() => setAuthMode("login")}>
+          登录
+        </button>
+        <button className={`btn ${authMode === "register" ? "" : "secondary"}`} type="button" onClick={() => setAuthMode("register")}>
+          注册
+        </button>
+      </div>
+      <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="手机号" />
+      {authMode === "register" && (
+        <input value={name} onChange={(event) => setName(event.target.value)} placeholder="学生姓名" />
+      )}
+      <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="密码" />
+      <button className="btn" disabled={submitting || !phone || !password || (authMode === "register" && !name)} type="button" onClick={submitAuth}>
+        {submitting ? "处理中..." : authMode === "login" ? "登录" : "创建学生账号"}
+      </button>
+    </div>
+  );
+}
+
+function canStudentViewAssignment(studentName: string, assignedStudents: string[]) {
+  if (!assignedStudents.length) return true;
+  const normalizedStudent = normalizeStudentName(studentName);
+  if (!normalizedStudent) return false;
+  return assignedStudents.some((student) => normalizeStudentName(student) === normalizedStudent);
+}
+
+function normalizeStudentName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function validSubmissionId(value?: string | null) {
+  const cleaned = (value || "").trim();
+  if (!cleaned || cleaned === "null" || cleaned === "undefined") return "";
+  return cleaned;
+}
+
+function assignmentDateLabel(assignment: Pick<Assignment, "due_date" | "deadline_text">) {
+  return assignment.due_date ? formatDate(assignment.due_date) : assignment.deadline_text || "未设置截止日期";
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "暂无日期";
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (dateOnly && value.length <= 10) return `${dateOnly[1]}/${dateOnly[2]}/${dateOnly[3]}`;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("zh-CN");
+}
+
+function AreaHomeworkList({
+  activeArea,
+  assignments,
+  currentAssignmentId,
+  needsName
+}: {
+  activeArea: "speaking" | "writing";
+  assignments: StudentAssignmentSummary[];
+  currentAssignmentId: string;
+  needsName: boolean;
+}) {
+  return (
+    <article className="card stack">
+      <div className="section-head">
+        <div>
+          <h2>{activeArea === "writing" ? "写作作业" : "口语作业"}</h2>
+          <div className="hint">这里只显示{activeArea === "writing" ? "写作" : "口语"}作业。</div>
+        </div>
+        <span className="pill">{assignments.length} 项</span>
+      </div>
+      {needsName ? (
+        <p className="hint">请先输入姓名，再加载该板块作业。</p>
+      ) : assignments.length ? (
+        assignments.map((item) => (
+          <a className={`submission-row ${item.id === currentAssignmentId ? "active" : ""}`} href={`/s/${item.id}`} key={item.id}>
+            <strong>{item.title}</strong>
+            <span className="hint">创建日期：{formatDate(item.created_at)}</span>
+            <span className="hint">截止日期：{assignmentDateLabel(item)}</span>
+          </a>
+        ))
+      ) : (
+        <p className="hint">该姓名下暂时没有{activeArea === "writing" ? "写作" : "口语"}作业。</p>
+      )}
+    </article>
+  );
+}
+
+function LatestWritingView({
+  tasks,
+  drafts,
+  savedResponses,
+  setDraft,
+  publishedFeedback
+}: {
+  tasks: WritingTask[];
+  drafts: Record<string, string>;
+  savedResponses: Record<string, WritingResponse>;
+  setDraft: (taskKey: string, value: string) => void;
+  publishedFeedback?: Feedback | null;
+}) {
+  return (
+    <>
+      <article className="card stack">
+        <div className="section-head">
+          <div>
+            <h2>写作</h2>
+            <div className="hint">你可以先保存单个任务，稍后继续完成。</div>
+          </div>
+          <span className="pill">{`${Object.keys(savedResponses).length}/${tasks.length}`}</span>
+        </div>
+        {tasks.map((task) => {
+          const value = drafts[task.key] ?? savedResponses[task.key]?.response_text ?? "";
+          const savedValue = savedResponses[task.key]?.response_text || "";
+          const changed = value.trim() && value !== savedValue;
+
+          return (
+            <article className="question-card" key={task.key}>
+              <div>
+                <div className="hint">{task.label}</div>
+                <div className="question-title">{task.title}</div>
+                {task.word_limit && <span className="pill">{task.word_limit}</span>}
+                {task.image_urls?.length ? <WritingTaskImages imageUrls={task.image_urls} /> : null}
+                <p className="hint">{task.prompt}</p>
+              </div>
+              <textarea
+                className="writing-answer"
+                value={value}
+                onChange={(event) => setDraft(task.key, event.target.value)}
+                placeholder="请在这里输入你的作文..."
+              />
+              <div className="section-head compact">
+                <span className="hint">{`${value.trim().split(/\s+/).filter(Boolean).length} 词`}</span>
+                {savedResponses[task.key] && !changed ? <span className="pill ok">已保存到账号</span> : null}
+                {changed ? <span className="pill warn">尚未保存</span> : null}
+              </div>
+            </article>
+          );
+        })}
+      </article>
+      {publishedFeedback && <PublishedFeedback feedback={publishedFeedback} />}
+    </>
+  );
+}
+
+function WritingTaskImages({ imageUrls }: { imageUrls: string[] }) {
+  return (
+    <div className="task-image-grid">
+      {imageUrls.map((imageUrl) => (
+        <img alt="Writing Task 1 题目图片" className="task-image" key={imageUrl} src={imageUrl} />
+      ))}
+    </div>
+  );
+}
+
 function LatestAssignmentView({
   assignment,
   items,
   recordings,
+  savedRecordings,
+  uploadStatuses,
   seconds,
   activeKey,
+  processingRecordingKey,
   p1Count,
   p3Count,
   toggleRecording,
@@ -303,8 +1073,11 @@ function LatestAssignmentView({
   assignment: Assignment;
   items: QuestionItem[];
   recordings: Record<string, LocalRecording>;
+  savedRecordings: Record<string, Recording>;
+  uploadStatuses: Record<string, UploadStatus>;
   seconds: Record<string, number>;
   activeKey: string | null;
+  processingRecordingKey: string | null;
   p1Count: number;
   p3Count: number;
   toggleRecording: (key: string) => void;
@@ -312,9 +1085,11 @@ function LatestAssignmentView({
   uploadRecordingFile: (key: string, file?: File) => void;
   publishedFeedback?: Feedback | null;
 }) {
+  const recordedKeys = new Set([...Object.keys(savedRecordings), ...Object.keys(recordings)]);
+
   return (
     <>
-      <PartBlock title="Part 1" hint="Suggested length: 20-40 seconds per answer." progress={`${p1Count}/${assignment.p1_questions.length}`}>
+      <PartBlock title="Part 1" hint="建议每题回答 20-40 秒。" progress={`${p1Count}/${assignment.p1_questions.length}`}>
         {items
           .filter((item) => item.part === "p1")
           .map((item, index) => (
@@ -323,16 +1098,20 @@ function LatestAssignmentView({
               number={index + 1}
               item={item}
               recording={recordings[item.key]}
+              savedRecording={savedRecordings[item.key]}
+              uploadStatus={uploadStatuses[item.key]}
               duration={recordings[item.key]?.duration ?? seconds[item.key] ?? 0}
               active={activeKey === item.key}
+              processing={processingRecordingKey === item.key}
               onRecord={() => toggleRecording(item.key)}
               onDelete={() => deleteRecording(item.key)}
               onUpload={(file) => uploadRecordingFile(item.key, file)}
+              showTeacherDemo={Boolean(publishedFeedback?.published_at)}
             />
           ))}
       </PartBlock>
 
-      <PartBlock title="Part 2" hint="Prepare for 1 minute, then answer for about 1.5-2 minutes." progress={recordings.p2 ? "1/1" : "0/1"}>
+      <PartBlock title="Part 2" hint="准备 1 分钟，然后回答约 1.5-2 分钟。" progress={recordedKeys.has("p2") ? "1/1" : "0/1"}>
         {items
           .filter((item) => item.part === "p2")
           .map((item) => (
@@ -340,16 +1119,20 @@ function LatestAssignmentView({
               key={item.key}
               item={item}
               recording={recordings[item.key]}
+              savedRecording={savedRecordings[item.key]}
+              uploadStatus={uploadStatuses[item.key]}
               duration={recordings[item.key]?.duration ?? seconds[item.key] ?? 0}
               active={activeKey === item.key}
+              processing={processingRecordingKey === item.key}
               onRecord={() => toggleRecording(item.key)}
               onDelete={() => deleteRecording(item.key)}
               onUpload={(file) => uploadRecordingFile(item.key, file)}
+              showTeacherDemo={Boolean(publishedFeedback?.published_at)}
             />
           ))}
       </PartBlock>
 
-      <PartBlock title="Part 3" hint="Suggested length: 40-60 seconds per answer." progress={`${p3Count}/${assignment.p3_questions.length}`}>
+      <PartBlock title="Part 3" hint="建议每题回答 40-60 秒。" progress={`${p3Count}/${assignment.p3_questions.length}`}>
         {items
           .filter((item) => item.part === "p3")
           .map((item, index) => (
@@ -358,11 +1141,15 @@ function LatestAssignmentView({
               number={index + 1}
               item={item}
               recording={recordings[item.key]}
+              savedRecording={savedRecordings[item.key]}
+              uploadStatus={uploadStatuses[item.key]}
               duration={recordings[item.key]?.duration ?? seconds[item.key] ?? 0}
               active={activeKey === item.key}
+              processing={processingRecordingKey === item.key}
               onRecord={() => toggleRecording(item.key)}
               onDelete={() => deleteRecording(item.key)}
               onUpload={(file) => uploadRecordingFile(item.key, file)}
+              showTeacherDemo={Boolean(publishedFeedback?.published_at)}
             />
           ))}
       </PartBlock>
@@ -401,21 +1188,32 @@ function RecorderCard({
   number,
   item,
   recording,
+  savedRecording,
+  uploadStatus,
   duration,
   active,
+  processing,
   onRecord,
   onDelete,
-  onUpload
+  onUpload,
+  showTeacherDemo
 }: {
   number?: number;
   item: QuestionItem;
   recording?: LocalRecording;
+  savedRecording?: Recording;
+  uploadStatus?: UploadStatus;
   duration: number;
   active: boolean;
+  processing: boolean;
   onRecord: () => void;
   onDelete: () => void;
   onUpload: (file?: File) => void;
+  showTeacherDemo?: boolean;
 }) {
+  const audioUrl = recording?.url || savedRecording?.signed_url || "";
+  const displayDuration = recording?.duration ?? savedRecording?.duration_seconds ?? duration;
+
   return (
     <div className="question-card">
       <div>
@@ -426,29 +1224,46 @@ function RecorderCard({
         </div>
       </div>
       <div className="recorder-row">
-        <button className={`btn ${active ? "danger" : ""}`} onClick={onRecord} type="button">
-          {active ? "Stop recording" : "Start recording"}
+        <button className={`btn ${active ? "danger" : ""}`} disabled={processing} onClick={onRecord} type="button">
+          {active ? "停止录音" : processing ? "准备中..." : "开始录音"}
         </button>
         <button className="btn secondary" disabled={!recording} onClick={onDelete} type="button">
-          Delete
+          删除
         </button>
         <label className="file-upload">
-          Upload audio
+          上传音频
           <input accept="audio/*" type="file" onChange={(event) => onUpload(event.target.files?.[0])} />
         </label>
-        {recording ? <audio controls src={recording.url} /> : <span className="hint">No recording yet</span>}
-        <span className="timer">{formatTime(duration)}</span>
+        {audioUrl ? <audio controls src={audioUrl} /> : <span className="hint">还没有录音</span>}
+        <span className="timer">{formatTime(displayDuration)}</span>
       </div>
+      {savedRecording && !recording && <span className="pill ok">已保存到账号</span>}
+      {recording && <span className="pill warn">尚未保存</span>}
+      {processing && <span className="pill warn">正在准备音频...</span>}
+      {uploadStatus?.status === "queued" && <span className="pill warn">等待上传</span>}
+      {uploadStatus?.status === "uploading" && <span className="pill warn">{uploadStatus.message || "上传中..."}</span>}
+      {uploadStatus?.status === "done" && <span className="pill ok">已上传</span>}
+      {uploadStatus?.status === "failed" && <span className="pill danger">上传失败</span>}
+      {uploadStatus?.status === "failed" && uploadStatus.message && <p className="error">{uploadStatus.message}</p>}
+      {showTeacherDemo && savedRecording?.teacher_demo?.signed_url && (
+        <div className="inline-comment">
+          <label>老师示范回答</label>
+          <audio controls src={savedRecording.teacher_demo.signed_url} />
+          <p className="hint">可以先听示范回答，准备好后删除原录音并重新录制这一题。</p>
+        </div>
+      )}
     </div>
   );
 }
 
 function HistoryView({
   currentAssignmentId,
+  activeArea,
   submissions,
   assignments
 }: {
   currentAssignmentId: string;
+  activeArea: "speaking" | "writing";
   submissions: Submission[];
   assignments: StudentAssignmentSummary[];
 }) {
@@ -463,22 +1278,23 @@ function HistoryView({
         <div className="section-head">
           <div>
             <h2>{LABEL_AVAILABLE}</h2>
-            <div className="hint">Homework assigned to this student, including unfinished work.</div>
+            <div className="hint">这里只显示分配给该学生的{activeArea === "writing" ? "写作" : "口语"}作业。</div>
           </div>
-          <span className="pill">{assignments.length} active</span>
+          <span className="pill">{assignments.length} 项</span>
         </div>
         {currentFirst.length ? (
           currentFirst.map((item) => (
             <a className={`submission-row ${item.id === currentAssignmentId ? "active" : ""}`} href={`/s/${item.id}`} key={item.id}>
               <strong>{item.title}</strong>
-              <span className="hint">{item.deadline_text}</span>
+              <span className="hint">创建日期：{formatDate(item.created_at)}</span>
+              <span className="hint">截止日期：{assignmentDateLabel(item)}</span>
               <span className={`pill ${submittedAssignmentIds.has(item.id) ? "ok" : "warn"}`}>
-                {submittedAssignmentIds.has(item.id) ? "Submitted" : "Not submitted"}
+                {submittedAssignmentIds.has(item.id) ? "已提交" : "未提交"}
               </span>
             </a>
           ))
         ) : (
-          <p className="hint">No active homework is available.</p>
+          <p className="hint">当前没有可完成的作业。</p>
         )}
       </article>
 
@@ -488,16 +1304,16 @@ function HistoryView({
         <div className="section-head">
           <div>
             <h2>{LABEL_HISTORY}</h2>
-            <div className="hint">Open a homework title to view previous recordings and published feedback.</div>
+            <div className="hint">打开作业标题即可查看历史录音/作文和已发布反馈。</div>
           </div>
-          <span className="pill">{submissions.length} submissions</span>
+          <span className="pill">{submissions.length} 次提交</span>
         </div>
         {submissions.length ? (
           submissions.map((submission) => (
             <HistoryCard key={submission.id} submission={submission} current={submission.assignment_id === currentAssignmentId} />
           ))
         ) : (
-          <p className="hint">No submissions yet. Unfinished homework is listed above.</p>
+          <p className="hint">还没有提交记录。未完成作业显示在上方。</p>
         )}
       </article>
     </div>
@@ -506,8 +1322,9 @@ function HistoryView({
 
 function HistoryCard({ submission, current }: { submission: Submission; current: boolean }) {
   const assignment = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
-  const title = submission.submission_title || assignment?.title || "Speaking homework";
+  const title = submission.submission_title || assignment?.title || "作业";
   const feedback = Array.isArray(submission.feedback) ? submission.feedback[0] || null : submission.feedback || null;
+  const isWriting = assignment?.assignment_type === "writing" || Boolean(submission.writing_responses?.length);
 
   return (
     <details className="history-card">
@@ -517,20 +1334,94 @@ function HistoryCard({ submission, current }: { submission: Submission; current:
           <div className="hint">{new Date(submission.submitted_at).toLocaleString("zh-CN")}</div>
         </div>
         <span className={`pill ${feedback?.published_at ? "ok" : current ? "warn" : ""}`}>
-          {feedback?.published_at ? "Reviewed" : current ? "Current" : "Submitted"}
+          {feedback?.published_at ? "已批改" : current ? "当前作业" : "已提交"}
         </span>
       </summary>
       <div className="stack">
-        {(submission.recordings || []).map((recording) => (
-          <HistoryRecording key={recording.id} recording={recording} />
-        ))}
+        {isWriting
+          ? (submission.writing_responses || []).map((response) => (
+              <HistoryWritingResponse
+                key={response.id}
+                response={response}
+                imageUrls={(assignment?.writing_tasks || []).find((task) => task.key === response.task_key)?.image_urls || []}
+                feedback={feedback}
+                showRevision={Boolean(feedback?.published_at)}
+              />
+            ))
+          : (submission.recordings || []).map((recording) => (
+              <HistoryRecording
+                key={recording.id}
+                recording={recording}
+                feedback={feedback}
+                showTranscript={Boolean(feedback?.published_at)}
+              />
+            ))}
       </div>
-      {feedback?.published_at ? <PublishedFeedback feedback={feedback} compact /> : <p className="hint">Feedback has not been published yet.</p>}
+      {feedback?.published_at ? <PublishedFeedback feedback={feedback} compact /> : <p className="hint">老师还没有发布反馈。</p>}
     </details>
   );
 }
 
-function HistoryRecording({ recording }: { recording: Recording }) {
+function HistoryWritingResponse({
+  response,
+  imageUrls,
+  feedback,
+  showRevision
+}: {
+  response: WritingResponse;
+  imageUrls: string[];
+  feedback: Feedback | null;
+  showRevision: boolean;
+}) {
+  const editedText = response.teacher_revision_text || response.response_text || "";
+  const comments = feedback?.published_at ? questionCommentDetails(feedback.details || []) : [];
+  const comment = comments.find((detail) => detail.part === `comment:${response.task_key}`);
+  const reviewComment = parseWritingReviewComment(comment?.comment || "");
+
+  return (
+    <div className="history-recording">
+      <div>
+        <div className="hint">{response.task_label}</div>
+        <div className="question-title">{response.task_title}</div>
+        {imageUrls.length ? <WritingTaskImages imageUrls={imageUrls} /> : null}
+        <p className="hint">{response.task_prompt}</p>
+      </div>
+      <div className="writing-text">{response.response_text}</div>
+      {showRevision && <TranscriptDiff original={response.response_text} edited={editedText} />}
+      {comment && (
+        <div className="inline-comment">
+          <label>老师对这项写作的点评</label>
+          <p className="hint">{reviewComment.general || "暂无点评。"}</p>
+          {reviewComment.inlineComments.length ? (
+            <div className="writing-comment-list">
+              {reviewComment.inlineComments.map((item, index) => (
+                <div className="writing-comment-bubble" key={item.id}>
+                  <div className="comment-anchor">批注 {index + 1}</div>
+                  <blockquote>{item.quote}</blockquote>
+                  <p className="hint">{item.comment}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryRecording({
+  recording,
+  feedback,
+  showTranscript
+}: {
+  recording: Recording;
+  feedback: Feedback | null;
+  showTranscript: boolean;
+}) {
+  const editedTranscript = recording.corrected_transcript_text || recording.transcript_text || "";
+  const comments = feedback?.published_at ? questionCommentDetails(feedback.details || []) : [];
+  const comment = comments.find((detail) => detail.part === `comment:${recording.question_key}`);
+
   return (
     <div className="history-recording">
       <div>
@@ -539,7 +1430,23 @@ function HistoryRecording({ recording }: { recording: Recording }) {
         </div>
         <div className="question-title">{recording.question_text}</div>
       </div>
-      {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">Recording link is unavailable.</p>}
+      {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">录音链接暂时不可用。</p>}
+      {showTranscript && recording.transcript_text && (
+        <TranscriptDiff original={recording.transcript_text} edited={editedTranscript} />
+      )}
+      {feedback?.published_at && recording.teacher_demo?.signed_url && (
+        <div className="inline-comment">
+          <label>老师示范回答</label>
+          <audio controls src={recording.teacher_demo.signed_url} />
+          <p className="hint">你可以把它作为参考答案，再回到最新作业页面重新录制这一题。</p>
+        </div>
+      )}
+      {comment && (
+        <div className="inline-comment">
+          <label>老师对这一题的点评</label>
+          <p className="hint">{comment.comment || "暂无点评。"}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -551,20 +1458,20 @@ function PublishedFeedback({ feedback, compact = false }: { feedback: Feedback; 
     <article className={`${compact ? "feedback-compact" : "card"} stack`}>
       <div className="section-head">
         <div>
-          <h2>Teacher feedback</h2>
-          <div className="hint">Published feedback for this submission.</div>
+          <h2>老师反馈</h2>
+          <div className="hint">这是老师已发布的本次作业反馈。</div>
         </div>
-        <span className="pill ok">Reviewed</span>
+        <span className="pill ok">已批改</span>
       </div>
       <div className="overall">
         <div className="overall-score">
-          <span>Average score</span>
+          <span>平均分</span>
           <strong>{(feedback.overall_score || averageScore(scores)).toFixed(1)}</strong>
         </div>
         <p>{feedback.overall_comment}</p>
       </div>
       <div className="stack">
-        <label>Scores</label>
+        <label>评分</label>
         {scores.map((detail: FeedbackDetail) => (
           <article className="detail-item" key={detail.part}>
             <div className="detail-head">
@@ -576,14 +1483,14 @@ function PublishedFeedback({ feedback, compact = false }: { feedback: Feedback; 
         ))}
       </div>
       <div className="stack">
-        <label>Question comments</label>
+        <label>逐题点评</label>
         {comments.map((detail: FeedbackDetail) => (
           <article className="detail-item" key={detail.part}>
             <div>
               <div className="hint">{detail.label}</div>
               <div className="question-title">{detail.question}</div>
             </div>
-            <p className="hint">{detail.comment || "No comment yet."}</p>
+            <p className="hint">{detail.comment || "暂无点评。"}</p>
           </article>
         ))}
       </div>

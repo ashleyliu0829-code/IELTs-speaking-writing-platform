@@ -11,7 +11,8 @@ export default async function StudentPage({
   searchParams: Promise<{ submissionId?: string }>;
 }) {
   const { assignmentId } = await params;
-  const { submissionId } = await searchParams;
+  const { submissionId: rawSubmissionId } = await searchParams;
+  const submissionId = isUuid(rawSubmissionId) ? rawSubmissionId : "";
   const supabase = getSupabaseAdmin();
 
   const { data: assignment } = await supabase
@@ -35,4 +36,8 @@ export default async function StudentPage({
   }
 
   return <StudentAssignment assignment={assignment} publishedFeedback={feedback} />;
+}
+
+function isUuid(value?: string) {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 }

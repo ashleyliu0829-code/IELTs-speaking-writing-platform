@@ -27,7 +27,7 @@ export function LearningProgressPanel({ submissions }: { submissions: Submission
           <h2>学习情况</h2>
           <div className="hint">每次作业发布反馈后的分数变化</div>
         </div>
-        <span className="pill">{points.length} records</span>
+        <span className="pill">{points.length} 条记录</span>
       </div>
       {points.length ? (
         <>
@@ -36,10 +36,10 @@ export function LearningProgressPanel({ submissions }: { submissions: Submission
             <div className="progress-row progress-head">
               <span>作业</span>
               <span>日期</span>
-              <span>Avg</span>
-              <span>Fluency</span>
-              <span>Grammar</span>
-              <span>Vocab</span>
+              <span>平均分</span>
+              <span>流利度</span>
+              <span>语法</span>
+              <span>词汇</span>
             </div>
             {points.map((point) => (
               <div className="progress-row" key={point.id}>
@@ -76,7 +76,7 @@ function ScoreChart({ points }: { points: ProgressPoint[] }) {
   const polyline = coords.map((coord) => `${coord.x},${coord.y}`).join(" ");
 
   return (
-    <div className="score-chart" aria-label="Score trend chart">
+    <div className="score-chart" aria-label="分数变化图">
       <svg viewBox={`0 0 ${width} ${height}`} role="img">
         <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} />
         <line x1={pad} y1={pad} x2={pad} y2={height - pad} />
@@ -119,7 +119,7 @@ function toProgressPoint(submission: Submission): ProgressPoint | null {
 
   return {
     id: submission.id,
-    title: submission.submission_title || assignment?.title || "Speaking homework",
+    title: submission.submission_title || assignment?.title || "口语作业",
     date: feedback.published_at || submission.submitted_at,
     overall: Number(feedback.overall_score || averageScore(scores)),
     fluency,
