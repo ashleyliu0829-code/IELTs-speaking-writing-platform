@@ -4,24 +4,45 @@ import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { defaultScoreDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore } from "@/lib/questions";
-import { getSupabaseAdmin } from "@/lib/supabase";
-import type { FeedbackDetail, Recording } from "@/lib/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { checkQuota, estimateOpenAiCostMicros, recordUsage } from "@/lib/usage";
+import type { FeedbackDetail, Recording, WritingResponse } from "@/lib/types";
 
 const payloadSchema = z.object({
   submissionId: z.string().uuid()
 });
 
 export async function POST(request: NextRequest) {
-  const unauthorized = requireTeacher(request);
-  if (unauthorized) return unauthorized;
+  const auth = await requireTeacher();
+  if (auth instanceof Response) return auth;
+  const { account: teacher, supabase } = auth;
 
   if (!process.env.OPENAI_API_KEY) {
     return Response.json({ error: "Missing OPENAI_API_KEY." }, { status: 500 });
   }
 
   const { submissionId } = payloadSchema.parse(await request.json());
-  const supabase = getSupabaseAdmin();
+
+  const quotaError = await checkQuota(teacher.id, "ai_feedback");
+  if (quotaError) return Response.json({ error: quotaError }, { status: 429 });
+
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  // RLS scopes this to the caller's workspace, so a miss means "not yours".
+  const { data: submission, error: submissionError } = await supabase
+    .from("submissions")
+    .select("*, assignments(assignment_type), recordings(*), writing_responses(*)")
+    .eq("id", submissionId)
+    .maybeSingle();
+
+  if (submissionError || !submission) {
+    return Response.json({ error: submissionError?.message || "Submission not found." }, { status: 404 });
+  }
+
+  const isWriting = submission.assignments?.assignment_type === "writing" || Boolean(submission.writing_responses?.length);
+  if (isWriting) {
+    return analyzeWritingSubmission(supabase, openai, submissionId, submission.writing_responses || [], teacher.id);
+  }
 
   const { data: recordings, error } = await supabase
     .from("recordings")
@@ -60,6 +81,16 @@ export async function POST(request: NextRequest) {
     response_format: { type: "json_object" }
   });
 
+  await recordUsage({
+    teacherId: teacher.id,
+    accountId: teacher.id,
+    eventType: "ai_feedback",
+    quantity: scoring.usage?.total_tokens || 0,
+    unit: "tokens",
+    costMicros: estimateOpenAiCostMicros(scoring.usage?.total_tokens || 0),
+    metadata: { submissionId, model: scoring.model }
+  });
+
   const parsed = parseFeedback(scoring.choices[0]?.message?.content || "{}");
   const details = [
     ...normalizeDetails(parsed.details || []),
@@ -94,6 +125,86 @@ export async function POST(request: NextRequest) {
   return Response.json({ feedback: data });
 }
 
+async function analyzeWritingSubmission(
+  supabase: SupabaseClient,
+  openai: OpenAI,
+  submissionId: string,
+  responses: WritingResponse[],
+  teacherId: string | null
+) {
+  if (!responses.length) return Response.json({ error: "No writing responses found." }, { status: 404 });
+
+  const responseBlocks = responses.map((response) => ({
+    part: response.task_key,
+    label: response.task_label,
+    question: response.task_title,
+    prompt: response.task_prompt,
+    answer: response.response_text
+  }));
+
+  const scoring = await openai.chat.completions.create({
+    model: process.env.OPENAI_FEEDBACK_MODEL || "gpt-4.1-mini",
+    temperature: 0.2,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are an IELTS Writing teacher. Give conservative draft scores for Task Response, Coherence, Grammar, and Vocabulary from 0 to 9 in 0.5 increments. Return strict JSON only."
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          task:
+            "Return {overall_comment:string, details:[{part,label,question,score,comment}]}. The details array must contain exactly four score items with part values: task_response, coherence, grammar, vocabulary. Keep comments brief and mark them as draft because the teacher should review before publishing final feedback.",
+          responses: responseBlocks
+        })
+      }
+    ],
+    response_format: { type: "json_object" }
+  });
+
+  await recordUsage({
+    teacherId,
+    accountId: teacherId,
+    eventType: "ai_writing_review",
+    quantity: scoring.usage?.total_tokens || 0,
+    unit: "tokens",
+    costMicros: estimateOpenAiCostMicros(scoring.usage?.total_tokens || 0),
+    metadata: { submissionId, model: scoring.model }
+  });
+
+  const parsed = parseFeedback(scoring.choices[0]?.message?.content || "{}");
+  const details = [
+    ...normalizeWritingDetails(parsed.details || []),
+    ...responses.map((response) => ({
+      part: `comment:${response.task_key}`,
+      label: response.task_label,
+      question: response.task_title,
+      score: 0,
+      comment: ""
+    }))
+  ];
+  const overall_score = averageScore(scoreDetails(details));
+
+  const feedback = {
+    submission_id: submissionId,
+    overall_score,
+    overall_comment: parsed.overall_comment || "Draft writing feedback created by AI. Please review before publishing.",
+    details,
+    transcript: "",
+    published_at: null
+  };
+
+  const { data, error } = await supabase
+    .from("feedback")
+    .upsert(feedback, { onConflict: "submission_id" })
+    .select("*")
+    .single();
+
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+  return Response.json({ feedback: data });
+}
+
 function parseFeedback(content: string) {
   try {
     return JSON.parse(content) as { overall_comment?: string; details?: FeedbackDetail[] };
@@ -111,6 +222,50 @@ function normalizeDetails(details: FeedbackDetail[]) {
       part: criterion.part,
       label: criterion.label,
       question: criterion.question,
+      score: clampScore(Number(detail?.score || 0)),
+      comment: ""
+    };
+  });
+}
+
+function normalizeWritingDetails(details: FeedbackDetail[]) {
+  const criteria: FeedbackDetail[] = [
+    {
+      part: "task_response",
+      label: "Task Response",
+      question: "Overall task response score",
+      score: 0,
+      comment: ""
+    },
+    {
+      part: "coherence",
+      label: "Coherence",
+      question: "Overall coherence score",
+      score: 0,
+      comment: ""
+    },
+    {
+      part: "grammar",
+      label: "Grammar",
+      question: "Overall grammar score",
+      score: 0,
+      comment: ""
+    },
+    {
+      part: "vocabulary",
+      label: "Vocabulary",
+      question: "Overall vocabulary score",
+      score: 0,
+      comment: ""
+    }
+  ];
+
+  return criteria.map((criterion) => {
+    const detail =
+      details.find((item) => item.part?.toLowerCase() === criterion.part) ||
+      details.find((item) => item.label?.toLowerCase() === criterion.label.toLowerCase());
+    return {
+      ...criterion,
       score: clampScore(Number(detail?.score || 0)),
       comment: ""
     };

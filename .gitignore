@@ -1,7 +1,7 @@
 .next
 node_modules
+.npm-cache
 .env.local
 *.log
 dist
 out
-package-lock.json

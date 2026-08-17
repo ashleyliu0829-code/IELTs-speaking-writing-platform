@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { scoreDetails } from "@/lib/feedback";
 import { averageScore } from "@/lib/questions";
-import { getSupabaseAdmin } from "@/lib/supabase";
 
 const detailSchema = z.object({
   part: z.string(),
@@ -20,11 +19,18 @@ const payloadSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const unauthorized = requireTeacher(request);
-  if (unauthorized) return unauthorized;
+  const auth = await requireTeacher();
+  if (auth instanceof Response) return auth;
+  const { supabase } = auth;
 
   const payload = payloadSchema.parse(await request.json());
-  const supabase = getSupabaseAdmin();
+  const { data: submission } = await supabase
+    .from("submissions")
+    .select("id")
+    .eq("id", payload.submissionId)
+    .maybeSingle();
+  if (!submission) return Response.json({ error: "Submission not found." }, { status: 404 });
+
   const overall_score = averageScore(scoreDetails(payload.details));
 
   const { data, error } = await supabase
@@ -45,5 +51,6 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  await supabase.from("submissions").update({ submission_status: "reviewed" }).eq("id", payload.submissionId);
   return Response.json({ feedback: data });
 }

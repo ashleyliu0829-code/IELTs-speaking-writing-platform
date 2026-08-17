@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { requireStudent } from "@/lib/auth";
 import type { Assignment } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireStudent();
+  if (auth instanceof Response) return auth;
+
   const studentName = request.nextUrl.searchParams.get("studentName")?.trim() || "";
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("assignments")
-    .select("id, title, deadline_text, assigned_students, created_at")
+    .select("id, title, deadline_text, due_date, assignment_type, p1_questions, p2_prompt, assigned_students, created_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const assignments = ((data || []) as Pick<Assignment, "id" | "title" | "deadline_text" | "assigned_students" | "created_at">[])
+  const assignments = ((data || []) as Pick<Assignment, "id" | "title" | "deadline_text" | "due_date" | "assignment_type" | "p1_questions" | "p2_prompt" | "assigned_students" | "created_at">[])
     .filter((assignment) => canStudentSeeAssignment(studentName, assignment.assigned_students || []))
     .map(({ assigned_students: _assignedStudents, ...assignment }) => assignment);
 
