@@ -34,8 +34,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_JWT_SECRET=your-supabase-jwt-secret
 SUPABASE_RECORDINGS_BUCKET=speaking-recordings
 TEACHER_ACCESS_TOKEN=choose-a-private-teacher-token
-OPENAI_API_KEY=your-openai-key
-OPENAI_FEEDBACK_MODEL=gpt-4.1-mini
+AI_API_KEY=your-deepseek-key
+AI_BASE_URL=https://api.deepseek.com
+AI_FEEDBACK_MODEL=deepseek-chat
 TENCENT_SECRET_ID=your-tencent-secret-id
 TENCENT_SECRET_KEY=your-tencent-secret-key
 TENCENT_ASR_REGION=ap-shanghai
@@ -96,6 +97,7 @@ thrown.
 
 - The teacher token is a simple MVP access gate. Use a private value in `.env.local`.
 - AI feedback is saved as a draft first. Students only see feedback after the teacher publishes it.
+- Draft scoring goes through DeepSeek, configured in `src/lib/ai.ts`. It speaks the OpenAI wire format, so the OpenAI SDK is still the client; only `AI_BASE_URL` and `AI_FEEDBACK_MODEL` change. OpenAI itself is not usable from the production host, which is in a region it blocks (`unsupported_country_region_territory`).
 - Teacher-side transcripts are generated per recording with Tencent Cloud ASR. Teacher edits are saved separately so students can see tracked changes after feedback is published.
 - The Tencent server needs `ffmpeg` installed so browser audio can be converted before ASR. This route also polls Tencent for up to ~90s, so it needs a long-running Node host rather than a short-timeout serverless platform.
 - The service role key and the JWT secret are server-side only. Do not expose either in browser code.

@@ -29,7 +29,7 @@ const trialLimits: UsageLimits = {
  */
 const unitCostMicros = {
   asrSecond: 1667, // Tencent ASR, ~0.1 CNY/minute
-  openAiToken: 3, // gpt-4.1-mini blended prompt+completion
+  aiToken: 4, // deepseek-chat blended prompt+completion, ~4 CNY/M tokens
   storedByte: 0.02 // Supabase storage, monthly
 };
 
@@ -44,8 +44,8 @@ export function estimateAsrCostMicros(seconds: number) {
   return Math.round(seconds * unitCostMicros.asrSecond);
 }
 
-export function estimateOpenAiCostMicros(tokens: number) {
-  return Math.round(tokens * unitCostMicros.openAiToken);
+export function estimateAiCostMicros(tokens: number) {
+  return Math.round(tokens * unitCostMicros.aiToken);
 }
 
 export function estimateStorageCostMicros(bytes: number) {

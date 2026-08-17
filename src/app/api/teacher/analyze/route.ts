@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import OpenAI from "openai";
 import { z } from "zod";
+import { feedbackModel, getAiClient, type AiClient } from "@/lib/ai";
 import { requireTeacher } from "@/lib/auth";
 import { defaultScoreDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore } from "@/lib/questions";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { checkQuota, estimateOpenAiCostMicros, recordUsage } from "@/lib/usage";
+import { checkQuota, estimateAiCostMicros, recordUsage } from "@/lib/usage";
 import type { FeedbackDetail, Recording, WritingResponse } from "@/lib/types";
 
 const payloadSchema = z.object({
@@ -17,16 +17,15 @@ export async function POST(request: NextRequest) {
   if (auth instanceof Response) return auth;
   const { account: teacher, supabase } = auth;
 
-  if (!process.env.OPENAI_API_KEY) {
-    return Response.json({ error: "Missing OPENAI_API_KEY." }, { status: 500 });
+  const openai = getAiClient();
+  if (!openai) {
+    return Response.json({ error: "AI 服务未配置：缺少 AI_API_KEY。" }, { status: 500 });
   }
 
   const { submissionId } = payloadSchema.parse(await request.json());
 
   const quotaError = await checkQuota(teacher.id, "ai_feedback");
   if (quotaError) return Response.json({ error: quotaError }, { status: 429 });
-
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   // RLS scopes this to the caller's workspace, so a miss means "not yours".
   const { data: submission, error: submissionError } = await supabase
@@ -61,7 +60,7 @@ export async function POST(request: NextRequest) {
   }));
 
   const scoring = await openai.chat.completions.create({
-    model: process.env.OPENAI_FEEDBACK_MODEL || "gpt-4.1-mini",
+    model: feedbackModel(),
     temperature: 0.2,
     messages: [
       {
@@ -87,7 +86,7 @@ export async function POST(request: NextRequest) {
     eventType: "ai_feedback",
     quantity: scoring.usage?.total_tokens || 0,
     unit: "tokens",
-    costMicros: estimateOpenAiCostMicros(scoring.usage?.total_tokens || 0),
+    costMicros: estimateAiCostMicros(scoring.usage?.total_tokens || 0),
     metadata: { submissionId, model: scoring.model }
   });
 
@@ -127,7 +126,7 @@ export async function POST(request: NextRequest) {
 
 async function analyzeWritingSubmission(
   supabase: SupabaseClient,
-  openai: OpenAI,
+  openai: AiClient,
   submissionId: string,
   responses: WritingResponse[],
   teacherId: string | null
@@ -143,7 +142,7 @@ async function analyzeWritingSubmission(
   }));
 
   const scoring = await openai.chat.completions.create({
-    model: process.env.OPENAI_FEEDBACK_MODEL || "gpt-4.1-mini",
+    model: feedbackModel(),
     temperature: 0.2,
     messages: [
       {
@@ -169,7 +168,7 @@ async function analyzeWritingSubmission(
     eventType: "ai_writing_review",
     quantity: scoring.usage?.total_tokens || 0,
     unit: "tokens",
-    costMicros: estimateOpenAiCostMicros(scoring.usage?.total_tokens || 0),
+    costMicros: estimateAiCostMicros(scoring.usage?.total_tokens || 0),
     metadata: { submissionId, model: scoring.model }
   });
 
