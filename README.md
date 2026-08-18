@@ -92,6 +92,25 @@ returns the current month's totals and an estimated spend.
 Metering never blocks the operation it measures: a failed write is logged, not
 thrown.
 
+## Error monitoring
+
+Sentry is wired up but stays off until `NEXT_PUBLIC_SENTRY_DSN` is set, so a
+missing DSN costs nothing.
+
+Two details are deliberate:
+
+- Browser reports are tunnelled through `/monitoring` on this app's own origin.
+  Teachers and students are on mainland networks where a direct connection to
+  sentry.io is unreliable, and a blocked request would otherwise cost them a
+  hanging call.
+- `src/lib/monitoring.ts` strips PII before anything leaves the server. Student
+  names, phone numbers, transcripts and request bodies are redacted, replays are
+  off, and users are identified by account id only. Add any new field that
+  carries a name or number to `sensitiveKeys` there.
+
+Route handlers mostly return a 500 body instead of throwing, so `console.error`
+is captured as well; that is how those failures reach Sentry at all.
+
 ## Notes
 
 - The teacher token is a simple MVP access gate. Use a private value in `.env.local`.
