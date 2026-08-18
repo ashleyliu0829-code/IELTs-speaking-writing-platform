@@ -370,6 +370,26 @@ h3 {
   line-height: 1.55;
 }
 
+/* A repeated topic is a judgement call, not an error: flag it, don't block it. */
+.hint.warn {
+  color: var(--warn);
+  margin-top: 6px;
+}
+
+.btn.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.btn.link:hover {
+  text-decoration: underline;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;

@@ -992,6 +992,7 @@ export function TeacherDashboard() {
                     students={students}
                     activeArea={activeArea}
                     topicHistory={getStudentTopicHistory(areaAssignments, draft.assigned_students || [], activeArea)}
+                    assignedTopicIds={getAssignedTopicIds(areaAssignments, draft.assigned_students || [], activeArea)}
                     token={token}
                     hasTeacherAccount={Boolean(account)}
                     setMessage={setMessage}
@@ -1286,14 +1287,32 @@ function getP2TopicForTitle(prompt: string) {
   return topic ? topic.replace(/[.!?]+$/g, "") : "NA";
 }
 
-function getStudentTopicHistory(assignments: Assignment[], studentNames: string[], area: AssignmentType): StudentTopicHistory {
+function assignmentsForStudents(assignments: Assignment[], studentNames: string[], area: AssignmentType) {
   const selectedStudents = cleanStudentNames(studentNames);
-  if (!selectedStudents.length) return { p1: [], p2: [], writing: [] };
+  if (!selectedStudents.length) return [];
 
-  const relevant = assignments.filter((assignment) => {
+  return assignments.filter((assignment) => {
     if (assignmentArea(assignment) !== area) return false;
     return selectedStudents.some((studentName) => assignmentIsVisibleToStudent(assignment, studentName));
   });
+}
+
+/**
+ * Question bank ids already assigned to the selected students, so the pickers
+ * can flag them. Matching on bank ids rather than the display strings in
+ * StudentTopicHistory keeps this accurate when a teacher has edited the
+ * wording of a question.
+ */
+function getAssignedTopicIds(assignments: Assignment[], studentNames: string[], area: AssignmentType) {
+  if (area !== "speaking") return { p1: new Set<string>(), p2: new Set<string>() };
+
+  const ids = getSpeakingTopicIdsFromAssignments(assignmentsForStudents(assignments, studentNames, area));
+  return { p1: new Set(ids.p1), p2: new Set(ids.p2) };
+}
+
+function getStudentTopicHistory(assignments: Assignment[], studentNames: string[], area: AssignmentType): StudentTopicHistory {
+  const relevant = assignmentsForStudents(assignments, studentNames, area);
+  if (!relevant.length) return { p1: [], p2: [], writing: [] };
 
   return {
     p1: uniqueStrings(relevant.flatMap((assignment) => summarizeP1Topics(assignment.p1_questions || []))),
@@ -1573,6 +1592,7 @@ function AssignmentEditor({
   students,
   activeArea,
   topicHistory,
+  assignedTopicIds,
   token,
   hasTeacherAccount,
   setMessage
@@ -1582,6 +1602,7 @@ function AssignmentEditor({
   students: StudentProfile[];
   activeArea: AssignmentType;
   topicHistory: StudentTopicHistory;
+  assignedTopicIds: { p1: Set<string>; p2: Set<string> };
   token: string;
   hasTeacherAccount: boolean;
   setMessage: (message: string) => void;
@@ -1682,10 +1703,13 @@ function AssignmentEditor({
               <select value={selectedP1SetId} onChange={(event) => setSelectedP1SetId(event.target.value)}>
                 {p1QuestionBank.map((set) => (
                   <option key={set.id} value={set.id}>
-                    {set.topic}
+                    {assignedTopicIds.p1.has(set.id) ? `${set.topic}（已布置过）` : set.topic}
                   </option>
                 ))}
               </select>
+              {selectedP1Set && assignedTopicIds.p1.has(selectedP1Set.id) && (
+                <p className="hint warn">这个话题已经布置给该学生了。</p>
+              )}
             </div>
             {selectedP1Set && (
               <div className="bank-preview">
@@ -1710,10 +1734,13 @@ function AssignmentEditor({
               <select value={selectedP2P3SetId} onChange={(event) => setSelectedP2P3SetId(event.target.value)}>
                 {p2P3QuestionBank.map((set) => (
                   <option key={set.id} value={set.id}>
-                    {set.topic}
+                    {assignedTopicIds.p2.has(set.id) ? `${set.topic}（已布置过）` : set.topic}
                   </option>
                 ))}
               </select>
+              {selectedP2P3Set && assignedTopicIds.p2.has(selectedP2P3Set.id) && (
+                <p className="hint warn">这个话题已经布置给该学生了。</p>
+              )}
             </div>
             {selectedP2P3Set && (
               <div className="bank-preview">
@@ -1774,19 +1801,26 @@ function StudentTopicHistoryPanel({
 }
 
 function TopicList({ title, items }: { title: string; items: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 12);
+
   return (
     <div className="topic-history-list">
       <strong>{title}</strong>
       {items.length ? (
         <ul>
-          {items.slice(0, 12).map((item) => (
+          {visible.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
       ) : (
         <p className="hint">还没有话题记录。</p>
       )}
-      {items.length > 12 && <p className="hint">+ {items.length - 12} 个更多</p>}
+      {items.length > 12 && (
+        <button className="btn link" type="button" onClick={() => setExpanded(!expanded)}>
+          {expanded ? "收起" : `展开全部 ${items.length} 个`}
+        </button>
+      )}
     </div>
   );
 }
@@ -2396,6 +2430,7 @@ function StudentPanel({
                     students={students}
                     activeArea={activeArea}
                     topicHistory={profileTopicHistory}
+                    assignedTopicIds={getAssignedTopicIds(assignments, [selectedStudentName], activeArea)}
                     token={token}
                     hasTeacherAccount={hasTeacherAccount}
                     setMessage={setMessage}
