@@ -203,10 +203,25 @@ export async function PATCH(request: Request) {
   return Response.json({ practice: (await attachSignedUrls([submitted]))[0] });
 }
 
+/**
+ * The workspace a student belongs to.
+ *
+ * Only the student's own account and profile are consulted. Earlier versions
+ * also guessed by display name — searching every teacher's students, and every
+ * teacher's assigned_students lists, for a matching name — and then wrote the
+ * first hit to accounts.teacher_id permanently. With one teacher that always
+ * guessed right. With several it silently binds, say, one teacher's 李伟 to
+ * another teacher's workspace, and RLS then faithfully scopes them to the wrong
+ * teacher: identity is decided before the policies apply.
+ *
+ * Registration requires the teacher's phone number, so a student account is
+ * bound at signup. An unbound account is a real problem worth surfacing, not
+ * something to paper over with a guess.
+ */
 async function resolveTeacherId(account: AccountSession) {
   if (account.teacher_id) return account.teacher_id;
-  const supabase = getSupabaseAdmin();
 
+  const supabase = getSupabaseAdmin();
   const { data: studentRows } = await supabase
     .from("students")
     .select("teacher_id")
@@ -216,54 +231,10 @@ async function resolveTeacherId(account: AccountSession) {
     .limit(1);
 
   const profileTeacherId = studentRows?.[0]?.teacher_id as string | undefined;
-  if (profileTeacherId) {
-    await supabase.from("accounts").update({ teacher_id: profileTeacherId }).eq("id", account.id);
-    return profileTeacherId;
-  }
+  if (!profileTeacherId) return null;
 
-  const { data: namedStudentRows } = await supabase
-    .from("students")
-    .select("teacher_id")
-    .eq("normalized_name", normalizeStudentName(account.display_name))
-    .not("teacher_id", "is", null)
-    .order("last_seen_at", { ascending: false })
-    .limit(1);
-
-  const namedTeacherId = namedStudentRows?.[0]?.teacher_id as string | undefined;
-  if (namedTeacherId) {
-    await supabase.from("accounts").update({ teacher_id: namedTeacherId }).eq("id", account.id);
-    await upsertStudentProfile(account.display_name, { accountId: account.id, phone: account.phone, teacherId: namedTeacherId }).catch(() => null);
-    return namedTeacherId;
-  }
-
-  const { data: assignments } = await supabase
-    .from("assignments")
-    .select("teacher_id, assigned_students")
-    .not("teacher_id", "is", null)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const matched = ((assignments || []) as Array<{ teacher_id?: string | null; assigned_students?: string[] }>).find((assignment) =>
-    studentIsAssigned(account.display_name, assignment.assigned_students || [])
-  );
-  if (matched?.teacher_id) {
-    await supabase.from("accounts").update({ teacher_id: matched.teacher_id }).eq("id", account.id);
-    await upsertStudentProfile(account.display_name, { accountId: account.id, phone: account.phone, teacherId: matched.teacher_id }).catch(() => null);
-    return matched.teacher_id;
-  }
-
-  return null;
-}
-
-function studentIsAssigned(studentName: string, assignedStudents: string[]) {
-  if (!assignedStudents.length) return false;
-  const normalized = normalizeStudentName(studentName);
-  return assignedStudents.some((student) => normalizeStudentName(student) === normalized);
-}
-
-function normalizeStudentName(value: string) {
-  return value.trim().toLowerCase();
+  await supabase.from("accounts").update({ teacher_id: profileTeacherId }).eq("id", account.id);
+  return profileTeacherId;
 }
 
 function getPracticeTopic(topicType: "p1" | "p2", topicId: string) {
