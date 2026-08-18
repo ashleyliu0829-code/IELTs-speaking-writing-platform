@@ -57,7 +57,24 @@ npm ci
 echo "==> Building"
 npm run build
 
+# startOrReload reads ecosystem.config.js, so the port comes from the file
+# rather than from whatever environment happens to be running this script.
 echo "==> Restarting $pm2_name"
-pm2 restart "$pm2_name" --update-env
+pm2 startOrReload ecosystem.config.js --update-env
+pm2 save
 
-echo "==> Deployed $(git rev-parse --short HEAD)"
+port="$(node -e 'process.stdout.write(String(require("./ecosystem.config.js").apps[0].env.PORT))')"
+echo "==> Checking 127.0.0.1:$port"
+for _ in $(seq 1 10); do
+  code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port" || true)"
+  [[ "$code" == "200" ]] && break
+  sleep 1
+done
+
+if [[ "${code:-}" != "200" ]]; then
+  echo "error: app is not answering on 127.0.0.1:$port (last status ${code:-none})" >&2
+  echo "       pm2 logs $pm2_name --lines 30 --nostream" >&2
+  exit 1
+fi
+
+echo "==> Deployed $(git rev-parse --short HEAD), healthy on :$port"
