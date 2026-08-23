@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { bookingTypeLabel, reservedMinutesFor, type BookingType } from "@/lib/lessonBooking";
 import type { LessonBooking, LessonSlot } from "@/lib/types";
 
 const timeZones = [
@@ -29,6 +30,7 @@ type LessonChoice = {
   slotId: string;
   startAt: string;
   courseMinutes: BookingChoice;
+  bookingType: "trial" | "regular";
 };
 
 export function TeacherSchedulePanel({ token, lessonType = "regular", language = "zh", title, hint }: { token: string; lessonType?: LessonType; language?: ScheduleLanguage; title?: string; hint?: string }) {
@@ -47,6 +49,7 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
   const [lessonStudent, setLessonStudent] = useState("");
   const [lessonStart, setLessonStart] = useState("");
   const [lessonMinutes, setLessonMinutes] = useState<60 | 120>(60);
+  const [lessonKind, setLessonKind] = useState<"trial" | "regular">("regular");
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const t = (zh: string, en: string) => (language === "zh" ? zh : en);
@@ -187,6 +190,7 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
           studentAccountId: matched?.account_id || "",
           startAt: localDateTimeToUtc(lessonStart, timezone),
           courseMinutes: lessonMinutes,
+          bookingType: lessonKind,
           timezone
         })
       });
@@ -316,14 +320,19 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
             <input type="datetime-local" value={lessonStart} onChange={(event) => setLessonStart(event.target.value)} />
           </div>
           <div>
-            <label>{t("时长", "Duration")}</label>
+            <label>{t("类型", "Type")}</label>
             <select
-              value={lessonMinutes}
-              onChange={(event) => setLessonMinutes(Number(event.target.value) === 120 ? 120 : 60)}
+              value={lessonKind === "trial" ? "trial" : String(lessonMinutes)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setLessonKind(value === "trial" ? "trial" : "regular");
+                setLessonMinutes(value === "120" ? 120 : 60);
+              }}
               disabled={lessonType === "practice"}
             >
-              <option value={60}>{t("1 小时", "1 hour")}</option>
-              <option value={120}>{t("2 小时", "2 hours")}</option>
+              <option value="trial">{t("试课（预留 1 小时）", "Trial (1 hour reserved)")}</option>
+              <option value="60">{t("正式课 1 小时（预留 1.5 小时）", "Lesson, 1 hour (1.5 hours reserved)")}</option>
+              <option value="120">{t("正式课 2 小时（预留 2.5 小时）", "Lesson, 2 hours (2.5 hours reserved)")}</option>
             </select>
           </div>
           <button className="btn" disabled={loading || !lessonStudent.trim() || !lessonStart} onClick={scheduleLesson} type="button">
@@ -396,7 +405,8 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
         [choiceKey]: {
           slotId: slot.id,
           startAt,
-          courseMinutes: 60
+          courseMinutes: 60,
+          bookingType: "regular"
         }
       };
     });
@@ -420,7 +430,8 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
           bookings: selectedIds.map((choiceKey) => ({
             slotId: choices[choiceKey].slotId,
             startAt: choices[choiceKey].startAt,
-            courseMinutes: choices[choiceKey].courseMinutes
+            courseMinutes: choices[choiceKey].courseMinutes,
+            bookingType: choices[choiceKey].bookingType
           }))
         })
       });
@@ -478,24 +489,39 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
             if (!slot) return null;
             return (
               <div className="selected-lesson-row" key={choiceKey}>
-                <strong>{formatRange(choice.startAt, bookingEndAt(choice.startAt, choice.courseMinutes, lessonType), timezone)}</strong>
+                <strong>
+                  {formatRange(
+                    choice.startAt,
+                    bookingEndAt(choice.startAt, choice.courseMinutes, lessonType, choice.bookingType),
+                    timezone
+                  )}
+                </strong>
                 <select
-                  value={choice.courseMinutes}
+                  value={choice.bookingType === "trial" ? "trial" : String(choice.courseMinutes)}
                   disabled={lessonType === "practice"}
                   onChange={(event) => {
-                    const courseMinutes = Number(event.target.value) as BookingChoice;
-                    if (!canBookLesson(slot, choice.startAt, courseMinutes, lessonType)) {
-                      setMessage("这个开始时间没有足够空间预约 2 小时课程。");
+                    const value = event.target.value;
+                    const bookingType = value === "trial" ? "trial" : "regular";
+                    const courseMinutes = (value === "120" ? 120 : 60) as BookingChoice;
+                    if (!canBookLesson(slot, choice.startAt, courseMinutes, lessonType, bookingType)) {
+                      setMessage("这个开始时间没有足够空间安排该课程时长。");
                       return;
                     }
                     setChoices((current) => ({
                       ...current,
-                      [choiceKey]: { ...choice, courseMinutes }
+                      [choiceKey]: { ...choice, courseMinutes, bookingType }
                     }));
                   }}
                 >
-                  <option value={60}>{lessonType === "practice" ? "1 小时练习课" : "1 小时课程，预留 1.5 小时"}</option>
-                  {lessonType !== "practice" && canBookLesson(slot, choice.startAt, 120, lessonType) && <option value={120}>2 小时课程，预留 2.5 小时</option>}
+                  {lessonType === "practice" ? (
+                    <option value="60">1 小时练习课</option>
+                  ) : (
+                    <>
+                      {canBookLesson(slot, choice.startAt, 60, lessonType, "trial") && <option value="trial">试课，预留 1 小时</option>}
+                      <option value="60">正式课 1 小时，预留 1.5 小时</option>
+                      {canBookLesson(slot, choice.startAt, 120, lessonType) && <option value="120">正式课 2 小时，预留 2.5 小时</option>}
+                    </>
+                  )}
                 </select>
                 <button
                   className="btn secondary"
@@ -587,7 +613,10 @@ function StudentBookingGroup({
               <span className={`pill ${isConfirmedBooking(booking) ? "ok" : booking.status === "pending" ? "warn" : ""}`}>
                 {bookingStatusLabel(booking)}
               </span>
-              <span className="hint">{booking.course_minutes / 60} 小时课程，预留 {booking.reserved_minutes} 分钟</span>
+              <span className="hint">
+                {bookingTypeLabel((booking.booking_type as BookingType) || "regular")} ·{" "}
+                {booking.course_minutes / 60} 小时课程，预留 {booking.reserved_minutes} 分钟
+              </span>
               {booking.status === "cancelled" && booking.teacher_suggested_time && (
                 <span className="hint">老师建议时间：{formatSuggestedTime(booking.teacher_suggested_time, timezone)}</span>
               )}
@@ -887,7 +916,10 @@ function CalendarWeek({
               >
                 <strong>{formatRange(booking.start_at, booking.end_at, timezone)}</strong>
                 <span>{bookingStatusLabel(booking, language)}</span>
-                <span>{booking.student_name}</span>
+                <span>
+                  {booking.student_name}
+                  {booking.booking_type === "trial" ? ` · ${bookingTypeLabel("trial", language)}` : ""}
+                </span>
                 <span>{booking.course_minutes / 60}h</span>
               </div>
             ))}
@@ -1085,14 +1117,25 @@ function formatTimeOnly(value: string, timeZone: string) {
   }).format(new Date(value));
 }
 
-function canBookLesson(slot: LessonSlot, startAt: string, courseMinutes: BookingChoice, lessonType: LessonType = "regular") {
-  const endAt = bookingEndAt(startAt, courseMinutes, lessonType);
+function canBookLesson(
+  slot: LessonSlot,
+  startAt: string,
+  courseMinutes: BookingChoice,
+  lessonType: LessonType = "regular",
+  bookingType: "trial" | "regular" = "regular"
+) {
+  const endAt = bookingEndAt(startAt, courseMinutes, lessonType, bookingType);
   if (new Date(startAt) < new Date(slot.start_at) || new Date(endAt) > new Date(slot.end_at)) return false;
   return !activeBookings(slot).some((booking) => rangesOverlap(startAt, endAt, booking.start_at, booking.end_at));
 }
 
-function bookingEndAt(startAt: string, courseMinutes: BookingChoice, lessonType: LessonType = "regular") {
-  const reservedMinutes = lessonType === "practice" ? 60 : courseMinutes === 60 ? 90 : 150;
+function bookingEndAt(
+  startAt: string,
+  courseMinutes: BookingChoice,
+  lessonType: LessonType = "regular",
+  bookingType: "trial" | "regular" = "regular"
+) {
+  const reservedMinutes = reservedMinutesFor(lessonType === "practice" ? "practice" : bookingType, courseMinutes);
   return new Date(new Date(startAt).getTime() + reservedMinutes * 60 * 1000).toISOString();
 }
 

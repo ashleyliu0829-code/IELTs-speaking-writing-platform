@@ -192,6 +192,7 @@ export type LessonBooking = {
   student_name: string;
   course_minutes: number;
   reserved_minutes: number;
+  booking_type?: "trial" | "regular" | "practice";
   start_at: string;
   end_at: string;
   status: "pending" | "confirmed" | "cancelled" | "booked";

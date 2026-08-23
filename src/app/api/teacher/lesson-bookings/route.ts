@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentAccount } from "@/lib/accountAuth";
 import { getSupabaseForAccount } from "@/lib/supabase";
+import { courseMinutesFor, reservedMinutesFor, type BookingType } from "@/lib/lessonBooking";
 
 /**
  * Lessons the teacher schedules directly, rather than ones a student requested.
@@ -17,6 +18,7 @@ const createSchema = z.object({
   studentAccountId: z.string().uuid().optional().or(z.literal("")),
   startAt: z.string().datetime(),
   courseMinutes: z.union([z.literal(60), z.literal(120)]),
+  bookingType: z.enum(["trial", "regular"]).default("regular"),
   timezone: z.string().min(1).default("Asia/Shanghai"),
   note: z.string().optional().default("")
 });
@@ -40,8 +42,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "练习课只能安排 1 小时。" }, { status: 400 });
   }
 
-  // Matches the student booking rules: an hour of teaching reserves 90 minutes.
-  const reservedMinutes = lessonType === "practice" ? 60 : payload.courseMinutes === 60 ? 90 : 150;
+  const bookingType: BookingType = lessonType === "practice" ? "practice" : payload.bookingType;
+  const courseMinutes = courseMinutesFor(bookingType, payload.courseMinutes);
+  const reservedMinutes = reservedMinutesFor(bookingType, courseMinutes);
   const startAt = new Date(payload.startAt);
   const endAt = new Date(startAt.getTime() + reservedMinutes * 60 * 1000);
   const supabase = getSupabaseForAccount(account);
@@ -94,8 +97,9 @@ export async function POST(request: NextRequest) {
       slot_id: slotId,
       student_account_id: payload.studentAccountId || null,
       student_name: payload.studentName.trim(),
-      course_minutes: payload.courseMinutes,
+      course_minutes: courseMinutes,
       reserved_minutes: reservedMinutes,
+      booking_type: bookingType,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       status: "confirmed",

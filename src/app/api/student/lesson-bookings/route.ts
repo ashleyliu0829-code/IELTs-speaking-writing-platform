@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireStudent } from "@/lib/auth";
 import type { AccountSession } from "@/lib/accountAuth";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { courseMinutesFor, reservedMinutesFor, type BookingType } from "@/lib/lessonBooking";
 
 const bookingSchema = z.object({
   timezone: z.string().min(1).default("Asia/Shanghai"),
@@ -12,7 +13,8 @@ const bookingSchema = z.object({
       z.object({
         slotId: z.string().uuid(),
         startAt: z.string().datetime(),
-        courseMinutes: z.union([z.literal(60), z.literal(120)])
+        courseMinutes: z.union([z.literal(60), z.literal(120)]),
+        bookingType: z.enum(["trial", "regular"]).default("regular")
       })
     )
     .min(1)
@@ -151,6 +153,7 @@ export async function POST(request: Request) {
     student_name: string;
     course_minutes: 60 | 120;
     reserved_minutes: 60 | 90 | 150;
+    booking_type: BookingType;
     start_at: string;
     end_at: string;
     status: "pending";
@@ -165,7 +168,10 @@ export async function POST(request: Request) {
     if (lessonType === "practice" && booking.courseMinutes !== 60) {
       return Response.json({ error: "练习课只能预约 1 小时。" }, { status: 400 });
     }
-    const reservedMinutes = lessonType === "practice" ? 60 : booking.courseMinutes === 60 ? 90 : 150;
+
+    const bookingType: BookingType = lessonType === "practice" ? "practice" : booking.bookingType;
+    const courseMinutes = courseMinutesFor(bookingType, booking.courseMinutes);
+    const reservedMinutes = reservedMinutesFor(bookingType, courseMinutes);
     const startAt = new Date(booking.startAt);
     const endAt = new Date(startAt.getTime() + reservedMinutes * 60 * 1000);
 
@@ -189,8 +195,9 @@ export async function POST(request: Request) {
       slot_id: booking.slotId,
       student_account_id: account.id,
       student_name: account.display_name,
-      course_minutes: booking.courseMinutes,
+      course_minutes: courseMinutes,
       reserved_minutes: reservedMinutes,
+      booking_type: bookingType,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       status: "pending",
