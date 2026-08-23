@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireStudent } from "@/lib/auth";
 import type { AccountSession } from "@/lib/accountAuth";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 const bookingSchema = z.object({
   timezone: z.string().min(1).default("Asia/Shanghai"),
@@ -57,7 +58,64 @@ export async function GET(request: Request) {
     return (slot?.lesson_type || "regular") === lessonType && (!assistantId || slot?.teacher_id === assistantId);
   });
 
-  return Response.json({ slots: slots || [], myBookings: filteredBookings });
+  return Response.json({
+    slots: await withBusyRanges(slots || []),
+    myBookings: filteredBookings
+  });
+}
+
+/**
+ * Students need to see which times are taken, but not by whom. RLS limits the
+ * nested bookings to the student's own, so a slot booked by a classmate would
+ * otherwise look free: the picker offers it, and the overlap check rejects it
+ * only after they submit.
+ *
+ * Busy ranges are read with the service role and stripped to times, so the
+ * calendar is accurate without exposing another student's name or booking.
+ */
+type SlotWithBookings = {
+  id: string;
+  start_at: string;
+  end_at: string;
+  bookings?: Array<{ start_at: string; end_at: string; status: string }>;
+  [key: string]: unknown;
+};
+
+async function withBusyRanges<T extends { id: string }>(slots: T[]): Promise<Array<T & SlotWithBookings>> {
+  if (!slots.length) return slots as Array<T & SlotWithBookings>;
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("lesson_bookings")
+    .select("id, slot_id, start_at, end_at, status")
+    .in(
+      "slot_id",
+      slots.map((slot) => slot.id)
+    )
+    .neq("status", "cancelled");
+
+  if (error) {
+    console.error("Loading busy ranges failed:", error.message);
+    return slots as Array<T & SlotWithBookings>;
+  }
+
+  const bySlot = new Map<string, Array<Record<string, unknown>>>();
+  for (const booking of data || []) {
+    const list = bySlot.get(booking.slot_id) || [];
+    list.push({
+      id: booking.id,
+      slot_id: booking.slot_id,
+      start_at: booking.start_at,
+      end_at: booking.end_at,
+      status: booking.status,
+      // The picker only needs to know the range is unavailable.
+      student_name: "",
+      student_account_id: null
+    });
+    bySlot.set(booking.slot_id, list);
+  }
+
+  return slots.map((slot) => ({ ...slot, bookings: bySlot.get(slot.id) || [] })) as Array<T & SlotWithBookings>;
 }
 
 export async function POST(request: Request) {
@@ -78,9 +136,14 @@ export async function POST(request: Request) {
     .eq("is_active", true);
   if (slotTeacherIds.length) slotsQuery = slotsQuery.in("teacher_id", slotTeacherIds);
   else slotsQuery = slotsQuery.eq("teacher_id", "__none__");
-  const { data: slots, error: slotsError } = await slotsQuery;
+  const { data: rawSlots, error: slotsError } = await slotsQuery;
 
   if (slotsError) return Response.json({ error: slotsError.message }, { status: 500 });
+
+  // The nested bookings above are RLS-filtered to this student's own, so the
+  // overlap check below would not see a classmate's booking and would happily
+  // double-book the slot. Re-read them unfiltered.
+  const slots = await withBusyRanges(rawSlots || []);
 
   const rows: {
     slot_id: string;

@@ -1637,6 +1637,16 @@ audio {
   align-items: end;
 }
 
+/* Separates scheduling a booked lesson from publishing open availability;
+   the two sit next to each other and do very different things. */
+.schedule-direct {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
+
 .schedule-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

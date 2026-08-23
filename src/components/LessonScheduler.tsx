@@ -42,6 +42,11 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
   const [suggestions, setSuggestions] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  // Scheduling a lesson directly, rather than waiting for a student to ask.
+  const [rosterStudents, setRosterStudents] = useState<Array<{ name: string; account_id?: string | null }>>([]);
+  const [lessonStudent, setLessonStudent] = useState("");
+  const [lessonStart, setLessonStart] = useState("");
+  const [lessonMinutes, setLessonMinutes] = useState<60 | 120>(60);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const t = (zh: string, en: string) => (language === "zh" ? zh : en);
@@ -52,7 +57,24 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
 
   useEffect(() => {
     void loadSlots();
+    void loadRoster();
   }, []);
+
+  // Assistants have no student roster endpoint, so this is allowed to come back
+  // empty; the picker falls back to a free-text name.
+  async function loadRoster() {
+    try {
+      const data = await api("/api/teacher/students");
+      setRosterStudents(
+        ((data.students || []) as Array<{ name: string; account_id?: string | null }>).map((student) => ({
+          name: student.name,
+          account_id: student.account_id
+        }))
+      );
+    } catch {
+      setRosterStudents([]);
+    }
+  }
 
   async function api(path: string, init: RequestInit = {}) {
     const headers: Record<string, string> = {
@@ -148,6 +170,37 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
     }
   }
 
+  async function scheduleLesson() {
+    if (!lessonStudent.trim() || !lessonStart) {
+      setMessage(t("请选择学生和上课时间。", "Please choose a student and a start time."));
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    try {
+      const matched = rosterStudents.find((student) => student.name === lessonStudent.trim());
+      await api(`/api/teacher/lesson-bookings?lessonType=${lessonType}`, {
+        method: "POST",
+        body: JSON.stringify({
+          studentName: lessonStudent.trim(),
+          studentAccountId: matched?.account_id || "",
+          startAt: localDateTimeToUtc(lessonStart, timezone),
+          courseMinutes: lessonMinutes,
+          timezone
+        })
+      });
+      setLessonStudent("");
+      setLessonStart("");
+      await loadSlots();
+      setMessage(t("课程已加入课表，该时间段对其他学生显示为已占用。", "Lesson added. That time now shows as taken to other students."));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t("无法新增课程。", "Could not add the lesson."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function updateBooking(bookingId: string, action: "confirm" | "cancel") {
     setLoading(true);
     setMessage("");
@@ -229,6 +282,54 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         <button className="btn" disabled={loading || !startValue || !endValue} onClick={createSlot} type="button">
           {t("添加可预约时间", "Add available time")}
         </button>
+      </div>
+
+      <div className="schedule-direct">
+        <div className="section-head compact">
+          <div>
+            <label>{t("直接新增课程", "Add a lesson directly")}</label>
+            <div className="hint">
+              {t(
+                "为某个学生排一节课，不需要等他发起预约。加入后这个时间对其他学生显示为已占用。",
+                "Schedule a lesson for a student without waiting for a request. The time then shows as taken to everyone else."
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="schedule-create-grid">
+          <div>
+            <label>{t("学生", "Student")}</label>
+            <input
+              list="schedule-roster"
+              value={lessonStudent}
+              onChange={(event) => setLessonStudent(event.target.value)}
+              placeholder={t("选择或输入学生姓名", "Pick or type a student name")}
+            />
+            <datalist id="schedule-roster">
+              {rosterStudents.map((student) => (
+                <option key={student.name} value={student.name} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label>{t("上课时间", "Lesson time")}</label>
+            <input type="datetime-local" value={lessonStart} onChange={(event) => setLessonStart(event.target.value)} />
+          </div>
+          <div>
+            <label>{t("时长", "Duration")}</label>
+            <select
+              value={lessonMinutes}
+              onChange={(event) => setLessonMinutes(Number(event.target.value) === 120 ? 120 : 60)}
+              disabled={lessonType === "practice"}
+            >
+              <option value={60}>{t("1 小时", "1 hour")}</option>
+              <option value={120}>{t("2 小时", "2 hours")}</option>
+            </select>
+          </div>
+          <button className="btn" disabled={loading || !lessonStudent.trim() || !lessonStart} onClick={scheduleLesson} type="button">
+            {t("加入课表", "Add to schedule")}
+          </button>
+        </div>
       </div>
       {message && <p className={message.includes("Could") || message.includes("Please") ? "error" : "hint"}>{message}</p>}
     </article>
