@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireTeacher } from "@/lib/auth";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
+import { signRecordingUrl } from "@/lib/recordingUrls";
 import { attachTeacherDemos } from "@/lib/teacherDemos";
 import type { Recording, Submission } from "@/lib/types";
 
@@ -35,12 +36,10 @@ export async function GET(request: NextRequest) {
   const submissions = await Promise.all(
     filtered.map(async (submission) => {
       const recordings = await Promise.all(
-        (submission.recordings || []).map(async (recording: Recording) => {
-          const { data: signed } = await storage.storage
-            .from(recordingsBucket)
-            .createSignedUrl(recording.storage_path, 60 * 60);
-          return { ...recording, signed_url: signed?.signedUrl };
-        })
+        (submission.recordings || []).map(async (recording: Recording) => ({
+          ...recording,
+          signed_url: await signRecordingUrl(storage, recordingsBucket, recording.storage_path)
+        }))
       );
       return {
         ...submission,

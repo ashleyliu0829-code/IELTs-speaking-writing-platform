@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
+import { signRecordingUrl } from "@/lib/recordingUrls";
 import type { SpeakingPracticeRecording, SpeakingPracticeSubmission } from "@/lib/types";
 
 const feedbackSchema = z.object({
@@ -91,10 +92,10 @@ async function attachSignedUrls(practices: SpeakingPracticeSubmission[]) {
     practices.map(async (practice) => ({
       ...practice,
       recordings: await Promise.all(
-        (practice.recordings || []).map(async (recording: SpeakingPracticeRecording) => {
-          const { data: signed } = await supabase.storage.from(recordingsBucket).createSignedUrl(recording.storage_path, 60 * 60);
-          return { ...recording, signed_url: signed?.signedUrl };
-        })
+        (practice.recordings || []).map(async (recording: SpeakingPracticeRecording) => ({
+          ...recording,
+          signed_url: await signRecordingUrl(supabase, recordingsBucket, recording.storage_path)
+        }))
       )
     }))
   );

@@ -4,6 +4,7 @@ import { requireStudent } from "@/lib/auth";
 import { type AccountSession } from "@/lib/accountAuth";
 import { p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { getSupabaseAdmin, getSupabaseForAccount, recordingsBucket } from "@/lib/supabase";
+import { signRecordingUrl } from "@/lib/recordingUrls";
 import { upsertStudentProfile } from "@/lib/students";
 import { checkQuota, estimateStorageCostMicros, maxAudioBytes, recordUsage } from "@/lib/usage";
 import type { SpeakingPracticeRecording, SpeakingPracticeSubmission } from "@/lib/types";
@@ -253,10 +254,10 @@ async function attachSignedUrls(practices: SpeakingPracticeSubmission[]) {
     practices.map(async (practice) => ({
       ...practice,
       recordings: await Promise.all(
-        (practice.recordings || []).map(async (recording: SpeakingPracticeRecording) => {
-          const { data: signed } = await supabase.storage.from(recordingsBucket).createSignedUrl(recording.storage_path, 60 * 60);
-          return { ...recording, signed_url: signed?.signedUrl };
-        })
+        (practice.recordings || []).map(async (recording: SpeakingPracticeRecording) => ({
+          ...recording,
+          signed_url: await signRecordingUrl(supabase, recordingsBucket, recording.storage_path)
+        }))
       )
     }))
   );

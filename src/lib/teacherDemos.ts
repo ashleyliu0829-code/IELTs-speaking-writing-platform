@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordingsBucket } from "@/lib/supabase";
+import { signRecordingUrl } from "@/lib/recordingUrls";
 import type { Recording, TeacherDemoRecording } from "@/lib/types";
 
 export async function attachTeacherDemos(supabase: SupabaseClient, recordings: Recording[]) {
@@ -12,12 +13,10 @@ export async function attachTeacherDemos(supabase: SupabaseClient, recordings: R
     .in("recording_id", recordingIds);
 
   const signedDemos = await Promise.all(
-    ((demos || []) as TeacherDemoRecording[]).map(async (demo) => {
-      const { data: signed } = await supabase.storage
-        .from(recordingsBucket)
-        .createSignedUrl(demo.storage_path, 60 * 60);
-      return { ...demo, signed_url: signed?.signedUrl };
-    })
+    ((demos || []) as TeacherDemoRecording[]).map(async (demo) => ({
+      ...demo,
+      signed_url: await signRecordingUrl(supabase, recordingsBucket, demo.storage_path)
+    }))
   );
 
   const demosByRecordingId = new Map(signedDemos.map((demo) => [demo.recording_id, demo]));
