@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
-import { signRecordingUrl } from "@/lib/recordingUrls";
+import { signRecordingUrls } from "@/lib/recordingUrls";
 import type { SpeakingPracticeRecording, SpeakingPracticeSubmission } from "@/lib/types";
 
 const feedbackSchema = z.object({
@@ -88,15 +88,20 @@ export async function PATCH(request: Request) {
 
 async function attachSignedUrls(practices: SpeakingPracticeSubmission[]) {
   const supabase = getSupabaseAdmin();
-  return Promise.all(
-    practices.map(async (practice) => ({
-      ...practice,
-      recordings: await Promise.all(
-        (practice.recordings || []).map(async (recording: SpeakingPracticeRecording) => ({
-          ...recording,
-          signed_url: await signRecordingUrl(supabase, recordingsBucket, recording.storage_path)
-        }))
-      )
-    }))
+  // One batch across every practice, rather than a request per recording.
+  const signedUrls = await signRecordingUrls(
+    supabase,
+    recordingsBucket,
+    practices.flatMap((practice) =>
+      (practice.recordings || []).map((recording: SpeakingPracticeRecording) => recording.storage_path)
+    )
   );
+
+  return practices.map((practice) => ({
+    ...practice,
+    recordings: (practice.recordings || []).map((recording: SpeakingPracticeRecording) => ({
+      ...recording,
+      signed_url: signedUrls.get(recording.storage_path)
+    }))
+  }));
 }

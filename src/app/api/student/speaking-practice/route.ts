@@ -4,7 +4,7 @@ import { requireStudent } from "@/lib/auth";
 import { type AccountSession } from "@/lib/accountAuth";
 import { p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { getSupabaseAdmin, getSupabaseForAccount, recordingsBucket } from "@/lib/supabase";
-import { signRecordingUrl } from "@/lib/recordingUrls";
+import { signRecordingUrls } from "@/lib/recordingUrls";
 import { upsertStudentProfile } from "@/lib/students";
 import { checkQuota, estimateStorageCostMicros, maxAudioBytes, recordUsage } from "@/lib/usage";
 import type { SpeakingPracticeRecording, SpeakingPracticeSubmission } from "@/lib/types";
@@ -250,17 +250,22 @@ function getPracticeTopic(topicType: "p1" | "p2", topicId: string) {
 
 async function attachSignedUrls(practices: SpeakingPracticeSubmission[]) {
   const supabase = getSupabaseAdmin();
-  return Promise.all(
-    practices.map(async (practice) => ({
-      ...practice,
-      recordings: await Promise.all(
-        (practice.recordings || []).map(async (recording: SpeakingPracticeRecording) => ({
-          ...recording,
-          signed_url: await signRecordingUrl(supabase, recordingsBucket, recording.storage_path)
-        }))
-      )
-    }))
+  // One batch across every practice, rather than a request per recording.
+  const signedUrls = await signRecordingUrls(
+    supabase,
+    recordingsBucket,
+    practices.flatMap((practice) =>
+      (practice.recordings || []).map((recording: SpeakingPracticeRecording) => recording.storage_path)
+    )
   );
+
+  return practices.map((practice) => ({
+    ...practice,
+    recordings: (practice.recordings || []).map((recording: SpeakingPracticeRecording) => ({
+      ...recording,
+      signed_url: signedUrls.get(recording.storage_path)
+    }))
+  }));
 }
 
 function audioExtension(mimeType: string) {

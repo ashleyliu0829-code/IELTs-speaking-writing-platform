@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireTeacher } from "@/lib/auth";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
-import { signRecordingUrl } from "@/lib/recordingUrls";
+import { signRecordingUrls } from "@/lib/recordingUrls";
 import { attachTeacherDemos } from "@/lib/teacherDemos";
 import type { Recording, Submission } from "@/lib/types";
 
@@ -33,14 +33,19 @@ export async function GET(request: NextRequest) {
     return (assignment?.assignment_type || "speaking") === assignmentType;
   });
 
+  // One batch for every recording on the page, rather than one request each.
+  const signedUrls = await signRecordingUrls(
+    storage,
+    recordingsBucket,
+    filtered.flatMap((submission) => (submission.recordings || []).map((recording: Recording) => recording.storage_path))
+  );
+
   const submissions = await Promise.all(
     filtered.map(async (submission) => {
-      const recordings = await Promise.all(
-        (submission.recordings || []).map(async (recording: Recording) => ({
-          ...recording,
-          signed_url: await signRecordingUrl(storage, recordingsBucket, recording.storage_path)
-        }))
-      );
+      const recordings = (submission.recordings || []).map((recording: Recording) => ({
+        ...recording,
+        signed_url: signedUrls.get(recording.storage_path)
+      }));
       return {
         ...submission,
         recordings: await attachTeacherDemos(storage, recordings),
