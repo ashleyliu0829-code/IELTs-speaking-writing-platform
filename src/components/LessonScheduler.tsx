@@ -240,6 +240,7 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         onRefresh={loadSlots}
       />
 
+      <div className="schedule-layout">
       <CalendarWeek
         days={days}
         timezone={timezone}
@@ -260,17 +261,12 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         }}
       />
 
-      <TeacherBookingList
-        bookings={slots.flatMap((slot) => slot.bookings || [])}
-        timezone={timezone}
-        language={language}
-        suggestions={suggestions}
-        loading={loading}
-        setSuggestions={setSuggestions}
-        onUpdate={updateBooking}
-      />
-
-      <div className="schedule-create-grid">
+      <aside className="schedule-side">
+      <div className="schedule-side-block">
+        <label>{t("添加可预约时间", "Add available time")}</label>
+        <div className="hint">
+          {t("发布一段空闲时间，学生可以在其中发起预约。", "Publish a window students can request a lesson in.")}
+        </div>
         <div>
           <label>{t("开始时间", "Start time")}</label>
           <input type="datetime-local" value={startValue} onChange={(event) => setStartValue(event.target.value)} />
@@ -288,19 +284,14 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         </button>
       </div>
 
-      <div className="schedule-direct">
-        <div className="section-head compact">
-          <div>
-            <label>{t("直接新增课程", "Add a lesson directly")}</label>
-            <div className="hint">
-              {t(
-                "为某个学生排一节课，不需要等他发起预约。加入后这个时间对其他学生显示为已占用。",
-                "Schedule a lesson for a student without waiting for a request. The time then shows as taken to everyone else."
-              )}
-            </div>
-          </div>
+      <div className="schedule-side-block">
+        <label>{t("直接新增课程", "Add a lesson directly")}</label>
+        <div className="hint">
+          {t(
+            "为某个学生排一节课，不需要等他发起预约。加入后这个时间对其他学生显示为已占用。",
+            "Schedule a lesson for a student without waiting for a request. The time then shows as taken to everyone else."
+          )}
         </div>
-        <div className="schedule-create-grid">
           <div>
             <label>{t("学生", "Student")}</label>
             <input
@@ -338,9 +329,21 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
           <button className="btn" disabled={loading || !lessonStudent.trim() || !lessonStart} onClick={scheduleLesson} type="button">
             {t("加入课表", "Add to schedule")}
           </button>
-        </div>
       </div>
+      </aside>
+      </div>
+
       {message && <p className={message.includes("Could") || message.includes("Please") ? "error" : "hint"}>{message}</p>}
+
+      <TeacherBookingList
+        bookings={slots.flatMap((slot) => slot.bookings || [])}
+        timezone={timezone}
+        language={language}
+        suggestions={suggestions}
+        loading={loading}
+        setSuggestions={setSuggestions}
+        onUpdate={updateBooking}
+      />
     </article>
   );
 }

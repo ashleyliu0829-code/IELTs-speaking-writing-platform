@@ -1637,14 +1637,41 @@ audio {
   align-items: end;
 }
 
-/* Separates scheduling a booked lesson from publishing open availability;
-   the two sit next to each other and do very different things. */
-.schedule-direct {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+/* Calendar and the forms that act on it, side by side: the teacher reads a
+   time off the grid and fills it in without scrolling away from it.
+   minmax(0, 1fr) lets the calendar use its own horizontal scroll instead of
+   pushing the sidebar off screen. */
+.schedule-layout {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: start;
+}
+
+.schedule-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+/* Separates scheduling a booked lesson from publishing open availability;
+   the two do very different things. */
+.schedule-side-block {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.schedule-side-block > label {
+  font-weight: 600;
+}
+
+/* Stacked in the narrow column, whatever the grid does at full width. */
+.schedule-side .schedule-create-grid {
+  grid-template-columns: 1fr;
 }
 
 .schedule-grid {
@@ -2065,7 +2092,8 @@ audio {
     grid-template-columns: 1fr;
   }
 
-  .daily-history-layout {
+  .daily-history-layout,
+  .schedule-layout {
     grid-template-columns: 1fr;
   }
 
