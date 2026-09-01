@@ -1025,7 +1025,7 @@ export function TeacherDashboard() {
       )}
 
       {hasTeacherAccess && navLevel === "detail" && teacherSection === "grading" && (
-        <section className={isWritingGradingDetail ? "single-column" : "single-column grading-finder-page"}>
+        <section className="single-column">
           {!isWritingGradingDetail && (
           <aside className="panel grading-finder-bar">
             <div className="section-head">

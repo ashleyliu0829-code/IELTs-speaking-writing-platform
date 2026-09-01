@@ -80,8 +80,10 @@ a {
   padding: 32px 0 64px;
 }
 
+/* Uses the window rather than a fixed column. 80vw would be *narrower* than
+   the 1180px default on any window under about 1475px, which is most of them. */
 .shell.wide {
-  width: min(80vw, calc(100% - 32px));
+  width: min(1720px, calc(100% - 32px));
 }
 
 .hero {
@@ -748,10 +750,6 @@ audio {
   gap: 12px;
 }
 
-.grading-finder-page {
-  max-width: 760px;
-}
-
 .writing-grading-detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(420px, 0.9fr);
@@ -788,6 +786,17 @@ audio {
   display: grid;
   gap: 10px;
   min-width: 0;
+}
+
+/* Sized to their labels, so a narrow column never breaks them into a column
+   of single characters. */
+.speaking-review-main .bank-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.speaking-review-main .bank-actions .btn {
+  white-space: nowrap;
 }
 
 /* Edited here, and the selection here is what a note attaches to. */
