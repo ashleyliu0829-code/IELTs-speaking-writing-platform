@@ -10,6 +10,7 @@ import { TeacherSchedulePanel } from "@/components/LessonScheduler";
 import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { TeacherDailyTasksPanel } from "@/components/DailyTasks";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
+import { TrackedTextEditor } from "@/components/TrackedTextEditor";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
 import { newInlineCommentId, parseReviewComment, stringifyReviewComment, type InlineComment, type ReviewComment } from "@/lib/reviewComments";
 import homeworkIcon from "../../public/icons/workspace-homework.png";
@@ -3028,7 +3029,7 @@ function TranscriptWorkspace({
   onTranscriptSave: (recordingId: string, value: string) => void;
   onCommentChange: (value: string) => void;
 }) {
-  const transcriptRef = useRef<HTMLTextAreaElement | null>(null);
+  const selectionRef = useRef({ start: 0, end: 0 });
   const review = parseReviewComment(commentValue);
 
   function update(patch: Partial<ReviewComment>) {
@@ -3036,8 +3037,8 @@ function TranscriptWorkspace({
   }
 
   function addInlineComment() {
-    const textarea = transcriptRef.current;
-    const selection = textarea ? editedTranscript.slice(textarea.selectionStart, textarea.selectionEnd).trim() : "";
+    const { start, end } = selectionRef.current;
+    const selection = editedTranscript.slice(start, end).trim();
     if (!selection) {
       window.alert("请先在转写里选中要批注的文字。");
       return;
@@ -3054,11 +3055,19 @@ function TranscriptWorkspace({
       <div className="speaking-review-main">
         <div className="section-head compact">
           <div>
-            <label>老师修改后的转写</label>
-            <div className="hint">可以直接修改文字；选中一段后点「添加批注」，批注会显示在右侧。</div>
+            <label>录音转写（审阅模式）</label>
+            <div className="hint">
+              直接修改文字，改动会实时标记：绿色为新增，红色删除线为删去。选中一段后点「添加批注」。
+            </div>
           </div>
           <div className="bank-actions">
-            <button className="btn secondary" onClick={addInlineComment} type="button">
+            {/* Keeps focus on the editor so the selection survives the click. */}
+            <button
+              className="btn secondary"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={addInlineComment}
+              type="button"
+            >
               添加批注
             </button>
             <button
@@ -3071,13 +3080,15 @@ function TranscriptWorkspace({
             </button>
           </div>
         </div>
-        <textarea
-          ref={transcriptRef}
+        <TrackedTextEditor
           className="speaking-transcript-editor"
+          original={originalTranscript}
           value={editedTranscript}
-          onChange={(event) => onTranscriptChange(recordingId, event.target.value)}
+          onChange={(next) => onTranscriptChange(recordingId, next)}
+          onSelectionChange={(selection) => {
+            selectionRef.current = selection;
+          }}
         />
-        <TranscriptDiff original={originalTranscript} edited={editedTranscript} />
       </div>
 
       <aside className="speaking-comment-sidebar">
