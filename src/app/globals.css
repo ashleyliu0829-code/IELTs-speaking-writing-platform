@@ -80,6 +80,10 @@ a {
   padding: 32px 0 64px;
 }
 
+.shell.wide {
+  width: min(80vw, calc(100% - 32px));
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
@@ -786,13 +790,11 @@ audio {
   min-width: 0;
 }
 
-/* Read-only: this is the selection target for adding a note. The editable
-   transcript is the box above, so allowing edits here would give two inputs
-   for the same text. */
-.speaking-review-quote-source {
-  min-height: 120px;
-  background: var(--soft);
-  line-height: 1.7;
+/* Edited here, and the selection here is what a note attaches to. */
+.speaking-transcript-editor {
+  min-height: 220px;
+  line-height: 1.75;
+  font-size: 15px;
 }
 
 .speaking-comment-sidebar {

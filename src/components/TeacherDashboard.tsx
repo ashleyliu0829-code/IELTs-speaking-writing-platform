@@ -675,7 +675,9 @@ export function TeacherDashboard() {
   }
 
   return (
-    <main className="shell">
+    // Grading is the one screen that needs the room: a transcript, its edits
+    // and the notes beside it do not fit the standard column.
+    <main className={teacherSection === "grading" && navLevel === "detail" ? "shell wide" : "shell"}>
       <section className="hero">
         <div>
           <h1>{t("老师工作台", "Teacher dashboard")}</h1>
@@ -2937,26 +2939,16 @@ function RecordingList({
                     </button>
                   </div>
                   {recording.transcript_text ? (
-                    <>
-                      <div>
-                        <label>老师修改后的转写</label>
-                        <textarea
-                          value={editedTranscript}
-                          onChange={(event) => onTranscriptChange(recording.id, event.target.value)}
-                        />
-                      </div>
-                      <div className="bank-actions">
-                        <button
-                          className="btn secondary"
-                          disabled={savingTranscriptId === recording.id}
-                          onClick={() => onTranscriptSave(recording.id, editedTranscript)}
-                          type="button"
-                        >
-                          {savingTranscriptId === recording.id ? "保存中..." : "保存转写修改"}
-                        </button>
-                      </div>
-                      <TranscriptDiff original={recording.transcript_text} edited={editedTranscript} />
-                    </>
+                    <TranscriptWorkspace
+                      recordingId={recording.id}
+                      originalTranscript={recording.transcript_text}
+                      editedTranscript={editedTranscript}
+                      commentValue={comment?.comment || ""}
+                      savingTranscript={savingTranscriptId === recording.id}
+                      onTranscriptChange={onTranscriptChange}
+                      onTranscriptSave={onTranscriptSave}
+                      onCommentChange={(next) => commentIndex >= 0 && updateDetail(commentIndex, { comment: next })}
+                    />
                   ) : (
                     <p className="hint">还没有转写。</p>
                   )}
@@ -2987,11 +2979,20 @@ function RecordingList({
               </div>
             )}
             {comment && (
-              <SpeakingCommentEditor
-                commentValue={comment.comment}
-                transcript={editedTranscript}
-                onChange={(next) => updateDetail(commentIndex, { comment: next })}
-              />
+              <div className="inline-comment">
+                <label>本题整体点评</label>
+                <textarea
+                  value={parseReviewComment(comment.comment).general}
+                  onChange={(event) =>
+                    updateDetail(commentIndex, {
+                      comment: stringifyReviewComment({
+                        ...parseReviewComment(comment.comment),
+                        general: event.target.value
+                      })
+                    })
+                  }
+                />
+              </div>
             )}
           </article>
         );
@@ -3001,30 +3002,44 @@ function RecordingList({
 }
 
 /**
- * Per-question feedback: a general comment plus notes anchored to a passage of
- * the transcript, the same shape used for written answers.
+ * The transcript and the notes on it, side by side.
+ *
+ * One textarea serves both jobs: the teacher edits the transcript in it, and
+ * selecting a passage there is what a note attaches to. An earlier version had
+ * a separate read-only copy to select from, which meant the same text appeared
+ * twice and only one copy was editable.
  */
-function SpeakingCommentEditor({
+function TranscriptWorkspace({
+  recordingId,
+  originalTranscript,
+  editedTranscript,
   commentValue,
-  transcript,
-  onChange
+  savingTranscript,
+  onTranscriptChange,
+  onTranscriptSave,
+  onCommentChange
 }: {
+  recordingId: string;
+  originalTranscript: string;
+  editedTranscript: string;
   commentValue: string;
-  transcript: string;
-  onChange: (value: string) => void;
+  savingTranscript: boolean;
+  onTranscriptChange: (recordingId: string, value: string) => void;
+  onTranscriptSave: (recordingId: string, value: string) => void;
+  onCommentChange: (value: string) => void;
 }) {
   const transcriptRef = useRef<HTMLTextAreaElement | null>(null);
   const review = parseReviewComment(commentValue);
 
   function update(patch: Partial<ReviewComment>) {
-    onChange(stringifyReviewComment({ ...review, ...patch }));
+    onCommentChange(stringifyReviewComment({ ...review, ...patch }));
   }
 
   function addInlineComment() {
     const textarea = transcriptRef.current;
-    const selection = textarea ? transcript.slice(textarea.selectionStart, textarea.selectionEnd).trim() : "";
+    const selection = textarea ? editedTranscript.slice(textarea.selectionStart, textarea.selectionEnd).trim() : "";
     if (!selection) {
-      window.alert("请先在下方转写里选中要批注的文字。");
+      window.alert("请先在转写里选中要批注的文字。");
       return;
     }
     const note = window.prompt(`批注「${selection.slice(0, 40)}${selection.length > 40 ? "..." : ""}」：`);
@@ -3039,27 +3054,30 @@ function SpeakingCommentEditor({
       <div className="speaking-review-main">
         <div className="section-head compact">
           <div>
-            <label>本题点评</label>
-            <div className="hint">在下方转写中选中文字后点「添加批注」，批注会显示在右侧。</div>
+            <label>老师修改后的转写</label>
+            <div className="hint">可以直接修改文字；选中一段后点「添加批注」，批注会显示在右侧。</div>
           </div>
-          <button className="btn secondary" onClick={addInlineComment} type="button">
-            添加批注
-          </button>
+          <div className="bank-actions">
+            <button className="btn secondary" onClick={addInlineComment} type="button">
+              添加批注
+            </button>
+            <button
+              className="btn secondary"
+              disabled={savingTranscript}
+              onClick={() => onTranscriptSave(recordingId, editedTranscript)}
+              type="button"
+            >
+              {savingTranscript ? "保存中..." : "保存转写修改"}
+            </button>
+          </div>
         </div>
-        {/* A read-only copy of the transcript purely as the selection target;
-            editing still happens in the transcript box above. */}
         <textarea
           ref={transcriptRef}
-          className="speaking-review-quote-source"
-          readOnly
-          value={transcript}
-          placeholder="生成转写后可以在这里选中文字添加批注。"
+          className="speaking-transcript-editor"
+          value={editedTranscript}
+          onChange={(event) => onTranscriptChange(recordingId, event.target.value)}
         />
-        <textarea
-          value={review.general}
-          placeholder="整体点评"
-          onChange={(event) => update({ general: event.target.value })}
-        />
+        <TranscriptDiff original={originalTranscript} edited={editedTranscript} />
       </div>
 
       <aside className="speaking-comment-sidebar">
@@ -3093,7 +3111,7 @@ function SpeakingCommentEditor({
             </div>
           ))
         ) : (
-          <p className="hint">还没有批注。</p>
+          <p className="hint">在左侧转写里选中文字即可添加批注。</p>
         )}
       </aside>
     </div>
