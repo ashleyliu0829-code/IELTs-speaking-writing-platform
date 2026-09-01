@@ -843,9 +843,22 @@ audio {
 
 .grading-finder-controls {
   display: grid;
-  grid-template-columns: auto minmax(220px, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: end;
+}
+
+/* Assignments scroll sideways here rather than stacking: the list is long, and
+   a column of them would push the grading area far down the page. */
+.assignment-row-list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.assignment-row-list .compact-assignment-row {
+  flex: 0 0 260px;
 }
 
 .grading-finder-count {

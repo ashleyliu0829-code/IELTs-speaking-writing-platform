@@ -1059,9 +1059,7 @@ export function TeacherDashboard() {
                   {t("按学生查找", "By student")}
                 </button>
               </div>
-              {gradingMode === "assignment" ? (
-                <AssignmentPicker value={selectedId} assignments={areaAssignments} onChange={selectAssignment} compact />
-              ) : (
+              {gradingMode === "student" && (
                 <div>
                   <label>{t("学生", "Student")}</label>
                   <select
@@ -1083,6 +1081,14 @@ export function TeacherDashboard() {
                 <span className="pill">{submissions.length}</span>
               </div>
             </div>
+            {gradingMode === "assignment" && (
+              <AssignmentPicker
+                value={selectedId}
+                assignments={areaAssignments}
+                onChange={selectAssignment}
+                layout="row"
+              />
+            )}
             {submissions.length === 0 ? (
               <p className="hint">{t("还没有提交记录。", "No submissions yet.")}</p>
             ) : (
@@ -1566,20 +1572,25 @@ function AssignmentPicker({
   value,
   assignments,
   onChange,
-  compact = false
+  compact = false,
+  layout = "list"
 }: {
   value: string;
   assignments: Assignment[];
   onChange: (id: string) => void;
   compact?: boolean;
+  /** "row" scrolls sideways, for use above the content rather than beside it. */
+  layout?: "list" | "row";
 }) {
   if (!assignments.length) return <p className="hint">还没有保存过作业。</p>;
 
+  const containerClass = layout === "row" ? "assignment-row-list" : compact ? "compact-assignment-list" : "stack";
+
   return (
-    <div className={compact ? "compact-assignment-list" : "stack"}>
+    <div className={containerClass}>
       {assignments.map((assignment) => (
         <button
-          className={`${compact ? "compact-assignment-row" : "submission-row"} ${assignment.id === value ? "active" : ""}`}
+          className={`${compact || layout === "row" ? "compact-assignment-row" : "submission-row"} ${assignment.id === value ? "active" : ""}`}
           key={assignment.id}
           onClick={() => onChange(assignment.id)}
           type="button"
