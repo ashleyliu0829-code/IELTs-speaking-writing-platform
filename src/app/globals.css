@@ -2335,3 +2335,31 @@ audio {
     display: grid;
   }
 }
+
+/* Student view of a graded question: the transcript the teacher marked up,
+   with their notes beside it. Same shape as the teacher's editor, read only. */
+.student-review-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  align-items: start;
+}
+
+.student-review-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.student-comment-sidebar {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .student-review-workspace {
+    grid-template-columns: 1fr;
+  }
+}

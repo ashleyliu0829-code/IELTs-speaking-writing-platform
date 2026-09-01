@@ -5,7 +5,7 @@ import type { Assignment, Feedback, FeedbackDetail, QuestionItem, Recording, Sub
 import { questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
-import { TranscriptDiff } from "@/components/TranscriptDiff";
+import { TrackedText, TranscriptDiff } from "@/components/TranscriptDiff";
 import { parseReviewComment } from "@/lib/reviewComments";
 
 type LocalRecording = {
@@ -1089,6 +1089,12 @@ function LatestAssignmentView({
 
   return (
     <>
+      {/* Feedback first once it exists: it is what the student came back for,
+          and it used to sit below every recording. */}
+      {publishedFeedback && (
+        <PublishedFeedback feedback={publishedFeedback} recordings={Object.values(savedRecordings)} />
+      )}
+
       <PartBlock title="Part 1" hint="建议每题回答 20-40 秒。" progress={`${p1Count}/${assignment.p1_questions.length}`}>
         {items
           .filter((item) => item.part === "p1")
@@ -1153,8 +1159,6 @@ function LatestAssignmentView({
             />
           ))}
       </PartBlock>
-
-      {publishedFeedback && <PublishedFeedback feedback={publishedFeedback} />}
     </>
   );
 }
@@ -1337,6 +1341,9 @@ function HistoryCard({ submission, current }: { submission: Submission; current:
           {feedback?.published_at ? "已批改" : current ? "当前作业" : "已提交"}
         </span>
       </summary>
+      {feedback?.published_at && (
+        <PublishedFeedback feedback={feedback} recordings={submission.recordings || []} compact />
+      )}
       <div className="stack">
         {isWriting
           ? (submission.writing_responses || []).map((response) => (
@@ -1357,7 +1364,7 @@ function HistoryCard({ submission, current }: { submission: Submission; current:
               />
             ))}
       </div>
-      {feedback?.published_at ? <PublishedFeedback feedback={feedback} compact /> : <p className="hint">老师还没有发布反馈。</p>}
+      {!feedback?.published_at && <p className="hint">老师还没有发布反馈。</p>}
     </details>
   );
 }
@@ -1469,9 +1476,19 @@ function SpeakingCommentView({ value }: { value: string }) {
   );
 }
 
-function PublishedFeedback({ feedback, compact = false }: { feedback: Feedback; compact?: boolean }) {
+function PublishedFeedback({
+  feedback,
+  recordings = [],
+  compact = false
+}: {
+  feedback: Feedback;
+  /** Lets each comment show the transcript it refers to, as the teacher saw it. */
+  recordings?: Recording[];
+  compact?: boolean;
+}) {
   const scores = scoreDetails(feedback.details || []);
   const comments = questionCommentDetails(feedback.details || []);
+  const recordingsByKey = new Map(recordings.map((recording) => [recording.question_key, recording]));
   return (
     <article className={`${compact ? "feedback-compact" : "card"} stack`}>
       <div className="section-head">
@@ -1502,15 +1519,55 @@ function PublishedFeedback({ feedback, compact = false }: { feedback: Feedback; 
       </div>
       <div className="stack">
         <label>逐题点评</label>
-        {comments.map((detail: FeedbackDetail) => (
-          <article className="detail-item" key={detail.part}>
-            <div>
-              <div className="hint">{detail.label}</div>
-              <div className="question-title">{detail.question}</div>
-            </div>
-            <p className="hint">{detail.comment || "暂无点评。"}</p>
-          </article>
-        ))}
+        {comments.map((detail: FeedbackDetail) => {
+          // Comment parts are keyed "comment:<question_key>".
+          const questionKey = detail.part.replace(/^comment:/, "");
+          const recording = recordingsByKey.get(questionKey);
+          const review = parseReviewComment(detail.comment);
+
+          return (
+            <article className="detail-item" key={detail.part}>
+              <div>
+                <div className="hint">{detail.label}</div>
+                <div className="question-title">{detail.question}</div>
+              </div>
+
+              {recording?.transcript_text ? (
+                <div className="student-review-workspace">
+                  <div className="student-review-main">
+                    <div className="hint">老师修改后的转写（绿色为新增，红色删除线为删去）</div>
+                    <div className="tracked-text">
+                      <TrackedText
+                        original={recording.transcript_text}
+                        edited={recording.corrected_transcript_text || recording.transcript_text}
+                      />
+                    </div>
+                  </div>
+                  {review.inlineComments.length ? (
+                    <aside className="student-comment-sidebar">
+                      <div className="hint">批注 {review.inlineComments.length}</div>
+                      {review.inlineComments.map((item) => (
+                        <div className="inline-comment-card" key={item.id}>
+                          <blockquote>{item.quote}</blockquote>
+                          <p className="hint">{item.comment}</p>
+                        </div>
+                      ))}
+                    </aside>
+                  ) : null}
+                </div>
+              ) : (
+                review.inlineComments.map((item) => (
+                  <div className="inline-comment-card" key={item.id}>
+                    <blockquote>{item.quote}</blockquote>
+                    <p className="hint">{item.comment}</p>
+                  </div>
+                ))
+              )}
+
+              <p className="hint">{review.general || "暂无点评。"}</p>
+            </article>
+          );
+        })}
       </div>
     </article>
   );
