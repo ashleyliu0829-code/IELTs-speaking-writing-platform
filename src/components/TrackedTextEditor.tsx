@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { diffTokens } from "@/lib/textDiff";
 
 /**
@@ -8,16 +8,19 @@ import { diffTokens } from "@/lib/textDiff";
  *
  * A textarea cannot do this: it renders one flat string with no styling, so
  * showing insertions and deletions meant a second box repeating the same text.
- * This is a contentEditable surface that re-renders the diff against the
- * original after every keystroke.
  *
- * Deleted words stay visible, struck through, and are marked
- * contentEditable={false} so they behave as marks rather than as text the
- * teacher can put a cursor inside. Everything else is live.
+ * React must not render the contents. Typing and deleting mutate the DOM
+ * directly, so React's tree and the real DOM diverge and the next reconcile
+ * throws "removeChild: node to be removed is not a child of this node". The
+ * host element is therefore rendered empty and its markup written here by hand;
+ * React only ever sees an empty div.
  *
- * The caret is tracked in coordinates of the *edited* text, not of what is on
- * screen, since the deletions on screen are not part of the value. Without that
- * mapping the cursor jumps to the start on every re-render.
+ * Deleted words stay visible, struck through, and are contentEditable={false}
+ * so the caret cannot land inside text that is no longer part of the value.
+ *
+ * The caret is tracked in coordinates of the *edited* text rather than of what
+ * is on screen, since the deletions on screen are not in the value. Without
+ * that mapping the cursor jumps to the start on every keystroke.
  */
 export function TrackedTextEditor({
   original,
@@ -35,28 +38,26 @@ export function TrackedTextEditor({
   placeholder?: string;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const caretRef = useRef<number | null>(null);
+  // An IME shows uncommitted text in the element. Rewriting the markup mid
+  // composition cancels it, so both the rewrite and onChange wait for commit.
+  const composingRef = useRef(false);
 
-  const parts = diffTokens(original || "", value || "");
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const host = hostRef.current;
-    if (!host || caretRef.current === null) return;
-    setCaret(host, caretRef.current);
-    caretRef.current = null;
-  });
+    if (!host || composingRef.current) return;
 
-  function readValue() {
-    const host = hostRef.current;
-    if (!host) return "";
-    return collectEditableText(host);
-  }
+    const html = buildHtml(original, value);
+    if (host.innerHTML === html) return;
 
-  function handleInput() {
+    const focused = document.activeElement === host;
+    const caret = focused ? getCaret(host) : null;
+    host.innerHTML = html;
+    if (caret !== null) setCaret(host, caret);
+  }, [original, value]);
+
+  function emitChange() {
     const host = hostRef.current;
-    if (!host) return;
-    caretRef.current = getCaret(host);
-    onChange(readValue());
+    if (host) onChange(collectEditableText(host));
   }
 
   function reportSelection() {
@@ -81,32 +82,54 @@ export function TrackedTextEditor({
       role="textbox"
       aria-multiline="true"
       data-placeholder={placeholder}
-      onInput={handleInput}
+      onInput={() => {
+        if (!composingRef.current) emitChange();
+      }}
+      onCompositionStart={() => {
+        composingRef.current = true;
+      }}
+      onCompositionEnd={() => {
+        composingRef.current = false;
+        emitChange();
+      }}
       onKeyUp={reportSelection}
       onMouseUp={reportSelection}
-    >
-      {parts.map((part, index) => {
-        if (part.type === "removed") {
-          return (
-            <del key={index} contentEditable={false}>
-              {part.text}
-            </del>
-          );
-        }
-        if (part.type === "added") return <ins key={index}>{part.text}</ins>;
-        return <span key={index}>{part.text}</span>;
-      })}
-    </div>
+    />
   );
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Transcript text is student content, so every part is escaped. */
+function buildHtml(original: string, edited: string) {
+  return diffTokens(original || "", edited || "")
+    .map((part) => {
+      const text = escapeHtml(part.text);
+      if (part.type === "removed") return `<del contenteditable="false">${text}</del>`;
+      if (part.type === "added") return `<ins>${text}</ins>`;
+      return `<span>${text}</span>`;
+    })
+    .join("");
 }
 
 /** Text the teacher has actually written: everything except the deletions. */
 function collectEditableText(host: HTMLElement) {
   let text = "";
-  for (const node of Array.from(host.childNodes)) {
-    if (node.nodeName === "DEL") continue;
-    text += node.textContent || "";
-  }
+  const walk = (node: Node) => {
+    if (node.nodeName === "DEL") return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += node.textContent || "";
+      return;
+    }
+    for (const child of Array.from(node.childNodes)) walk(child);
+  };
+  for (const child of Array.from(host.childNodes)) walk(child);
   return text;
 }
 
@@ -125,8 +148,16 @@ function offsetOf(host: HTMLElement, container: Node, containerOffset: number) {
 
   const walk = (node: Node) => {
     if (found) return;
-    if (node === container && node.nodeType === Node.TEXT_NODE) {
-      offset += containerOffset;
+    if (node === container) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        offset += containerOffset;
+      } else {
+        // An element container: the offset counts child nodes, not characters.
+        for (let index = 0; index < containerOffset && index < node.childNodes.length; index += 1) {
+          const child = node.childNodes[index];
+          if (child.nodeName !== "DEL") offset += child.textContent?.length || 0;
+        }
+      }
       found = true;
       return;
     }
@@ -139,7 +170,6 @@ function offsetOf(host: HTMLElement, container: Node, containerOffset: number) {
       walk(child);
       if (found) return;
     }
-    if (node === container) found = true;
   };
 
   for (const child of Array.from(host.childNodes)) {
@@ -182,9 +212,9 @@ function setCaret(host: HTMLElement, target: number) {
   const range = document.createRange();
 
   if (node) {
-    range.setStart(node, Math.min(nodeOffset, (node as Text).textContent?.length || 0));
+    const text = node as Text;
+    range.setStart(text, Math.min(nodeOffset, text.textContent?.length || 0));
   } else {
-    // Past the end, or nothing editable yet.
     range.selectNodeContents(host);
     range.collapse(false);
   }
