@@ -2363,3 +2363,52 @@ audio {
     grid-template-columns: 1fr;
   }
 }
+
+/* Student controls run across the top, matching the teacher's grading page,
+   so the homework and the feedback below use the full width. */
+.student-panel-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+}
+
+.student-panel-group {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.student-panel-group h2 {
+  white-space: nowrap;
+}
+
+.student-panel-bar .view-switch {
+  grid-template-columns: auto auto;
+}
+
+.student-panel-bar .btn {
+  white-space: nowrap;
+}
+
+/* Pushed to its own line only when there is no room, rather than squeezing
+   the status pills. */
+.student-panel-hint {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.student-panel-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.student-panel-bar .practice-save-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}

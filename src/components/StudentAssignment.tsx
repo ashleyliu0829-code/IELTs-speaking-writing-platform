@@ -731,22 +731,27 @@ export function StudentAssignment({
         </button>
       </section>
 
-      <section className="grid">
-        <aside className="panel stack">
-          <h2>{activeAreaIsWriting ? "写作面板" : "口语面板"}</h2>
-          <div className="view-switch">
-            <button className={`btn ${view === "latest" ? "" : "secondary"}`} type="button" onClick={() => setView("latest")}>
-              {LABEL_LATEST}
-            </button>
-            <button className={`btn ${view === "history" ? "" : "secondary"}`} disabled={!studentName.trim() || historyLoading} onClick={openHistory} type="button">
-              {historyLoading ? "加载中..." : LABEL_HISTORY}
-            </button>
+      {/* The panel runs across the top so the homework and the teacher's
+          feedback below it get the full width. */}
+      <section className="single-column">
+        <aside className="panel student-panel-bar">
+          <div className="student-panel-group">
+            <h2>{activeAreaIsWriting ? "写作面板" : "口语面板"}</h2>
+            <div className="view-switch">
+              <button className={`btn ${view === "latest" ? "" : "secondary"}`} type="button" onClick={() => setView("latest")}>
+                {LABEL_LATEST}
+              </button>
+              <button className={`btn ${view === "history" ? "" : "secondary"}`} disabled={!studentName.trim() || historyLoading} onClick={openHistory} type="button">
+                {historyLoading ? "加载中..." : LABEL_HISTORY}
+              </button>
+            </div>
           </div>
-          <p className="hint">
+          <p className="hint student-panel-hint">
             {activeAreaIsWriting
               ? "请在任务框内写作。你可以先保存单个任务，下次打开后继续修改。"
               : "Part 1 和 Part 3 按题录音。Part 2 录制一段完整回答。保存前可以删除并重新录制。"}
           </p>
+          <div className="student-panel-status">
           {isCurrentAreaAssignment ? (
             <>
               <span className="pill">
@@ -765,6 +770,7 @@ export function StudentAssignment({
           ) : (
             <span className="pill">请在下方打开一项{activeAreaIsWriting ? "写作" : "口语"}作业</span>
           )}
+          </div>
           {message && <p className={message.includes("failed") ? "error" : "hint"}>{message}</p>}
           {isCurrentAreaAssignment ? (
             isWriting ? (
