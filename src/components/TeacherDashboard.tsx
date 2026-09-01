@@ -11,7 +11,7 @@ import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { TeacherDailyTasksPanel } from "@/components/DailyTasks";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
-import { parseWritingReviewComment, stringifyWritingReviewComment, type WritingInlineComment } from "@/lib/writingReview";
+import { newInlineCommentId, parseReviewComment, stringifyReviewComment, type InlineComment, type ReviewComment } from "@/lib/reviewComments";
 import homeworkIcon from "../../public/icons/workspace-homework.png";
 import lessonSchedulingIcon from "../../public/icons/workspace-lesson-scheduling.png";
 import dailyTasksIcon from "../../public/icons/workspace-daily-tasks.png";
@@ -1022,9 +1022,9 @@ export function TeacherDashboard() {
       )}
 
       {hasTeacherAccess && navLevel === "detail" && teacherSection === "grading" && (
-        <section className={isWritingGradingDetail ? "single-column" : activeArea === "writing" ? "single-column grading-finder-page" : "grid"}>
+        <section className={isWritingGradingDetail ? "single-column" : "single-column grading-finder-page"}>
           {!isWritingGradingDetail && (
-          <aside className="panel stack">
+          <aside className="panel grading-finder-bar">
             <div className="section-head">
               <div>
                 <h2>{t("待批改作业", "Submissions")}</h2>
@@ -1039,65 +1039,71 @@ export function TeacherDashboard() {
                 {t("刷新", "Refresh")}
               </button>
             </div>
-            <div className="segmented">
-              <button
-                className={`btn ${gradingMode === "assignment" ? "" : "secondary"}`}
-                type="button"
-                onClick={() => setGradingMode("assignment")}
-              >
-                {t("按作业查找", "By homework")}
-              </button>
-              <button
-                className={`btn ${gradingMode === "student" ? "" : "secondary"}`}
-                type="button"
-                onClick={() => setGradingMode("student")}
-              >
-                {t("按学生查找", "By student")}
-              </button>
-            </div>
-            {gradingMode === "assignment" ? (
-              <AssignmentPicker value={selectedId} assignments={areaAssignments} onChange={selectAssignment} />
-            ) : (
-              <div className="stack">
-                <label>{t("学生", "Student")}</label>
-                <select
-                  value={gradingStudentName}
-                  onChange={(event) => void loadSubmissionsByStudent(event.target.value)}
+            <div className="grading-finder-controls">
+              <div className="segmented">
+                <button
+                  className={`btn ${gradingMode === "assignment" ? "" : "secondary"}`}
+                  type="button"
+                  onClick={() => setGradingMode("assignment")}
                 >
-                  <option value="">{t("选择学生", "Choose student")}</option>
-                  {students.map((student) => (
-                    <option key={student.id} value={student.name}>
-                      {student.name}
-                    </option>
-                  ))}
-                </select>
-                {!students.length && <p className="hint">{t("还没有学生档案。", "No student profiles yet.")}</p>}
+                  {t("按作业查找", "By homework")}
+                </button>
+                <button
+                  className={`btn ${gradingMode === "student" ? "" : "secondary"}`}
+                  type="button"
+                  onClick={() => setGradingMode("student")}
+                >
+                  {t("按学生查找", "By student")}
+                </button>
               </div>
-            )}
-            <div className="section-head compact">
-              <h3>{t("提交记录", "Submissions")}</h3>
-              <span className="pill">{submissions.length}</span>
+              {gradingMode === "assignment" ? (
+                <AssignmentPicker value={selectedId} assignments={areaAssignments} onChange={selectAssignment} compact />
+              ) : (
+                <div>
+                  <label>{t("学生", "Student")}</label>
+                  <select
+                    value={gradingStudentName}
+                    onChange={(event) => void loadSubmissionsByStudent(event.target.value)}
+                  >
+                    <option value="">{t("选择学生", "Choose student")}</option>
+                    {students.map((student) => (
+                      <option key={student.id} value={student.name}>
+                        {student.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!students.length && <p className="hint">{t("还没有学生档案。", "No student profiles yet.")}</p>}
+                </div>
+              )}
+              <div className="grading-finder-count">
+                <label>{t("提交记录", "Submissions")}</label>
+                <span className="pill">{submissions.length}</span>
+              </div>
             </div>
             {submissions.length === 0 ? (
               <p className="hint">{t("还没有提交记录。", "No submissions yet.")}</p>
             ) : (
-              submissions.map((submission) => (
-                <button
-                  className={`submission-row ${submission.id === selectedSubmissionId ? "active" : ""}`}
-                  key={submission.id}
-                  onClick={() => selectSubmission(submission.id)}
-                  type="button"
-                >
-                  <strong>{submission.student_name}</strong>
-                  <span>{submission.submission_title || submissionTitle(submission)}</span>
-                  <SpeakingTopicLine submission={submission} />
-                  <WritingTopicLine submission={submission} />
-                  <span className="hint">{new Date(submission.submitted_at).toLocaleString("zh-CN")}</span>
-                  <span className={`pill ${hasPublishedFeedback(submission) ? "ok" : "warn"}`}>
-                    {hasPublishedFeedback(submission) ? t("已发布", "Published") : submission.feedback ? t("草稿", "Draft") : t("未批改", "Not reviewed")}
-                  </span>
-                </button>
-              ))
+              // A scrolling row rather than a column, so the grading area below
+              // gets the full width of the page.
+              <div className="grading-finder-list">
+                {submissions.map((submission) => (
+                  <button
+                    className={`submission-row ${submission.id === selectedSubmissionId ? "active" : ""}`}
+                    key={submission.id}
+                    onClick={() => selectSubmission(submission.id)}
+                    type="button"
+                  >
+                    <strong>{submission.student_name}</strong>
+                    <span>{submission.submission_title || submissionTitle(submission)}</span>
+                    <SpeakingTopicLine submission={submission} />
+                    <WritingTopicLine submission={submission} />
+                    <span className="hint">{new Date(submission.submitted_at).toLocaleString("zh-CN")}</span>
+                    <span className={`pill ${hasPublishedFeedback(submission) ? "ok" : "warn"}`}>
+                      {hasPublishedFeedback(submission) ? t("已发布", "Published") : submission.feedback ? t("草稿", "Draft") : t("未批改", "Not reviewed")}
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
           </aside>
           )}
@@ -2981,17 +2987,115 @@ function RecordingList({
               </div>
             )}
             {comment && (
-              <div className="inline-comment">
-                <label>本题点评</label>
-                <textarea
-                  value={comment.comment}
-                  onChange={(event) => updateDetail(commentIndex, { comment: event.target.value })}
-                />
-              </div>
+              <SpeakingCommentEditor
+                commentValue={comment.comment}
+                transcript={editedTranscript}
+                onChange={(next) => updateDetail(commentIndex, { comment: next })}
+              />
             )}
           </article>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Per-question feedback: a general comment plus notes anchored to a passage of
+ * the transcript, the same shape used for written answers.
+ */
+function SpeakingCommentEditor({
+  commentValue,
+  transcript,
+  onChange
+}: {
+  commentValue: string;
+  transcript: string;
+  onChange: (value: string) => void;
+}) {
+  const transcriptRef = useRef<HTMLTextAreaElement | null>(null);
+  const review = parseReviewComment(commentValue);
+
+  function update(patch: Partial<ReviewComment>) {
+    onChange(stringifyReviewComment({ ...review, ...patch }));
+  }
+
+  function addInlineComment() {
+    const textarea = transcriptRef.current;
+    const selection = textarea ? transcript.slice(textarea.selectionStart, textarea.selectionEnd).trim() : "";
+    if (!selection) {
+      window.alert("请先在下方转写里选中要批注的文字。");
+      return;
+    }
+    const note = window.prompt(`批注「${selection.slice(0, 40)}${selection.length > 40 ? "..." : ""}」：`);
+    if (!note?.trim()) return;
+    update({
+      inlineComments: [...review.inlineComments, { id: newInlineCommentId(), quote: selection, comment: note.trim() }]
+    });
+  }
+
+  return (
+    <div className="speaking-review-workspace">
+      <div className="speaking-review-main">
+        <div className="section-head compact">
+          <div>
+            <label>本题点评</label>
+            <div className="hint">在下方转写中选中文字后点「添加批注」，批注会显示在右侧。</div>
+          </div>
+          <button className="btn secondary" onClick={addInlineComment} type="button">
+            添加批注
+          </button>
+        </div>
+        {/* A read-only copy of the transcript purely as the selection target;
+            editing still happens in the transcript box above. */}
+        <textarea
+          ref={transcriptRef}
+          className="speaking-review-quote-source"
+          readOnly
+          value={transcript}
+          placeholder="生成转写后可以在这里选中文字添加批注。"
+        />
+        <textarea
+          value={review.general}
+          placeholder="整体点评"
+          onChange={(event) => update({ general: event.target.value })}
+        />
+      </div>
+
+      <aside className="speaking-comment-sidebar">
+        <div className="section-head compact">
+          <label>批注</label>
+          <span className="pill">{review.inlineComments.length}</span>
+        </div>
+        {review.inlineComments.length ? (
+          review.inlineComments.map((item) => (
+            <div className="inline-comment-card" key={item.id}>
+              <blockquote>{item.quote}</blockquote>
+              <textarea
+                value={item.comment}
+                onChange={(event) =>
+                  update({
+                    inlineComments: review.inlineComments.map((existing) =>
+                      existing.id === item.id ? { ...existing, comment: event.target.value } : existing
+                    )
+                  })
+                }
+              />
+              <button
+                className="btn link"
+                type="button"
+                onClick={() =>
+                  update({ inlineComments: review.inlineComments.filter((existing) => existing.id !== item.id) })
+                }
+              >
+                删除
+              </button>
+            </div>
+          ))
+        ) : (
+          <p className="hint">还没有批注。</p>
+        )}
+      </aside>
     </div>
   );
 }
@@ -3238,12 +3342,12 @@ function WritingReviewEditor({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const editedText = response.teacher_revision_text || response.response_text || "";
-  const reviewComment = parseWritingReviewComment(commentValue);
+  const reviewComment = parseReviewComment(commentValue);
 
-  function updateReviewComment(patch: Partial<{ general: string; inlineComments: WritingInlineComment[] }>) {
+  function updateReviewComment(patch: Partial<{ general: string; inlineComments: InlineComment[] }>) {
     if (commentIndex < 0) return;
     updateDetail(commentIndex, {
-      comment: stringifyWritingReviewComment({
+      comment: stringifyReviewComment({
         ...reviewComment,
         ...patch
       })
@@ -3274,7 +3378,7 @@ function WritingReviewEditor({
     });
   }
 
-  function updateInlineComment(id: string, patch: Partial<WritingInlineComment>) {
+  function updateInlineComment(id: string, patch: Partial<InlineComment>) {
     updateReviewComment({
       inlineComments: reviewComment.inlineComments.map((item) => (item.id === id ? { ...item, ...patch } : item))
     });

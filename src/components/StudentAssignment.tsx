@@ -6,7 +6,7 @@ import { questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
-import { parseWritingReviewComment } from "@/lib/writingReview";
+import { parseReviewComment } from "@/lib/reviewComments";
 
 type LocalRecording = {
   blob: Blob;
@@ -1376,7 +1376,7 @@ function HistoryWritingResponse({
   const editedText = response.teacher_revision_text || response.response_text || "";
   const comments = feedback?.published_at ? questionCommentDetails(feedback.details || []) : [];
   const comment = comments.find((detail) => detail.part === `comment:${response.task_key}`);
-  const reviewComment = parseWritingReviewComment(comment?.comment || "");
+  const reviewComment = parseReviewComment(comment?.comment || "");
 
   return (
     <div className="history-recording">
@@ -1441,12 +1441,30 @@ function HistoryRecording({
           <p className="hint">你可以把它作为参考答案，再回到最新作业页面重新录制这一题。</p>
         </div>
       )}
-      {comment && (
-        <div className="inline-comment">
-          <label>老师对这一题的点评</label>
-          <p className="hint">{comment.comment || "暂无点评。"}</p>
+      {comment && <SpeakingCommentView value={comment.comment} />}
+    </div>
+  );
+}
+
+/** The teacher's comment on one question, plus any notes tied to a passage. */
+function SpeakingCommentView({ value }: { value: string }) {
+  const review = parseReviewComment(value);
+
+  return (
+    <div className="inline-comment">
+      <label>老师对这一题的点评</label>
+      <p className="hint">{review.general || "暂无点评。"}</p>
+      {review.inlineComments.length ? (
+        <div className="writing-comment-list">
+          {review.inlineComments.map((item, index) => (
+            <div className="writing-comment-bubble" key={item.id}>
+              <div className="comment-anchor">批注 {index + 1}</div>
+              <blockquote>{item.quote}</blockquote>
+              <p className="hint">{item.comment}</p>
+            </div>
+          ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -770,11 +770,90 @@ audio {
   background: #fbfcfc;
 }
 
-.writing-review-workspace {
+.writing-review-workspace,
+/* Speaking questions get the same two-column shape: the passage on the left,
+   the notes anchored to it on the right. */
+.speaking-review-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 16px;
   align-items: start;
+}
+
+.speaking-review-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Read-only: this is the selection target for adding a note. The editable
+   transcript is the box above, so allowing edits here would give two inputs
+   for the same text. */
+.speaking-review-quote-source {
+  min-height: 120px;
+  background: var(--soft);
+  line-height: 1.7;
+}
+
+.speaking-comment-sidebar {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.inline-comment-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #c5d1ff;
+  border-radius: 8px;
+  background: #eef2ff;
+}
+
+.inline-comment-card blockquote {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 3px solid #8ea2ff;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inline-comment-card textarea {
+  min-height: 64px;
+}
+
+/* Grading finder sits above the grading area rather than beside it, so the
+   review itself can use the full width of the page. */
+.grading-finder-bar {
+  display: grid;
+  gap: 12px;
+}
+
+.grading-finder-controls {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.grading-finder-count {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.grading-finder-list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.grading-finder-list .submission-row {
+  flex: 0 0 240px;
 }
 
 .writing-review-main {
@@ -2093,7 +2172,9 @@ audio {
   }
 
   .daily-history-layout,
-  .schedule-layout {
+  .schedule-layout,
+  .speaking-review-workspace,
+  .grading-finder-controls {
     grid-template-columns: 1fr;
   }
 
