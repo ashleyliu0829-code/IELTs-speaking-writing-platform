@@ -38,7 +38,10 @@ const trialLimits: UsageLimits = {
  * the operator a running spend estimate. Update alongside vendor pricing.
  */
 const unitCostMicros = {
-  asrSecond: 1667, // Tencent ASR, ~0.1 CNY/minute
+  // Tencent recording file recognition, standard version: USD 1.00 per hour in
+  // the 0-299 hours/day tier, converted at 7.1 CNY to the dollar. Revisit if
+  // the rate moves or daily volume reaches a cheaper tier.
+  asrSecond: 1972,
   openAiToken: 3, // gpt-4.1-mini blended prompt+completion
   storedByte: 0.02 // Supabase storage, monthly
 };
