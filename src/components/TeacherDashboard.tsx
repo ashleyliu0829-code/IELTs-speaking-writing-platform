@@ -676,9 +676,7 @@ export function TeacherDashboard() {
   }
 
   return (
-    // Grading is the one screen that needs the room: a transcript, its edits
-    // and the notes beside it do not fit the standard column.
-    <main className={teacherSection === "grading" && navLevel === "detail" ? "shell wide" : "shell"}>
+    <main className="shell">
       <section className="hero">
         <div>
           <h1>{t("老师工作台", "Teacher dashboard")}</h1>

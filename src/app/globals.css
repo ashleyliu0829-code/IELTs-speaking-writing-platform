@@ -80,12 +80,6 @@ a {
   padding: 32px 0 64px;
 }
 
-/* Uses the window rather than a fixed column. 80vw would be *narrower* than
-   the 1180px default on any window under about 1475px, which is most of them. */
-.shell.wide {
-  width: min(1720px, calc(100% - 32px));
-}
-
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
