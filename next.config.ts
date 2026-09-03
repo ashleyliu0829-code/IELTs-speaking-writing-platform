@@ -16,7 +16,8 @@ export default withSentryConfig(nextConfig, {
   // Uploading source maps needs SENTRY_AUTH_TOKEN; without one the build should
   // still succeed rather than fail a deploy over telemetry.
   silent: !process.env.CI,
-  disableLogger: true,
+  // Strips Sentry's own debug logging from the client bundle.
+  webpack: { treeshake: { removeDebugLogging: true } },
   sourcemaps: {
     disable: !process.env.SENTRY_AUTH_TOKEN
   }
