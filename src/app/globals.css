@@ -2406,3 +2406,44 @@ audio {
   gap: 10px;
   margin-left: auto;
 }
+
+/* Usage meters on the teacher workspace page. */
+.usage-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.usage-meter {
+  display: grid;
+  gap: 6px;
+}
+
+.usage-meter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.usage-meter-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.usage-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ok);
+  transition: width .2s ease;
+}
+
+.usage-meter-fill.warn {
+  background: var(--warn);
+}
+
+.usage-meter-fill.danger {
+  background: var(--danger);
+}

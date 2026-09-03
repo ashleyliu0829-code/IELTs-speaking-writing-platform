@@ -16,11 +16,21 @@ export type UsageTotals = Record<UsageEventType, { quantity: number; costMicros:
 export const maxAudioBytes = 25 * 1024 * 1024;
 export const maxImageBytes = 8 * 1024 * 1024;
 
+/**
+ * Sized from real use rather than a guess. Measured over two months of one
+ * teacher's classes: a student's homework holds about 6.5 minutes of audio at
+ * the median and 10.5 at the 90th percentile, and the busiest month came to 177
+ * minutes across 31 submissions.
+ *
+ * Ten students on weekly homework is roughly 40 submissions, or about 320
+ * minutes a month, so 600 leaves real headroom. The first version allowed 60,
+ * which the teacher this was built for would have exhausted in a week.
+ */
 const trialLimits: UsageLimits = {
   plan: "trial",
-  monthly_asr_seconds: 3600,
-  monthly_ai_calls: 200,
-  monthly_upload_bytes: 2 * 1024 * 1024 * 1024
+  monthly_asr_seconds: 600 * 60,
+  monthly_ai_calls: 300,
+  monthly_upload_bytes: 5 * 1024 * 1024 * 1024
 };
 
 /**

@@ -750,6 +750,7 @@ export function TeacherDashboard() {
                 </button>
               </div>
             )}
+            <UsagePanel language={teacherLanguage} />
             <div className="area-tabs">
               <div className="area-tab homework-workspace-card">
                 <strong className="workspace-title">
@@ -1564,6 +1565,73 @@ function getWritingTask1Type(tasks: WritingTask[]) {
 function getWritingTask2Topic(tasks: WritingTask[]) {
   const task = tasks.find((item) => item.key === "writing_task_2");
   return [task?.task2_type?.trim(), task?.topic?.trim()].filter(Boolean).join(" | ") || "NA";
+}
+
+type UsageItem = { key: string; label: string; used: number; limit: number; unit: "seconds" | "calls" | "bytes" };
+
+/**
+ * This month's consumption against the plan.
+ *
+ * Quotas without a gauge are how a teacher discovers a limit: mid-task, as an
+ * error. Shown on the workspace page so the number is seen before it bites.
+ */
+function UsagePanel({ language }: { language: TeacherLanguage }) {
+  const [usage, setUsage] = useState<{ plan: string; estimatedCostCny: number; items: UsageItem[] } | null>(null);
+  const t = (zh: string, en: string) => (language === "zh" ? zh : en);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/teacher/usage")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.items) setUsage(data);
+      })
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!usage) return null;
+
+  return (
+    <div className="question-card stack">
+      <div className="section-head compact">
+        <div>
+          <label>{t("本月用量", "This month")}</label>
+          <div className="hint">{t("超出额度后转写和 AI 批改会暂停，下月 1 日重置。", "Transcription and AI review pause once a limit is reached, and reset on the 1st.")}</div>
+        </div>
+        <span className="pill">{usage.plan}</span>
+      </div>
+      <div className="usage-meters">
+        {usage.items.map((item) => {
+          const percent = item.limit > 0 ? Math.min(100, Math.round((item.used / item.limit) * 100)) : 0;
+          const tone = percent >= 90 ? "danger" : percent >= 70 ? "warn" : "ok";
+          return (
+            <div className="usage-meter" key={item.key}>
+              <div className="usage-meter-head">
+                <strong>{item.label}</strong>
+                <span className={`pill ${tone}`}>{percent}%</span>
+              </div>
+              <div className="usage-meter-track">
+                <div className={`usage-meter-fill ${tone}`} style={{ width: `${percent}%` }} />
+              </div>
+              <span className="hint">{formatUsage(item)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function formatUsage(item: UsageItem) {
+  if (item.unit === "seconds") return `${Math.round(item.used / 60)} / ${Math.round(item.limit / 60)} 分钟`;
+  if (item.unit === "bytes") {
+    const gb = (value: number) => (value / 1024 / 1024 / 1024).toFixed(1);
+    return `${gb(item.used)} / ${gb(item.limit)} GB`;
+  }
+  return `${item.used} / ${item.limit} 次`;
 }
 
 function AssignmentPicker({
