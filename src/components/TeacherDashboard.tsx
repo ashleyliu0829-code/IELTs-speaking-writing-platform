@@ -1872,14 +1872,13 @@ function AssignmentEditor({
         <>
           <div className="bank-panel">
             <div>
-              <label>Part 1 题库</label>
-              <select value={selectedP1SetId} onChange={(event) => setSelectedP1SetId(event.target.value)}>
-                {p1QuestionBank.map((set) => (
-                  <option key={set.id} value={set.id}>
-                    {assignedTopicIds.p1.has(set.id) ? `${set.topic}（已布置过）` : set.topic}
-                  </option>
-                ))}
-              </select>
+              <TopicPicker
+                label="Part 1 题库"
+                topics={p1QuestionBank}
+                selectedId={selectedP1SetId}
+                assignedIds={assignedTopicIds.p1}
+                onSelect={setSelectedP1SetId}
+              />
               {selectedP1Set && assignedTopicIds.p1.has(selectedP1Set.id) && (
                 <p className="hint warn">这个话题已经布置给该学生了。</p>
               )}
@@ -1903,14 +1902,13 @@ function AssignmentEditor({
           <QuestionInputs title="Part 1 题目" values={draft.p1_questions} onChange={(p1_questions) => updateSpeakingDraft({ ...draft, p1_questions })} />
           <div className="bank-panel">
             <div>
-              <label>Part 2 & 3 题库</label>
-              <select value={selectedP2P3SetId} onChange={(event) => setSelectedP2P3SetId(event.target.value)}>
-                {p2P3QuestionBank.map((set) => (
-                  <option key={set.id} value={set.id}>
-                    {assignedTopicIds.p2.has(set.id) ? `${set.topic}（已布置过）` : set.topic}
-                  </option>
-                ))}
-              </select>
+              <TopicPicker
+                label="Part 2 & 3 题库"
+                topics={p2P3QuestionBank}
+                selectedId={selectedP2P3SetId}
+                assignedIds={assignedTopicIds.p2}
+                onSelect={setSelectedP2P3SetId}
+              />
               {selectedP2P3Set && assignedTopicIds.p2.has(selectedP2P3Set.id) && (
                 <p className="hint warn">这个话题已经布置给该学生了。</p>
               )}
@@ -1935,6 +1933,65 @@ function AssignmentEditor({
           <QuestionInputs title="Part 3 题目" values={draft.p3_questions} onChange={(p3_questions) => updateSpeakingDraft({ ...draft, p3_questions })} />
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Picks one topic out of the bank.
+ *
+ * This was a native select. Part 2 alone holds seventy-odd topics, and laying
+ * them out as buttons would have made finding one harder than the select did —
+ * a select at least takes typed characters and jumps. The filter is what earns
+ * the change: the whole bank is visible, already-assigned topics are marked
+ * where you can see them rather than inside a closed list, and typing still
+ * narrows it.
+ */
+function TopicPicker({
+  label,
+  topics,
+  selectedId,
+  assignedIds,
+  onSelect
+}: {
+  label: string;
+  topics: Array<{ id: string; topic: string }>;
+  selectedId: string;
+  assignedIds: Set<string>;
+  onSelect: (id: string) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const needle = filter.trim().toLowerCase();
+  const shown = needle ? topics.filter((set) => set.topic.toLowerCase().includes(needle)) : topics;
+
+  return (
+    <div className="topic-picker">
+      <div className="topic-picker-head">
+        <label>{label}</label>
+        <input
+          className="topic-picker-filter"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="筛选话题"
+        />
+      </div>
+      <div className="topic-picker-list">
+        {shown.map((set) => (
+          <button
+            className={`topic-picker-chip ${set.id === selectedId ? "selected" : ""}`}
+            key={set.id}
+            onClick={() => onSelect(set.id)}
+            type="button"
+          >
+            <span>{set.topic}</span>
+            {assignedIds.has(set.id) && <em>已布置过</em>}
+          </button>
+        ))}
+        {!shown.length && <p className="hint">没有匹配的话题。</p>}
+      </div>
+      <p className="hint">
+        {needle ? `匹配 ${shown.length} / ${topics.length} 个话题` : `共 ${topics.length} 个话题`}
+      </p>
     </div>
   );
 }

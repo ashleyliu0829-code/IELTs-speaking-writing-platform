@@ -2814,3 +2814,87 @@ PLACEHOLDER
     max-width: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Topic picker
+
+   Replaces the题库 selects. The whole bank is on screen, so the state that
+   matters — which topics this student has already had — is visible while
+   choosing rather than hidden inside a closed list.
+   --------------------------------------------------------------------------- */
+
+.topic-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.topic-picker-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.topic-picker-filter {
+  width: min(200px, 100%);
+  min-height: 34px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+
+.topic-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  /* Roughly five rows: enough to browse without the panel pushing the preview
+     and the buttons below it off the screen. */
+  max-height: 224px;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.topic-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid rgba(10, 41, 71, .26);
+  border-radius: 999px;
+  background: rgba(10, 41, 71, .06);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.topic-picker-chip:hover {
+  border-color: rgba(10, 41, 71, .45);
+  background: rgba(10, 41, 71, .14);
+}
+
+.topic-picker-chip.selected {
+  border-color: var(--brand-dark);
+  background: var(--brand);
+  color: var(--white);
+}
+
+/* Brown for "this student has had it", the same meaning it carries on the
+   progress panel — a fact about the student, not about this choice. */
+.topic-picker-chip em {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--done-wash);
+  color: var(--done-ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.topic-picker-chip.selected em {
+  background: rgba(255, 255, 255, .92);
+}
