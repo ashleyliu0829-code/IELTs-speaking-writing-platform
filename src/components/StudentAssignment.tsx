@@ -5,7 +5,6 @@ import type { Assignment, Feedback, FeedbackDetail, QuestionItem, Recording, Sub
 import { questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { averageScore, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
-import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { TrackedText, TranscriptDiff } from "@/components/TranscriptDiff";
 import { parseReviewComment } from "@/lib/reviewComments";
 
@@ -104,23 +103,6 @@ export function StudentAssignment({
   useEffect(() => {
     void loadCurrentAccount();
   }, []);
-
-  /**
-   * Speaking now shows the progress curve, the topic coverage and the
-   * history on one page, so the submissions behind them cannot wait for a
-   * button. Guarded by name and area rather than by a boolean, because
-   * switching area has to fetch again and re-rendering must not.
-   */
-  const loadedKeyRef = useRef("");
-  useEffect(() => {
-    const name = studentName.trim();
-    if (!name || activeArea !== "speaking") return;
-    const key = `${name}|${activeArea}`;
-    if (loadedKeyRef.current === key) return;
-    loadedKeyRef.current = key;
-    void loadStudentData(activeArea);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentName, activeArea]);
 
   async function loadCurrentAccount() {
     try {
@@ -797,7 +779,7 @@ export function StudentAssignment({
 
       {/* The panel runs across the top so the homework and the teacher's
           feedback below it get the full width. */}
-      <section className="single-column" id="hw-latest">
+      <section className="single-column">
         <aside className="panel student-panel-bar">
           <div className="student-panel-group">
             <h2>{activeAreaIsWriting ? "写作面板" : "口语面板"}</h2>
@@ -883,8 +865,7 @@ export function StudentAssignment({
           )}
         </aside>
 
-        <div className={activeAreaIsWriting ? "stack" : "student-body"}>
-          <div className="stack">
+        <div className="stack">
           {view === "latest" && !isCurrentAreaAssignment ? (
             <AreaHomeworkList
               activeArea={activeArea}
@@ -921,35 +902,6 @@ export function StudentAssignment({
             )
           ) : (
             <HistoryView currentAssignmentId={assignment.id} activeArea={activeArea} submissions={history} assignments={availableAssignments} />
-          )}
-
-          {/* Speaking runs as one page: the homework, then how the scores have
-              moved, then which topics are covered, then everything handed in
-              before. The order is the order a student asks the questions in. */}
-          {!activeAreaIsWriting && view === "latest" && (
-            <>
-              <section id="hw-progress">
-                <LearningProgressPanel submissions={history} />
-              </section>
-              <section id="hw-topics" className="card stack">
-                <SpeakingTopicProgressPanel submissions={history} />
-              </section>
-              <section id="hw-history">
-                <HistoryListCard currentAssignmentId={assignment.id} submissions={history} />
-              </section>
-            </>
-          )}
-          </div>
-
-          {!activeAreaIsWriting && view === "latest" && (
-            <nav className="page-index" aria-label="本页目录">
-              <strong>本页内容</strong>
-              <span className="page-index-group">口语作业</span>
-              <a className="sub" href="#hw-latest">最新作业</a>
-              <a className="sub" href="#hw-history">历史作业</a>
-              <a href="#hw-progress">口语作业情况</a>
-              <a href="#hw-topics">过题情况</a>
-            </nav>
           )}
         </div>
       </section>
@@ -1406,35 +1358,23 @@ function HistoryView({
 
       <LearningProgressPanel submissions={submissions} />
 
-      <HistoryListCard currentAssignmentId={currentAssignmentId} submissions={submissions} />
-    </div>
-  );
-}
-
-function HistoryListCard({
-  currentAssignmentId,
-  submissions
-}: {
-  currentAssignmentId: string;
-  submissions: Submission[];
-}) {
-  return (
-    <article className="card stack">
-      <div className="section-head">
-        <div>
-          <h2>{LABEL_HISTORY}</h2>
-          <div className="hint">打开作业标题即可查看历史录音/作文和已发布反馈。</div>
+      <article className="card stack">
+        <div className="section-head">
+          <div>
+            <h2>{LABEL_HISTORY}</h2>
+            <div className="hint">打开作业标题即可查看历史录音/作文和已发布反馈。</div>
+          </div>
+          <span className="pill">{submissions.length} 次提交</span>
         </div>
-        <span className="pill">{submissions.length} 次提交</span>
-      </div>
-      {submissions.length ? (
-        submissions.map((submission) => (
-          <HistoryCard key={submission.id} submission={submission} current={submission.assignment_id === currentAssignmentId} />
-        ))
-      ) : (
-        <p className="hint">还没有提交记录。未完成作业显示在上方。</p>
-      )}
-    </article>
+        {submissions.length ? (
+          submissions.map((submission) => (
+            <HistoryCard key={submission.id} submission={submission} current={submission.assignment_id === currentAssignmentId} />
+          ))
+        ) : (
+          <p className="hint">还没有提交记录。未完成作业显示在上方。</p>
+        )}
+      </article>
+    </div>
   );
 }
 

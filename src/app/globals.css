@@ -3044,7 +3044,7 @@ PLACEHOLDER
 
 .student-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
+  grid-template-columns: 190px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -3110,6 +3110,5 @@ PLACEHOLDER
 
   .page-index {
     position: static;
-    order: -1;
   }
 }

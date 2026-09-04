@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssignmentType, SpeakingPracticeRecording, SpeakingPracticeSubmission, Submission } from "@/lib/types";
 import { StudentSchedulePanel } from "@/components/LessonScheduler";
+import { LearningProgressPanel } from "@/components/LearningProgress";
 import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { StudentDailyTasksPanel } from "@/components/DailyTasks";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
@@ -468,6 +469,15 @@ export function StudentPortal() {
     );
   }
 
+  const areaSubmissions = useMemo(
+    () =>
+      historySubmissions.filter((submission) => {
+        const item = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
+        return ((item?.assignment_type as AssignmentType) || "speaking") === activeArea;
+      }),
+    [historySubmissions, activeArea]
+  );
+
   const homeworkRows = getStudentHomeworkRows(assignments, historySubmissions);
   const notificationRows = getStudentHomeworkRows(allAssignments, historySubmissions);
   const notifications = getStudentNotifications(notificationRows);
@@ -536,7 +546,16 @@ export function StudentPortal() {
       ) : activeView === "dailyTasks" ? (
         <StudentDailyTasksPanel account={account} />
       ) : (
-        <div className="stack">
+        <div className="student-body">
+          <nav className="page-index" aria-label="本页目录">
+            <strong>本页内容</strong>
+            <span className="page-index-group">{activeArea === "writing" ? "写作作业" : "口语作业"}</span>
+            <a className="sub" href="#hw-latest">最新作业</a>
+            <a className="sub" href="#hw-history">历史作业</a>
+            <a href="#hw-progress">{activeArea === "writing" ? "写作作业情况" : "口语作业情况"}</a>
+            {activeArea === "speaking" && <a href="#hw-topics">过题情况</a>}
+          </nav>
+          <div className="stack">
           <section className="area-tabs homework-area-tabs">
             <button className={`area-tab homework-area-tab ${activeArea === "speaking" ? "active" : ""}`} type="button" onClick={() => void switchArea("speaking")}>
               <strong className="workspace-title">
@@ -553,7 +572,7 @@ export function StudentPortal() {
               <span>只看写作作业</span>
             </button>
           </section>
-          <article className="card stack">
+          <article className="card stack" id="hw-latest">
             <div className="section-head">
               <div>
                 <h2>{activeArea === "writing" ? "写作作业" : "口语作业"}</h2>
@@ -562,10 +581,7 @@ export function StudentPortal() {
               <span className="pill">{assignments.length} 项</span>
             </div>
             {homeworkRows.length ? (
-              <>
-                <StudentHomeworkGroup title="最新作业" assignments={latestHomework} emptyText="当前没有需要完成的作业。" />
-                <StudentHomeworkGroup title="历史作业" assignments={historyHomework} emptyText="还没有历史作业。" />
-              </>
+              <StudentHomeworkGroup title="最新作业" assignments={latestHomework} emptyText="当前没有需要完成的作业。" />
             ) : (
               <p className="hint">当前板块还没有可查看的作业。</p>
             )}
@@ -590,16 +606,37 @@ export function StudentPortal() {
               />
             </div>
           )}
+          <section id="hw-progress">
+            <LearningProgressPanel submissions={areaSubmissions} />
+          </section>
           {activeArea === "speaking" && (
-            <SpeakingTopicProgressPanel
-              submissions={historySubmissions}
-              completedP1TopicIds={[...assignedSpeakingTopicIds.p1, ...practiceCompletedIds.p1]}
-              completedP2TopicIds={[...assignedSpeakingTopicIds.p2, ...practiceCompletedIds.p2]}
-              onPracticeTopic={startSpeakingPractice}
-              practiceLoadingId={practiceLoadingId}
-              practiceMessage={practiceMessage}
-            />
+            <section id="hw-topics">
+              <SpeakingTopicProgressPanel
+                submissions={areaSubmissions}
+                completedP1TopicIds={[...assignedSpeakingTopicIds.p1, ...practiceCompletedIds.p1]}
+                completedP2TopicIds={[...assignedSpeakingTopicIds.p2, ...practiceCompletedIds.p2]}
+                onPracticeTopic={startSpeakingPractice}
+                practiceLoadingId={practiceLoadingId}
+                practiceMessage={practiceMessage}
+              />
+            </section>
           )}
+          <article className="card stack" id="hw-history">
+            <div className="section-head">
+              <div>
+                <h2>历史作业</h2>
+                <div className="hint">
+                  {activeArea === "writing"
+                    ? "打开作业标题即可查看当时的作文和老师反馈。"
+                    : "打开作业标题即可查看当时的录音和老师反馈。"}
+                </div>
+              </div>
+              <span className="pill">{historyHomework.length} 项</span>
+            </div>
+            <StudentHomeworkGroup title="" assignments={historyHomework} emptyText="还没有历史作业。" />
+          </article>
+          </div>
+
         </div>
       )}
     </main>
