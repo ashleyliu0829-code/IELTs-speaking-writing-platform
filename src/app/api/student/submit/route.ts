@@ -32,7 +32,12 @@ export async function POST(request: NextRequest) {
   const { account, supabase } = auth;
   const storage = getSupabaseAdmin();
 
-  await upsertStudentProfile(studentName, { accountId: account.id, phone: account.phone, teacherId: account.teacher_id }).catch((error) => console.error("Student profile save failed:", error));
+  // The profile is written with the service role, so the name has to come from
+  // the session rather than the request: a caller-supplied one could create a
+  // student in the teacher's roster, or overwrite a classmate's row through the
+  // (teacher_id, normalized_name) upsert.
+
+  await upsertStudentProfile(account.display_name, { accountId: account.id, phone: account.phone, teacherId: account.teacher_id }).catch((error) => console.error("Student profile save failed:", error));
   const { data: assignment } = await supabase
     .from("assignments")
     .select("id, title, assigned_students")
