@@ -1698,7 +1698,7 @@ function UsagePanel({ language }: { language: TeacherLanguage }) {
             <div className="usage-meter" key={item.key}>
               <div className="usage-meter-head">
                 <strong>{item.label}</strong>
-                <span className={`pill ${tone}`}>{percent}%</span>
+                <span className={`pill usage-${tone}`}>{percent}%</span>
               </div>
               <div className="usage-meter-track">
                 <div className={`usage-meter-fill ${tone}`} style={{ width: `${percent}%` }} />

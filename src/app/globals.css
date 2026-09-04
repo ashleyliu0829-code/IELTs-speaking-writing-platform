@@ -1,14 +1,19 @@
 :root {
   --ink: #14202e;
   --muted: #66655b;
-  --line: #d8d9c8;
+  --line: #d3d4c0;
+  --sage-soft: #e3e4d6;
   --paper: #fbf7ef;
   --soft: #f3e4c9;
   --brand: #0a2947;
   --brand-dark: #061b31;
   --danger: #a8452e;
   --ok: #2c6b43;
-  --warn: #8b5e3c;
+  --warn: #7a4a22;
+  --done: #8b5e3c;
+  --done-ink: #6e4526;
+  --done-wash: #f0e2d2;
+  --done-line: rgba(139, 94, 60, .34);
   --white: #ffffff;
   --shadow: 0 12px 32px rgba(10, 41, 71, .07);
 }
@@ -69,7 +74,7 @@ a {
   align-items: center;
   padding: 16px clamp(16px, 4vw, 48px);
   border-bottom: 1px solid rgba(216, 217, 200, .9);
-  background: rgba(251, 247, 239, .92);
+  background: rgba(227, 228, 214, .92);
   backdrop-filter: blur(14px);
 }
 
@@ -318,8 +323,8 @@ h3 {
 }
 
 .student-notification-item.reviewed {
-  border-color: rgba(44, 107, 67, .22);
-  background: #e9f1e3;
+  border-color: var(--done-line);
+  background: var(--done-wash);
 }
 
 .area-label {
@@ -443,9 +448,27 @@ h3 {
   white-space: nowrap;
 }
 
+/* Scores and finished work: an achievement, not a system state. */
 .pill.ok {
-  color: var(--ok);
-  background: #e4efde;
+  color: var(--done-ink);
+  background: var(--done-wash);
+}
+
+/* The usage meter escalates instead: quiet navy, then brown, then red. A
+   percentage that is merely low is not something to congratulate. */
+.pill.usage-ok {
+  color: var(--brand);
+  background: rgba(10, 41, 71, .09);
+}
+
+.pill.usage-warn {
+  color: var(--warn);
+  background: #f2e2c4;
+}
+
+.pill.usage-danger {
+  color: var(--danger);
+  background: #f7dcd4;
 }
 
 .pill.warn {
@@ -479,7 +502,7 @@ h3 {
 }
 
 .btn.secondary {
-  background: #efe8da;
+  background: #f0e3c9;
   color: var(--ink);
 }
 
@@ -1397,12 +1420,13 @@ audio {
 }
 
 .topic-progress-row.completed {
-  background: rgba(58, 124, 74, .14);
+  border-color: var(--done-line);
+  background: var(--done-wash);
   color: var(--ink);
 }
 
 .topic-progress-row strong {
-  color: #2c6b43;
+  color: var(--done-ink);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -1615,8 +1639,8 @@ audio {
 }
 
 .daily-task-card.completed {
-  border-color: rgba(58, 124, 74, .38);
-  background: rgba(58, 124, 74, .1);
+  border-color: var(--done-line);
+  background: var(--done-wash);
 }
 
 .daily-today-summary {
@@ -1633,12 +1657,12 @@ audio {
 }
 
 .daily-today-summary.completed {
-  border-color: rgba(58, 124, 74, .38);
-  background: rgba(58, 124, 74, .14);
+  border-color: var(--done-line);
+  background: var(--done-wash);
 }
 
 .daily-today-summary.completed strong {
-  color: #2c6b43;
+  color: var(--done-ink);
 }
 
 .daily-task-card h3,
@@ -1778,8 +1802,8 @@ audio {
 }
 
 .daily-calendar-day.completed {
-  border-color: rgba(58, 124, 74, .38);
-  background: rgba(58, 124, 74, .14);
+  border-color: var(--done-line);
+  background: var(--done-wash);
 }
 
 .daily-calendar-day.partial {
@@ -1993,9 +2017,9 @@ audio {
   min-height: 34px;
   padding: 7px;
   overflow: hidden;
-  border: 1px solid rgba(10, 41, 71, .32);
+  border: 1px solid rgba(10, 41, 71, .26);
   border-radius: 8px;
-  background: #ede4d2;
+  background: rgba(10, 41, 71, .07);
   color: var(--ink);
   text-align: left;
   box-shadow: 0 6px 16px rgba(10, 41, 71, .11);
@@ -2008,9 +2032,11 @@ audio {
 }
 
 .calendar-event.booked.upcoming {
-  border-color: rgba(58, 124, 74, .38);
-  background: rgba(58, 124, 74, .16);
-  color: var(--ink);
+  /* The deep end of the ramp: a taken hour should be unmistakable at a
+     glance across a week of otherwise pale slots. */
+  border-color: var(--brand-dark);
+  background: var(--brand);
+  color: var(--white);
 }
 
 .calendar-event.booked.passed {
@@ -2021,7 +2047,7 @@ audio {
 
 .calendar-event.selected {
   border-color: var(--brand);
-  background: #e3d7bf;
+  background: rgba(10, 41, 71, .2);
 }
 
 .calendar-time-preview {
@@ -2113,8 +2139,8 @@ audio {
 
 .booking-admin-row.upcoming,
 .schedule-card.booked.upcoming {
-  border-color: rgba(58, 124, 74, .38);
-  background: rgba(58, 124, 74, .1);
+  border-color: var(--done-line);
+  background: var(--done-wash);
 }
 
 .booking-admin-row.passed,
@@ -2484,14 +2510,14 @@ audio {
 .usage-meter-track {
   height: 8px;
   border-radius: 999px;
-  background: var(--soft);
+  background: var(--sage-soft);
   overflow: hidden;
 }
 
 .usage-meter-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--ok);
+  background: var(--brand);
   transition: width .2s ease;
 }
 
