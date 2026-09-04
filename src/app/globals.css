@@ -1435,14 +1435,17 @@ audio {
   overflow-wrap: anywhere;
 }
 
+/* A washed navy rather than a filled one. Forty-odd rows of solid navy made
+   the list read as a wall; the two states only need to differ from each
+   other, not to shout. */
 .topic-progress-row.completed {
-  border-color: var(--brand-dark);
-  background: var(--brand);
-  color: var(--white);
+  border-color: rgba(10, 41, 71, .45);
+  background: rgba(10, 41, 71, .18);
+  color: var(--ink);
 }
 
 .topic-progress-row strong {
-  color: inherit;
+  color: var(--brand);
   font-size: 13px;
   white-space: nowrap;
 }
