@@ -19,6 +19,14 @@
   --shadow: 0 12px 32px rgba(10, 41, 71, .07);
 }
 
+/* The page index jumps rather than teleports, so a reader keeps their place.
+   Respects a reduced-motion preference. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -3023,5 +3031,85 @@ PLACEHOLDER
 
   .writing-task-answer .writing-answer {
     min-height: 300px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Student speaking page: content plus an index
+
+   The homework, the score curve, the topic coverage and the history are one
+   page now rather than two tabs, which makes it long enough to need a way to
+   move around it.
+   --------------------------------------------------------------------------- */
+
+.student-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 20px;
+  align-items: start;
+}
+
+.page-index {
+  position: sticky;
+  /* Clears the sticky banner. */
+  top: 78px;
+  display: grid;
+  gap: 1px;
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.page-index > strong {
+  margin-bottom: 6px;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.page-index-group {
+  padding: 7px 8px 3px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.page-index a {
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 13.5px;
+  text-decoration: none;
+}
+
+.page-index a.sub {
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-index a:hover {
+  background: var(--sage-soft);
+  color: var(--ink);
+}
+
+/* Jumping to a section must not tuck its heading under the sticky banner. */
+#hw-latest,
+#hw-progress,
+#hw-topics,
+#hw-history {
+  scroll-margin-top: 86px;
+}
+
+@media (max-width: 900px) {
+  .student-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-index {
+    position: static;
+    order: -1;
   }
 }
