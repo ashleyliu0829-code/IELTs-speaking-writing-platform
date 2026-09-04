@@ -21,7 +21,6 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
 
 const env = Object.fromEntries(
   readFileSync(new URL("../.env.local", import.meta.url), "utf8")
@@ -52,9 +51,18 @@ if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
   fail("NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing from .env.local");
 }
 
-const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+// Storage is reached over plain HTTP rather than through supabase-js: the
+// client library builds a realtime connection on construction, which needs a
+// native WebSocket and so refuses to start on the Node 20 the server runs.
+// Listing and downloading are two REST calls; the dependency bought nothing.
+const projectUrl = env.NEXT_PUBLIC_SUPABASE_URL.endsWith("/")
+  ? env.NEXT_PUBLIC_SUPABASE_URL.slice(0, -1)
+  : env.NEXT_PUBLIC_SUPABASE_URL;
+const storageUrl = `${projectUrl}/storage/v1`;
+const authHeaders = {
+  apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+  Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+};
 
 const startedAt = Date.now();
 log(`Backing up ${bucket} -> ${dest}${dryRun ? " (dry run)" : ""}`);
@@ -141,12 +149,23 @@ async function listBucket() {
   async function walk(prefix) {
     let offset = 0;
     for (;;) {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .list(prefix, { limit: 100, offset, sortBy: { column: "name", order: "asc" } });
+      const response = await fetch(`${storageUrl}/object/list/${encodeURIComponent(bucket)}`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prefix,
+          limit: 100,
+          offset,
+          sortBy: { column: "name", order: "asc" }
+        })
+      });
 
-      if (error) fail(`Listing ${prefix || "/"} failed: ${error.message}`);
-      if (!data?.length) return;
+      if (!response.ok) {
+        fail(`Listing ${prefix || "/"} failed: HTTP ${response.status} ${await response.text()}`);
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data) || !data.length) return;
 
       for (const item of data) {
         const path = prefix ? `${prefix}/${item.name}` : item.name;
@@ -176,11 +195,21 @@ async function listBucket() {
 
 /** Downloads one object to a temp file, then renames it into place. */
 async function download(object) {
-  const { data, error } = await supabase.storage.from(bucket).download(object.path);
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("empty response");
+  // Each segment is encoded, but the slashes stay: they are the folder
+  // separators the API expects, not part of a name.
+  const encoded = object.path.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`${storageUrl}/object/${encodeURIComponent(bucket)}/${encoded}`, {
+    headers: authHeaders
+  });
 
-  const buffer = Buffer.from(await data.arrayBuffer());
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  // A truncated body would otherwise be written and trusted for good.
+  if (object.size && buffer.length !== object.size) {
+    throw new Error(`expected ${object.size} bytes, received ${buffer.length}`);
+  }
   const target = join(dest, object.path);
   await mkdir(dirname(target), { recursive: true });
 
