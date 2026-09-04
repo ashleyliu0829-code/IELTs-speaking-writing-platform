@@ -2637,11 +2637,21 @@ PLACEHOLDER
 /* Laid out like the marking card it is showing: the prompt, the recording and
    the transcript are three bands of one card, divided the way they are on the
    grading page. */
+/* Floating glass: the card sits above the page rather than being cut out of
+   it. The white is translucent so the cream ground warms it, and the halo
+   under it is brown rather than grey, which is what keeps the lift from
+   reading as a drop shadow bolted on. */
 .landing-sample {
   margin: 34px 0 0;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--white);
+  border: 1px solid rgba(255, 255, 255, .8);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .55);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  backdrop-filter: blur(18px) saturate(120%);
+  box-shadow:
+    0 22px 50px -18px rgba(139, 94, 60, .38),
+    0 18px 44px rgba(10, 41, 71, .1),
+    0 2px 6px rgba(10, 41, 71, .05);
   overflow: hidden;
 }
 
@@ -2650,7 +2660,7 @@ PLACEHOLDER
 }
 
 .landing-sample > * + * {
-  border-top: 1px solid var(--soft);
+  border-top: 1px solid rgba(10, 41, 71, .09);
 }
 
 .landing-sample-meta {
