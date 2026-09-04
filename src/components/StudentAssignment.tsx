@@ -34,10 +34,13 @@ const LABEL_PROGRESS = "\u5b66\u4e60\u60c5\u51b5";
 
 export function StudentAssignment({
   assignment,
-  publishedFeedback
+  publishedFeedback,
+  needsSignIn = false
 }: {
   assignment: Assignment;
   publishedFeedback?: Feedback | null;
+  /** The server withheld the assignment's content until someone signs in. */
+  needsSignIn?: boolean;
 }) {
   const items = useMemo(() => getQuestionItems(assignment), [assignment]);
   const isWriting = assignment.assignment_type === "writing";
@@ -130,12 +133,10 @@ export function StudentAssignment({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "账号操作失败。");
-      setAccount(data.account);
-      setStudentName(data.account.display_name);
-      setAuthName(data.account.display_name);
-      setAuthPhone(data.account.phone);
-      await loadSubmissionDraftForName(data.account.display_name);
-      setMessage("学生账号已准备好。");
+      // Which assignment content this account may see is decided on the
+      // server, so a sign-in always needs a fresh render rather than a local
+      // state update — including a sign-in that follows a sign-out.
+      window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "账号操作失败。");
     } finally {
@@ -603,7 +604,9 @@ export function StudentAssignment({
     setMessage("已提交给老师。");
   }
 
-  if (!accountChecked) {
+  // The server already told us there is no session, so skip the flash of a
+  // loading card and go straight to the sign-in form.
+  if (!accountChecked && !needsSignIn) {
     return (
       <main className="shell">
         <article className="card stack">
