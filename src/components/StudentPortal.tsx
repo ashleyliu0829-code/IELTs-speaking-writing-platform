@@ -421,6 +421,18 @@ export function StudentPortal() {
     practiceTimerRef.current = null;
   }
 
+  // Above the sign-in guard, not below it: on the render where the account is
+  // still null this hook never ran, and React counts hooks by position.
+  const areaSubmissions = useMemo(
+    () =>
+      historySubmissions.filter((submission) => {
+        const item = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
+        return ((item?.assignment_type as AssignmentType) || "speaking") === activeArea;
+      }),
+    [historySubmissions, activeArea]
+  );
+
+
   if (!account) {
     return (
       <main className="shell">
@@ -468,15 +480,6 @@ export function StudentPortal() {
       </main>
     );
   }
-
-  const areaSubmissions = useMemo(
-    () =>
-      historySubmissions.filter((submission) => {
-        const item = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
-        return ((item?.assignment_type as AssignmentType) || "speaking") === activeArea;
-      }),
-    [historySubmissions, activeArea]
-  );
 
   const homeworkRows = getStudentHomeworkRows(assignments, historySubmissions);
   const notificationRows = getStudentHomeworkRows(allAssignments, historySubmissions);
