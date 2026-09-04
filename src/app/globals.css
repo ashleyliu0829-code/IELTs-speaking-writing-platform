@@ -8,6 +8,7 @@
   --brand: #0a2947;
   --brand-dark: #061b31;
   --danger: #a8452e;
+  --danger-deep: #8f3623;
   --ok: #2c6b43;
   --warn: #7a4a22;
   --done: #8b5e3c;
@@ -352,6 +353,16 @@ h3 {
   margin-bottom: 14px;
 }
 
+/* Navigating back is a step below acting on the page, so the crumb row sits
+   at eighty percent while the header buttons above it stay solid. */
+.crumb-bar .btn.secondary {
+  background: rgba(139, 94, 60, .8);
+}
+
+.crumb-bar .btn.secondary:hover {
+  background: var(--done);
+}
+
 .account-box {
   display: grid;
   gap: 10px;
@@ -520,8 +531,15 @@ h3 {
   background: var(--done-ink);
 }
 
+/* Every destructive control lands here. Deeper than the --danger used for
+   error text and deletions in tracked changes, because this one is a
+   surface rather than type on the page. */
 .btn.danger {
-  background: var(--danger);
+  background: var(--danger-deep);
+}
+
+.btn.danger:hover {
+  background: #782c1c;
 }
 
 .btn.ghost {
@@ -2114,14 +2132,22 @@ audio {
   font-size: 12px;
 }
 
+/* Small enough to sit inside a calendar block, red enough to read as the
+   same action as the buttons elsewhere. */
 .calendar-event-link {
-  padding: 0;
+  padding: 2px 8px;
   border: 0;
-  background: transparent;
-  color: var(--brand);
+  border-radius: 999px;
+  background: rgba(143, 54, 35, .16);
+  color: var(--danger-deep);
   font-weight: 800;
   text-align: left;
   cursor: pointer;
+}
+
+.calendar-event-link:hover:not(:disabled) {
+  background: var(--danger-deep);
+  color: var(--white);
 }
 
 .selected-lessons {

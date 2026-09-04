@@ -3700,7 +3700,7 @@ function WritingReviewEditor({
                   value={item.comment}
                   onChange={(event) => updateInlineComment(item.id, { comment: event.target.value })}
                 />
-                <button className="btn secondary compact-button" onClick={() => deleteInlineComment(item.id)} type="button">
+                <button className="btn danger compact-button" onClick={() => deleteInlineComment(item.id)} type="button">
                   删除批注
                 </button>
               </div>

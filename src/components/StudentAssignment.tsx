@@ -1274,7 +1274,7 @@ function RecorderCard({
         <button className={`btn ${active ? "danger" : ""}`} disabled={processing} onClick={onRecord} type="button">
           {active ? "停止录音" : processing ? "准备中..." : "开始录音"}
         </button>
-        <button className="btn secondary" disabled={!recording} onClick={onDelete} type="button">
+        <button className="btn danger" disabled={!recording} onClick={onDelete} type="button">
           删除
         </button>
         <label className="file-upload">
