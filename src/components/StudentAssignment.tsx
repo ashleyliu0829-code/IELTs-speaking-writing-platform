@@ -758,24 +758,6 @@ export function StudentAssignment({
         </aside>
       </section>
 
-      <section className="area-tabs student-area-tabs">
-        <button
-          className={`area-tab ${activeArea === "speaking" ? "active" : ""}`}
-          type="button"
-          onClick={() => void switchArea("speaking")}
-        >
-          <strong>口语区</strong>
-          <span>只看口语作业</span>
-        </button>
-        <button
-          className={`area-tab ${activeArea === "writing" ? "active" : ""}`}
-          type="button"
-          onClick={() => void switchArea("writing")}
-        >
-          <strong>写作区</strong>
-          <span>只看写作作业</span>
-        </button>
-      </section>
 
       {/* The panel runs across the top so the homework and the teacher's
           feedback below it get the full width. */}

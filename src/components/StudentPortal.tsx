@@ -556,7 +556,15 @@ export function StudentPortal() {
             <a className="sub" href="#hw-latest">最新作业</a>
             <a className="sub" href="#hw-history">历史作业</a>
             <a href="#hw-progress">{activeArea === "writing" ? "写作作业情况" : "口语作业情况"}</a>
-            {activeArea === "speaking" && <a href="#hw-topics">过题情况</a>}
+            {activeArea === "speaking" && (
+              <>
+                <a href="#hw-topics">过题情况</a>
+                {/* Starting one means picking a topic in 过题情况, so before a
+                    practice is open this points there; once it is, it points at
+                    the panel itself. */}
+                <a href={activePractice ? "#hw-practice" : "#hw-topics"}>自主练习</a>
+              </>
+            )}
           </nav>
           <div className="stack">
           <section className="area-tabs homework-area-tabs">
@@ -591,7 +599,7 @@ export function StudentPortal() {
             {message && <p className={message.includes("failed") ? "error" : "hint"}>{message}</p>}
           </article>
           {activeArea === "speaking" && activePractice && (
-            <div ref={practicePanelRef}>
+            <div id="hw-practice" ref={practicePanelRef}>
               <SpeakingPracticePanel
                 practice={activePractice}
                 localRecordings={practiceRecordings}
