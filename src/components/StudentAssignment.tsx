@@ -724,6 +724,15 @@ export function StudentAssignment({
 
   return (
     <main className="shell">
+      {/* A homework link drops the student straight onto this page, and the
+          only other way out was the wordmark, which goes to the marketing
+          page rather than to their own. A full navigation is deliberate: the
+          portal decides on the server what this account may see. */}
+      <div className="crumb-bar">
+        <a className="btn secondary" href="/student">
+          返回学生中心
+        </a>
+      </div>
       <section className="hero">
         <div>
           <h1>{isCurrentAreaAssignment ? assignment.title : areaTitle}</h1>
