@@ -441,17 +441,19 @@ h3 {
   min-height: 26px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--soft);
-  color: var(--muted);
+  border: 1px solid var(--line);
+  background: var(--sage-soft);
+  color: var(--ink);
   font-size: 12px;
   font-weight: 760;
   white-space: nowrap;
 }
 
-/* Scores and finished work: an achievement, not a system state. */
+/* Scores and finished work: an achievement, not a system state. Filled,
+   because 已提交 / 已批改 / 已发布 are what the reader is scanning for. */
 .pill.ok {
-  color: var(--done-ink);
-  background: var(--done-wash);
+  color: var(--white);
+  background: var(--done);
 }
 
 /* The usage meter escalates instead: quiet navy, then brown, then red. A
@@ -472,13 +474,14 @@ h3 {
 }
 
 .pill.warn {
+  border: 1px solid rgba(122, 74, 34, .4);
   color: var(--warn);
-  background: #f2e2c4;
+  background: #f6e8cd;
 }
 
 .pill.danger {
-  color: var(--danger);
-  background: #f7dcd4;
+  color: var(--white);
+  background: var(--danger);
 }
 
 .pill.compact {
