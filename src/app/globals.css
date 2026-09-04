@@ -2447,3 +2447,15 @@ audio {
 .usage-meter-fill.danger {
   background: var(--danger);
 }
+
+/* Shown in place of the workspace while a teacher waits for their code. */
+.activation-panel {
+  max-width: 420px;
+  border-color: rgba(154, 100, 20, .35);
+}
+
+.activation-panel input {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}

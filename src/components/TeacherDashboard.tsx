@@ -25,6 +25,8 @@ type AuthAccount = {
   role: "teacher" | "student";
   phone: string;
   display_name: string;
+  /** Null while a teacher is waiting for the operator to send their code. */
+  activated_at?: string | null;
 };
 type SubmissionAssignmentWithQuestions = {
   id: string;
@@ -76,11 +78,16 @@ export function TeacherDashboard() {
   const [savingWritingId, setSavingWritingId] = useState("");
   const [uploadingDemoId, setUploadingDemoId] = useState("");
   const [teacherLanguage, setTeacherLanguage] = useState<TeacherLanguage>("zh");
+  const [activationCode, setActivationCode] = useState("");
+  const [activating, setActivating] = useState(false);
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedSubmissionId);
   const isWritingGradingDetail = activeArea === "writing" && gradingDetailOpen && Boolean(selectedSubmission);
   const areaAssignments = assignments.filter((assignment) => assignmentArea(assignment) === activeArea);
-  const hasTeacherAccess = Boolean(account);
+  // A registered but unactivated teacher gets the activation form, not an
+  // empty workspace that fails on every request.
+  const awaitingActivation = Boolean(account) && !account?.activated_at;
+  const hasTeacherAccess = Boolean(account) && !awaitingActivation;
   const studentLink = useMemo(() => {
     if (!draft.id || typeof window === "undefined") return "";
     return `${window.location.origin}/s/${draft.id}`;
@@ -193,7 +200,8 @@ export function TeacherDashboard() {
     const data = await response.json().catch(() => ({}));
     if (data.account?.role === "teacher") {
       setAccount(data.account);
-      await loadAssignments();
+      // Every teacher route 403s until the code is entered, so skip the fetch.
+      if (data.account.activated_at) await loadAssignments();
     }
   }
 
@@ -428,6 +436,29 @@ export function TeacherDashboard() {
   function openArea(area: AssignmentType) {
     switchArea(area);
     setNavLevel("section");
+  }
+
+  async function activateAccount() {
+    if (!activationCode.trim()) return;
+    setActivating(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/auth/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: activationCode.trim() })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "激活失败。");
+      setActivationCode("");
+      // Re-read the session so activated_at is present and the workspace opens.
+      await loadCurrentAccount();
+      setMessage("激活成功，可以开始使用了。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "激活失败。");
+    } finally {
+      setActivating(false);
+    }
   }
 
   function openSection(section: "students" | "assignments" | "grading") {
@@ -697,6 +728,35 @@ export function TeacherDashboard() {
             </div>
           )}
         </div>
+        {awaitingActivation && (
+          <aside className="panel stack activation-panel">
+            <div>
+              <h2>{t("等待激活", "Waiting for activation")}</h2>
+              <p className="hint">
+                {t(
+                  "账号已注册。请向管理员索取授权码，输入后即可开始使用。授权码与你的手机号绑定，只能激活这一个账号。",
+                  "Your account is registered. Ask the administrator for your activation code. It is tied to your phone number and activates only this account."
+                )}
+              </p>
+            </div>
+            <div>
+              <label>{t("授权码", "Activation code")}</label>
+              <input
+                value={activationCode}
+                onChange={(event) => setActivationCode(event.target.value)}
+                placeholder="XXXX-XXXX-XXXX"
+                autoComplete="off"
+              />
+            </div>
+            <button className="btn" disabled={activating || !activationCode.trim()} onClick={activateAccount} type="button">
+              {activating ? t("激活中...", "Activating...") : t("激活账号", "Activate")}
+            </button>
+            <button className="btn secondary" onClick={logout} type="button">
+              {t("退出登录", "Log out")}
+            </button>
+          </aside>
+        )}
+
         {!hasTeacherAccess && (
           <aside className="panel stack">
             <>

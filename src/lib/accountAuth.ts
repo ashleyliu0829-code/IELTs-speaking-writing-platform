@@ -10,6 +10,8 @@ export type AccountSession = {
   phone: string;
   display_name: string;
   teacher_id?: string | null;
+  /** Null while a teacher is waiting for the operator to send their code. */
+  activated_at?: string | null;
 };
 
 export const sessionCookieName = "ielts_session";
@@ -57,7 +59,7 @@ export async function getCurrentAccount(): Promise<AccountSession | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("account_sessions")
-    .select("expires_at, accounts(id, role, phone, display_name, teacher_id)")
+    .select("expires_at, accounts(id, role, phone, display_name, teacher_id, activated_at)")
     .eq("token_hash", hashSessionToken(token))
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
@@ -71,7 +73,8 @@ export async function getCurrentAccount(): Promise<AccountSession | null> {
     role: account.role,
     phone: account.phone,
     display_name: account.display_name,
-    teacher_id: account.teacher_id
+    teacher_id: account.teacher_id,
+    activated_at: account.activated_at
   };
 }
 

@@ -8,6 +8,7 @@ import {
   type AccountRole
 } from "@/lib/accountAuth";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { generateActivationCode } from "@/lib/activation";
 import { upsertStudentProfile } from "@/lib/students";
 
 const payloadSchema = z.object({
@@ -59,9 +60,14 @@ export async function POST(request: Request) {
       teacher_id: teacherId,
       password_hash: hash,
       password_salt: salt,
-      last_login_at: new Date().toISOString()
+      last_login_at: new Date().toISOString(),
+      // Teacher registration is open, so a new workspace waits for a code the
+      // operator sends by hand. Students and assistants are vouched for by the
+      // teacher who invited them, and start active.
+      activation_code: role === "teacher" ? generateActivationCode() : null,
+      activated_at: role === "teacher" ? null : new Date().toISOString()
     })
-    .select("id, role, phone, display_name, teacher_id")
+    .select("id, role, phone, display_name, teacher_id, activated_at")
     .single();
 
   if (error || !account) {
