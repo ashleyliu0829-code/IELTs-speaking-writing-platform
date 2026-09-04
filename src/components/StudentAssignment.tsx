@@ -1059,24 +1059,26 @@ function LatestWritingView({
           const changed = value.trim() && value !== savedValue;
 
           return (
-            <article className="question-card" key={task.key}>
-              <div>
+            <article className="question-card writing-task-card" key={task.key}>
+              <div className="writing-task-brief">
                 <div className="hint">{task.label}</div>
                 <div className="question-title">{task.title}</div>
                 {task.word_limit && <span className="pill">{task.word_limit}</span>}
+                <p className="writing-task-prompt">{task.prompt}</p>
                 {task.image_urls?.length ? <WritingTaskImages imageUrls={task.image_urls} /> : null}
-                <p className="hint">{task.prompt}</p>
               </div>
-              <textarea
-                className="writing-answer"
-                value={value}
-                onChange={(event) => setDraft(task.key, event.target.value)}
-                placeholder="请在这里输入你的作文..."
-              />
-              <div className="section-head compact">
-                <span className="hint">{`${value.trim().split(/\s+/).filter(Boolean).length} 词`}</span>
-                {savedResponses[task.key] && !changed ? <span className="pill ok">已保存到账号</span> : null}
-                {changed ? <span className="pill warn">尚未保存</span> : null}
+              <div className="writing-task-answer">
+                <textarea
+                  className="writing-answer"
+                  value={value}
+                  onChange={(event) => setDraft(task.key, event.target.value)}
+                  placeholder="请在这里输入你的作文..."
+                />
+                <div className="section-head compact">
+                  <span className="hint">{`${value.trim().split(/\s+/).filter(Boolean).length} 词`}</span>
+                  {savedResponses[task.key] && !changed ? <span className="pill ok">已保存到账号</span> : null}
+                  {changed ? <span className="pill warn">尚未保存</span> : null}
+                </div>
               </div>
             </article>
           );

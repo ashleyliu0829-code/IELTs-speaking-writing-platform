@@ -2969,3 +2969,59 @@ PLACEHOLDER
   background: rgba(255, 255, 255, .55);
   color: var(--ink);
 }
+
+
+/* ---------------------------------------------------------------------------
+   Writing task, student side
+
+   Laid out the way the exam is: the prompt and its figure on the left, the
+   answer box on the right, so the student writes while still looking at the
+   chart instead of scrolling back to it.
+   --------------------------------------------------------------------------- */
+
+.writing-task-card {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.writing-task-brief {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* The instruction, not a caption. It was set in the muted hint style and put
+   below the chart, which is the wrong order: you read what to do, then look
+   at what you are describing. */
+.writing-task-prompt {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.75;
+}
+
+.writing-task-answer {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* Tall enough that a 150-word answer does not scroll inside its own box while
+   the chart beside it stays put. */
+.writing-task-answer .writing-answer {
+  min-height: 460px;
+}
+
+@media (max-width: 900px) {
+  .writing-task-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .writing-task-answer .writing-answer {
+    min-height: 300px;
+  }
+}
