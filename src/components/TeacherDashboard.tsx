@@ -706,6 +706,7 @@ export function TeacherDashboard() {
     void loadSubmissionsForArea(assignment.id, assignmentArea(assignment));
   }
 
+// A registered but unactivated teacher gets this screen and nothing else.  // Returning early rather than hiding sections means no workspace markup and  // no data left over from a previous session can appear behind it.  if (awaitingActivation) {    return (      <main className="shell">        <section className="activation-screen">          <div className="activation-card">            <h1>{t("账号待激活", "Account not activated")}</h1>            <p className="hint">              {t(                "账号已注册。请向管理员索取授权码，输入后即可开始使用。授权码与你的手机号绑定，只能激活这一个账号。",                "Your account is registered. Ask the administrator for your activation code. It is tied to your phone number and activates only this account."              )}            </p>            <div className="activation-account">              <span className="muted">{t("当前账号", "Account")}</span>              <strong>{account?.display_name} · {account?.phone}</strong>            </div>            <div>              <label>{t("授权码", "Activation code")}</label>              <input                value={activationCode}                onChange={(event) => setActivationCode(event.target.value)}                onKeyDown={(event) => { if (event.key === "Enter") void activateAccount(); }}                placeholder="XXXX-XXXX-XXXX"                autoComplete="off"                autoFocus              />            </div>            {message && <p className={message.includes("成功") ? "hint" : "error"}>{message}</p>}            <button className="btn" disabled={activating || !activationCode.trim()} onClick={activateAccount} type="button">              {activating ? t("激活中...", "Activating...") : t("激活账号", "Activate")}            </button>            <button className="btn secondary" onClick={logout} type="button">              {t("退出登录", "Log out")}            </button>          </div>        </section>      </main>    );  }
   return (
     <main className="shell">
       <section className="hero">
@@ -728,35 +729,6 @@ export function TeacherDashboard() {
             </div>
           )}
         </div>
-        {awaitingActivation && (
-          <aside className="panel stack activation-panel">
-            <div>
-              <h2>{t("等待激活", "Waiting for activation")}</h2>
-              <p className="hint">
-                {t(
-                  "账号已注册。请向管理员索取授权码，输入后即可开始使用。授权码与你的手机号绑定，只能激活这一个账号。",
-                  "Your account is registered. Ask the administrator for your activation code. It is tied to your phone number and activates only this account."
-                )}
-              </p>
-            </div>
-            <div>
-              <label>{t("授权码", "Activation code")}</label>
-              <input
-                value={activationCode}
-                onChange={(event) => setActivationCode(event.target.value)}
-                placeholder="XXXX-XXXX-XXXX"
-                autoComplete="off"
-              />
-            </div>
-            <button className="btn" disabled={activating || !activationCode.trim()} onClick={activateAccount} type="button">
-              {activating ? t("激活中...", "Activating...") : t("激活账号", "Activate")}
-            </button>
-            <button className="btn secondary" onClick={logout} type="button">
-              {t("退出登录", "Log out")}
-            </button>
-          </aside>
-        )}
-
         {!hasTeacherAccess && (
           <aside className="panel stack">
             <>
