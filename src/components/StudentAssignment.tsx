@@ -35,12 +35,15 @@ const LABEL_PROGRESS = "\u5b66\u4e60\u60c5\u51b5";
 export function StudentAssignment({
   assignment,
   publishedFeedback,
-  needsSignIn = false
+  needsSignIn = false,
+  accessDenied = false
 }: {
   assignment: Assignment;
   publishedFeedback?: Feedback | null;
   /** The server withheld the assignment's content until someone signs in. */
   needsSignIn?: boolean;
+  /** The signed-in account is not the one this assignment belongs to. */
+  accessDenied?: boolean;
 }) {
   const items = useMemo(() => getQuestionItems(assignment), [assignment]);
   const isWriting = assignment.assignment_type === "writing";
@@ -604,6 +607,37 @@ export function StudentAssignment({
     setMessage("已提交给老师。");
   }
 
+  // Decided on the server before the page was sent, so it renders on the first
+  // paint instead of waiting for the account check to come back.
+  if (accessDenied) {
+    return (
+      <main className="shell">
+        <section className="auth-shell">
+          <article className="card stack">
+            <div>
+              <h1>无法查看该作业</h1>
+              <p className="hint">该作业未分配到该账号下。如需切换账号，请先退出登录。</p>
+            </div>
+            <StudentAccountBox
+              account={account}
+              authMode={authMode}
+              phone={authPhone}
+              name={authName}
+              password={authPassword}
+              submitting={submitting}
+              setAuthMode={setAuthMode}
+              setPhone={setAuthPhone}
+              setName={setAuthName}
+              setPassword={setAuthPassword}
+              submitAuth={submitAuth}
+              logout={logout}
+            />
+          </article>
+        </section>
+      </main>
+    );
+  }
+
   // The server already told us there is no session, so skip the flash of a
   // loading card and go straight to the sign-in form.
   if (!accountChecked && !needsSignIn) {
@@ -654,7 +688,7 @@ export function StudentAssignment({
           <article className="card stack">
             <div>
               <h1>无法查看该作业</h1>
-              <p className="hint">这份作业分配给了其他学生。如需切换账号，请先退出登录。</p>
+              <p className="hint">该作业未分配到该账号下。如需切换账号，请先退出登录。</p>
             </div>
             <StudentAccountBox
               account={account}

@@ -33,9 +33,14 @@ export default async function StudentPage({
 
   // A student from another teacher's workspace has no business reading this
   // link, even though they could only ever view it: RLS already refuses their
-  // submissions.
-  if (viewer && assignment.teacher_id && viewer.teacher_id !== assignment.teacher_id) {
-    notFound();
+  // submissions. They still get told what happened rather than a bare 404,
+  // since a teacher forwarding a link to the wrong group chat is the likely
+  // cause and a dead end would just come back as a support question.
+  const wrongWorkspace = Boolean(
+    viewer && assignment.teacher_id && viewer.teacher_id !== assignment.teacher_id
+  );
+  if (wrongWorkspace) {
+    return <StudentAssignment assignment={withoutContent(assignment)} accessDenied />;
   }
 
   // Until someone entitled is looking, the questions, the training note and
