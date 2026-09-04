@@ -10,11 +10,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body>
+        {/* Just the wordmark: every page below opens with a heading that says
+            where you are, and the strapline only repeated it. */}
         <header className="topbar">
-          <div>
-            <div className="brand-title">IELTS 作业平台</div>
-            <div className="brand-subtitle">口语与写作作业、批改和反馈</div>
-          </div>
+          <a className="brand-title" href="/">IELTS 作业平台</a>
         </header>
         {children}
       </body>

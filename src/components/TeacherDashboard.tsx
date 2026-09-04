@@ -753,14 +753,56 @@ export function TeacherDashboard() {
     );
   }
 
+  if (!hasTeacherAccess) {
+    return (
+      <main className="shell">
+        <section className="auth-shell">
+          <article className="card stack">
+            <div>
+              <h1>{t("老师登录", "Teacher login")}</h1>
+              <p className="hint">
+                {t("用手机号登录。新账号需要授权码才能开通。", "Log in with your phone number. A new account opens with an activation code.")}
+              </p>
+            </div>
+            <div className="segmented">
+              <button className={`btn ${authMode === "login" ? "" : "secondary"}`} onClick={() => setAuthMode("login")} type="button">
+                {t("登录", "Log in")}
+              </button>
+              <button className={`btn ${authMode === "register" ? "" : "secondary"}`} onClick={() => setAuthMode("register")} type="button">
+                {t("注册", "Register")}
+              </button>
+            </div>
+            <div>
+              <label>{t("手机号", "Phone number")}</label>
+              <input value={authPhone} onChange={(event) => setAuthPhone(event.target.value)} placeholder="+1..." />
+            </div>
+            {authMode === "register" && (
+              <div>
+                <label>{t("老师姓名", "Teacher name")}</label>
+                <input value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder={t("老师姓名", "Teacher name")} />
+              </div>
+            )}
+            <div>
+              <label>{t("密码", "Password")}</label>
+              <input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("至少 6 位字符", "At least 6 characters")} />
+            </div>
+            <button className="btn" onClick={submitAuth} disabled={loading || !authPhone || !authPassword} type="button">
+              {loading ? t("处理中...", "Processing...") : authMode === "login" ? t("登录", "Log in") : t("创建老师账号", "Create teacher account")}
+            </button>
+            {message && <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>}
+          </article>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="shell">
       <section className="hero">
         <div>
           <h1>{t("老师工作台", "Teacher dashboard")}</h1>
           <p>{t("管理学生档案、布置作业、批改提交内容并发布反馈。", "Manage student profiles, assign homework, review submissions, and publish feedback.")}</p>
-          {hasTeacherAccess && (
-            <div className="bank-actions hero-actions">
+          <div className="bank-actions hero-actions">
               <button className="btn secondary" onClick={toggleTeacherLanguage} type="button">
                 {teacherLanguage === "zh" ? "English" : "中文"}
               </button>
@@ -772,41 +814,8 @@ export function TeacherDashboard() {
                   {t("退出登录", "Log out")}
                 </button>
               )}
-            </div>
-          )}
+          </div>
         </div>
-        {!hasTeacherAccess && (
-          <aside className="panel stack">
-            <>
-              <div className="segmented">
-                <button className={`btn ${authMode === "login" ? "" : "secondary"}`} onClick={() => setAuthMode("login")} type="button">
-                  {t("登录", "Log in")}
-                </button>
-                <button className={`btn ${authMode === "register" ? "" : "secondary"}`} onClick={() => setAuthMode("register")} type="button">
-                  {t("注册", "Register")}
-                </button>
-              </div>
-              <div>
-                <label>{t("手机号", "Phone number")}</label>
-                <input value={authPhone} onChange={(event) => setAuthPhone(event.target.value)} placeholder="+1..." />
-              </div>
-              {authMode === "register" && (
-                <div>
-                  <label>{t("老师姓名", "Teacher name")}</label>
-                  <input value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder={t("老师姓名", "Teacher name")} />
-                </div>
-              )}
-              <div>
-                <label>{t("密码", "Password")}</label>
-                <input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("至少 6 位字符", "At least 6 characters")} />
-              </div>
-              <button className="btn" onClick={submitAuth} disabled={loading || !authPhone || !authPassword} type="button">
-                {loading ? t("处理中...", "Processing...") : authMode === "login" ? t("登录", "Log in") : t("创建老师账号", "Create teacher account")}
-              </button>
-            </>
-            {message && <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>}
-          </aside>
-        )}
       </section>
       {hasTeacherAccess && message && (
         <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>
