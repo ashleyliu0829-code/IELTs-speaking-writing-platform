@@ -32,34 +32,63 @@ export default function Home() {
       </button>
 
       <h1 className="landing-title">
-        {t("口语作业，", "Mark speaking homework")}
+        {t("专为雅思老师打造的", "Built for IELTS teachers:")}
         <br />
-        {t("像改作文一样改", "the way you mark writing")}
+        {t("口语作业批改一体化平台", "speaking homework, marked end to end")}
       </h1>
 
       <p className="landing-lede">
         {t(
-          "学生录音上传后自动转成逐字稿。你在文字上直接修改、划出问题、录一段示范回答，发布后学生看到的是一份完整的批改稿——不是一句「注意语法」。",
-          "A student's recording becomes a transcript you can actually work on. Edit it in place, mark what went wrong, record a model answer, and publish — the student gets marked-up work, not a note saying \"watch your grammar\"."
+          "布置作业、学生录音、自动转写、逐句批改、发布反馈，在一个平台里走完。",
+          "Set the homework, collect the recordings, transcribe them, mark them line by line, publish the feedback — all in one place."
         )}
       </p>
 
-      {/* The product's own review colours, on a real correction. Nothing else on
-          the page says "this is for spoken English" as immediately. */}
-      <figure className="landing-sample">
-        <figcaption>{t("老师改过的一段转写", "A transcript after marking")}</figcaption>
-        <p className="tracked-text">
-          I <del>use</del>
-          <ins>used</ins> headphones on the bus <ins>every day</ins>, and it <del>make</del>
-          <ins>made</ins> the trip shorter.
-        </p>
-        <p className="landing-annotation">
-          <span>{t("批注", "Note")}</span>
-          {t(
-            "讲过去的习惯要用一般过去时，后面的 make 也要跟着变成 made。",
-            "A past habit takes the past simple, and the verb after it has to follow: make becomes made."
-          )}
-        </p>
+      {/* One question as the teacher sees it while marking, built from the same
+          pieces as the real card: the prompt, the recording, the transcript and
+          the note. It is a still, not a working player — nothing here is wired
+          up, and it should not pretend to be. */}
+      <figure className="landing-sample" aria-label={t("批改一道口语题时的界面", "Marking one speaking question")}>
+        <div className="landing-sample-block">
+          <p className="landing-sample-meta">Part 2 · 1:47</p>
+          <p className="landing-sample-question">
+            Describe a journey you remember well. You should say where you went, how you travelled, and
+            explain why you remember it.
+          </p>
+        </div>
+
+        <div className="landing-player" aria-hidden="true">
+          <span className="landing-player-play">
+            <svg viewBox="0 0 12 14" width="11" height="13" focusable="false">
+              <path d="M1 1l10 6-10 6z" fill="currentColor" />
+            </svg>
+          </span>
+          <span className="landing-player-track">
+            <span />
+          </span>
+          <span className="landing-player-time">0:34 / 1:47</span>
+        </div>
+
+        <div className="landing-sample-block">
+          <div className="landing-sample-bar">
+            <span className="landing-sample-label">{t("录音转写", "Transcript")}</span>
+            <span className="landing-sample-btn">{t("重新生成转写", "Transcribe again")}</span>
+          </div>
+          <p className="tracked-text">
+            I went to Suzhou last spring, and I <del>take</del>
+            <ins>took</ins> the high-speed train, because it <del>take</del>
+            <ins>takes</ins> only half an hour from Shanghai. The seats <del>was</del>
+            <ins>were</ins> comfortable, so I <del>feel</del>
+            <ins>felt</ins> quite relaxed.
+          </p>
+          <p className="landing-annotation">
+            <span>{t("批注", "Note")}</span>
+            {t(
+              "讲过去的经历统一用一般过去时；只有「车程半小时」是现在依然成立的事实，所以留在现在时。",
+              "A past experience stays in the past simple throughout. Only the half-hour journey time is still true today, which is why it keeps the present."
+            )}
+          </p>
+        </div>
       </figure>
 
       <nav className="landing-entry">
@@ -76,8 +105,8 @@ export default function Home() {
 
       <p className="landing-foot">
         {t(
-          "用手机号注册，网页直接用，学生不需要下载任何 App。老师账号需要授权码才能开通。",
-          "Sign up with a phone number and work in the browser; students install nothing. Teacher accounts open with an activation code."
+          "网页操作，手机号注册，无需下载APP",
+          "Works in the browser. Sign up with a phone number, no app to download."
         )}
       </p>
     </main>
