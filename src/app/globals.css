@@ -353,14 +353,19 @@ h3 {
   margin-bottom: 14px;
 }
 
-/* Navigating back is a step below acting on the page, so the crumb row sits
-   at eighty percent while the header buttons above it stay solid. */
+/* Navigating back is a step below acting on the page. Outlined rather than
+   faded: a filled button cannot recede without its label going with it, and
+   at eighty percent the white text measured 3.7 against the 4.5 the rest of
+   the platform holds. */
 .crumb-bar .btn.secondary {
-  background: rgba(139, 94, 60, .8);
+  border: 1px solid var(--done);
+  background: transparent;
+  color: var(--done-ink);
 }
 
 .crumb-bar .btn.secondary:hover {
   background: var(--done);
+  color: var(--white);
 }
 
 .account-box {
@@ -2138,16 +2143,15 @@ audio {
   padding: 2px 8px;
   border: 0;
   border-radius: 999px;
-  background: rgba(143, 54, 35, .16);
-  color: var(--danger-deep);
+  background: var(--danger-deep);
+  color: var(--white);
   font-weight: 800;
   text-align: left;
   cursor: pointer;
 }
 
 .calendar-event-link:hover:not(:disabled) {
-  background: var(--danger-deep);
-  color: var(--white);
+  background: #782c1c;
 }
 
 .selected-lessons {
@@ -2923,4 +2927,45 @@ PLACEHOLDER
 
 .topic-picker-chip.selected em {
   background: rgba(255, 255, 255, .92);
+}
+
+/* ---------------------------------------------------------------------------
+   Segmented control
+
+   These were two filled buttons, which put three button-shaped things on the
+   sign-in card and two of them labelled 登录 — the tab that chooses the mode
+   and the button that submits it. A track with a raised active segment reads
+   as a switch, so the only thing that still looks like a button is the one
+   that does something.
+   --------------------------------------------------------------------------- */
+
+.segmented {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sage-soft);
+}
+
+.segmented .btn,
+.segmented .btn.secondary {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  box-shadow: none;
+}
+
+.segmented .btn:not(.secondary) {
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(10, 41, 71, .14);
+}
+
+.segmented .btn.secondary:hover {
+  background: rgba(255, 255, 255, .55);
+  color: var(--ink);
 }
