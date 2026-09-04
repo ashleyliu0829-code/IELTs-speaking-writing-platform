@@ -2544,7 +2544,7 @@ function StudentPanel({
                   <span>{student.submission_count || 0} 次提交</span>
                   <span>{student.reviewed_count || 0} 次批改</span>
                   {student.latest_score !== null && student.latest_score !== undefined && (
-                    <span className="pill ok">{Number(student.latest_score).toFixed(1)}</span>
+                    <span className="pill score">{Number(student.latest_score).toFixed(1)}</span>
                   )}
                 </button>
               ))}

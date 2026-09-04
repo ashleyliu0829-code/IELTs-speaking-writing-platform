@@ -458,6 +458,11 @@ h3 {
 
 /* The usage meter escalates instead: quiet navy, then brown, then red. A
    percentage that is merely low is not something to congratulate. */
+.pill.score {
+  color: var(--white);
+  background: var(--brand);
+}
+
 .pill.usage-ok {
   color: var(--brand);
   background: rgba(10, 41, 71, .09);
@@ -1356,9 +1361,9 @@ audio {
   display: grid;
   gap: 6px;
   padding: 12px;
-  border: 1px solid var(--done);
+  border: 1px solid var(--brand-dark);
   border-radius: 8px;
-  background: var(--done);
+  background: var(--brand);
   color: var(--white);
 }
 
@@ -1402,9 +1407,9 @@ audio {
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
-  border: 1px solid var(--done-line);
+  border: 1px solid rgba(10, 41, 71, .26);
   border-radius: 8px;
-  background: rgba(139, 94, 60, .12);
+  background: rgba(10, 41, 71, .07);
   color: var(--ink);
 }
 
@@ -1417,7 +1422,7 @@ audio {
 }
 
 .topic-progress-button:hover:not(:disabled) {
-  background: rgba(139, 94, 60, .24);
+  background: rgba(10, 41, 71, .16);
   color: var(--ink);
 }
 
@@ -1431,8 +1436,8 @@ audio {
 }
 
 .topic-progress-row.completed {
-  border-color: var(--done);
-  background: var(--done);
+  border-color: var(--brand-dark);
+  background: var(--brand);
   color: var(--white);
 }
 
