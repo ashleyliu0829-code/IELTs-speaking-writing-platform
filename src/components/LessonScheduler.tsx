@@ -881,17 +881,23 @@ function CalendarWeek({
             .filter(({ placement }) => placement)
             .map(({ slot, placement }) => {
               return (
-                <button
+                <div
                   className={`calendar-event ${selectedKeys.some((key) => key.startsWith(`${slot.id}-`)) ? "selected" : ""}`}
                   key={slot.id}
                   onClick={(event) => onSlotClick(slot, clickStartAt(slot, event, timezone))}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    onSlotClick(slot, slot.start_at);
+                  }}
                   onMouseLeave={() => setHoverPreview(null)}
                   onMouseMove={(event) => setHoverPreview(previewStartAt(slot, event, timezone))}
+                  role="button"
                   style={{
                     top: `${placement!.top}px`,
                     height: `${Math.max(placement!.height, 34)}px`
                   }}
-                  type="button"
+                  tabIndex={0}
                 >
                   {hoverPreview?.slotId === slot.id && (
                     <span className="calendar-time-preview" style={{ top: `${hoverPreview.top}px` }}>
@@ -900,8 +906,12 @@ function CalendarWeek({
                   )}
                   <strong>{formatEventTime(slot, timezone)}</strong>
                   <span>{slot.note || t("可预约", "Available")}</span>
-                  <span className="calendar-event-action">{renderEventAction(slot)}</span>
-                </button>
+                  {/* Deleting a slot should not also count as clicking the
+                      slot: the action sits inside the clickable region. */}
+                  <span className="calendar-event-action" onClick={(event) => event.stopPropagation()}>
+                    {renderEventAction(slot)}
+                  </span>
+                </div>
               );
             })}
           {slots
