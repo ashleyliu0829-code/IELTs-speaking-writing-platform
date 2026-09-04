@@ -74,7 +74,7 @@ a {
   align-items: center;
   padding: 16px clamp(16px, 4vw, 48px);
   border-bottom: 1px solid rgba(216, 217, 200, .9);
-  background: rgba(227, 228, 214, .92);
+  background: rgba(251, 247, 239, .92);
   backdrop-filter: blur(14px);
 }
 
@@ -501,9 +501,15 @@ h3 {
   text-align: center;
 }
 
+/* Filled brown rather than a pale tint: these sit in rows of three or four
+   and a wash left them reading as disabled. */
 .btn.secondary {
-  background: #f0e3c9;
-  color: var(--ink);
+  background: var(--done);
+  color: var(--white);
+}
+
+.btn.secondary:hover {
+  background: var(--done-ink);
 }
 
 .btn.danger {
@@ -1347,13 +1353,14 @@ audio {
   display: grid;
   gap: 6px;
   padding: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--done);
   border-radius: 8px;
-  background: var(--soft);
+  background: var(--done);
+  color: var(--white);
 }
 
 .metric-card span {
-  color: var(--muted);
+  color: rgba(255, 255, 255, .9);
   font-weight: 700;
 }
 
@@ -1392,9 +1399,10 @@ audio {
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
+  border: 1px solid var(--done-line);
   border-radius: 8px;
-  background: var(--soft);
-  color: var(--muted);
+  background: rgba(139, 94, 60, .12);
+  color: var(--ink);
 }
 
 .topic-progress-button {
@@ -1406,7 +1414,7 @@ audio {
 }
 
 .topic-progress-button:hover:not(:disabled) {
-  background: rgba(139, 94, 60, .14);
+  background: rgba(139, 94, 60, .24);
   color: var(--ink);
 }
 
@@ -1420,13 +1428,13 @@ audio {
 }
 
 .topic-progress-row.completed {
-  border-color: var(--done-line);
-  background: var(--done-wash);
-  color: var(--ink);
+  border-color: var(--done);
+  background: var(--done);
+  color: var(--white);
 }
 
 .topic-progress-row strong {
-  color: var(--done-ink);
+  color: inherit;
   font-size: 13px;
   white-space: nowrap;
 }
