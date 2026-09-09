@@ -301,21 +301,31 @@ export function StudentAssignment({
     setSeconds((current) => ({ ...current, [key]: 0 }));
   }
 
-  function uploadRecordingFile(key: string, file?: File) {
+  async function uploadRecordingFile(key: string, file?: File) {
     if (!file) return;
+    const url = URL.createObjectURL(file);
+    // The recorder's timer only runs while recording in the browser, so a file
+    // picked from a phone used to fall through to the one-second floor below.
+    // The length has to come from the file itself.
+    const measured = await readAudioDuration(url);
+    // The file's own length, or nothing. seconds[key] is not a stopwatch for
+    // this file: it is seeded from whatever was already saved for the question,
+    // or left over from a recording this upload replaces. Borrowing it made a
+    // short re-upload inherit the length of the thing it replaced, which is how
+    // a two-minute answer came to be stored as one second in the first place.
+    const duration = measured > 0 ? Math.round(measured) : 1;
+
     setRecordings((current) => {
       current[key]?.url && URL.revokeObjectURL(current[key].url);
-      return {
-        ...current,
-        [key]: {
-          blob: file,
-          url: URL.createObjectURL(file),
-          duration: Math.max(seconds[key] || 0, 1)
-        }
-      };
+      return { ...current, [key]: { blob: file, url, duration } };
     });
+    setSeconds((current) => ({ ...current, [key]: duration }));
     setUploadStatuses((current) => ({ ...current, [key]: { status: "queued" } }));
-    setMessage("音频已添加，现在可以保存这段录音。");
+    setMessage(
+      measured > 0
+        ? `音频已添加（${formatTime(Math.round(measured))}），现在可以保存这段录音。`
+        : "音频已添加，现在可以保存这段录音。"
+    );
   }
 
   async function loadStudentData(area = activeArea) {
@@ -1147,7 +1157,7 @@ function LatestAssignmentView({
               processing={processingRecordingKey === item.key}
               onRecord={() => toggleRecording(item.key)}
               onDelete={() => deleteRecording(item.key)}
-              onUpload={(file) => uploadRecordingFile(item.key, file)}
+              onUpload={(file) => void uploadRecordingFile(item.key, file)}
               showTeacherDemo={Boolean(publishedFeedback?.published_at)}
             />
           ))}
@@ -1168,7 +1178,7 @@ function LatestAssignmentView({
               processing={processingRecordingKey === item.key}
               onRecord={() => toggleRecording(item.key)}
               onDelete={() => deleteRecording(item.key)}
-              onUpload={(file) => uploadRecordingFile(item.key, file)}
+              onUpload={(file) => void uploadRecordingFile(item.key, file)}
               showTeacherDemo={Boolean(publishedFeedback?.published_at)}
             />
           ))}
@@ -1190,7 +1200,7 @@ function LatestAssignmentView({
               processing={processingRecordingKey === item.key}
               onRecord={() => toggleRecording(item.key)}
               onDelete={() => deleteRecording(item.key)}
-              onUpload={(file) => uploadRecordingFile(item.key, file)}
+              onUpload={(file) => void uploadRecordingFile(item.key, file)}
               showTeacherDemo={Boolean(publishedFeedback?.published_at)}
             />
           ))}
@@ -1636,6 +1646,46 @@ function audioExtension(mimeType: string) {
     return "mp3";
   }
   return "webm";
+}
+
+/**
+ * How long an uploaded audio file actually runs, in seconds.
+ *
+ * Returns 0 rather than throwing when the browser cannot tell — a student
+ * should never be blocked from submitting because the length could not be
+ * read, and the caller has a floor for that case.
+ */
+function readAudioDuration(url: string) {
+  return new Promise<number>((resolve) => {
+    const audio = new Audio();
+    let settled = false;
+
+    const done = (value: number) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(Number.isFinite(value) && value > 0 ? value : 0);
+    };
+
+    // Metadata for a local file is immediate; this only catches a file the
+    // browser cannot decode at all, so that the upload is not left hanging.
+    const timer = window.setTimeout(() => done(0), 4000);
+
+    audio.onerror = () => done(0);
+    audio.onloadedmetadata = () => {
+      if (Number.isFinite(audio.duration)) return done(audio.duration);
+      // A WebM recorded elsewhere often reports Infinity until the browser has
+      // seen the end of the stream. Seeking past it forces the real value.
+      audio.ontimeupdate = () => {
+        audio.ontimeupdate = null;
+        done(audio.duration);
+      };
+      audio.currentTime = 1e101;
+    };
+
+    audio.preload = "metadata";
+    audio.src = url;
+  });
 }
 
 function formatTime(total: number) {
