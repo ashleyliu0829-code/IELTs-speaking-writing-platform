@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DailyTask, StudentProfile } from "@/lib/types";
 
+const TASK_TYPES = ["词汇", "口语话题", "听力", "阅读", "写作", "综合"];
+
 type TeacherDailyTasksProps = {
   students: StudentProfile[];
   api: (path: string, init?: RequestInit) => Promise<any>;
@@ -66,6 +68,21 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
     }
   }
 
+  async function updateTask(taskId: string, patch: Record<string, unknown>) {
+    setMessage("");
+    try {
+      const data = await api("/api/teacher/daily-tasks", {
+        method: "PATCH",
+        body: JSON.stringify({ taskId, ...patch })
+      });
+      setTasks((current) => current.map((task) => (task.id === taskId ? data.task : task)));
+      setMessage("每日任务已更新。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法更新每日任务。");
+      throw error;
+    }
+  }
+
   async function deleteTask(taskId: string) {
     setMessage("");
     try {
@@ -108,12 +125,9 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
           <div>
             <label>{t("任务类型", "Task type")}</label>
             <select value={taskType} onChange={(event) => setTaskType(event.target.value)}>
-              <option>词汇</option>
-              <option>口语话题</option>
-              <option>听力</option>
-              <option>阅读</option>
-              <option>写作</option>
-              <option>综合</option>
+              {TASK_TYPES.map((type) => (
+                <option key={type}>{type}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -158,6 +172,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
           selectedStudent={selectedStudent}
           onSelectStudent={setSelectedStudentName}
           onDeleteTask={deleteTask}
+          onUpdateTask={updateTask}
         />
       )}
 
@@ -330,13 +345,15 @@ function StudentDailyTaskHistory({
   tasks,
   selectedStudent,
   onSelectStudent,
-  onDeleteTask
+  onDeleteTask,
+  onUpdateTask
 }: {
   students: StudentProfile[];
   tasks: DailyTask[];
   selectedStudent: string;
   onSelectStudent: (studentName: string) => void;
   onDeleteTask: (taskId: string) => Promise<void>;
+  onUpdateTask: (taskId: string, patch: Record<string, unknown>) => Promise<void>;
 }) {
   const selectedTasks = tasks.filter((task) =>
     task.assigned_students.some((studentName) => normalizeName(studentName) === normalizeName(selectedStudent))
@@ -393,7 +410,14 @@ function StudentDailyTaskHistory({
               <div className="daily-student-task-list">
                 {selectedTasks.length ? (
                   selectedTasks.map((task) => (
-                    <StudentAssignedTaskCard key={task.id} task={task} studentName={selectedStudent} onDelete={onDeleteTask} />
+                    <StudentAssignedTaskCard
+                      key={task.id}
+                      task={task}
+                      studentName={selectedStudent}
+                      students={students}
+                      onDelete={onDeleteTask}
+                      onUpdate={onUpdateTask}
+                    />
                   ))
                 ) : (
                   <p className="hint">还没有给该学生分配每日任务。</p>
@@ -416,12 +440,117 @@ function StudentDailyTaskHistory({
 function StudentAssignedTaskCard({
   task,
   studentName,
-  onDelete
+  students,
+  onDelete,
+  onUpdate
 }: {
   task: DailyTask;
   studentName: string;
+  students: StudentProfile[];
   onDelete: (taskId: string) => Promise<void>;
+  onUpdate: (taskId: string, patch: Record<string, unknown>) => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState(() => toDraft(task));
+
+  const today = todayString();
+  const ended = dateOnly(task.end_date) < today;
+
+  function open() {
+    setDraft(toDraft(task));
+    setEditing(true);
+  }
+
+  async function run(patch: Record<string, unknown>, close = false) {
+    setSaving(true);
+    try {
+      await onUpdate(task.id, patch);
+      if (close) setEditing(false);
+    } catch {
+      // The panel above already showed why; the form stays open so the
+      // teacher does not lose what they typed.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Extending is the thing teachers reach for most, so it is one button.
+  // A task that has already finished extends from today rather than from its
+  // old end date, which is what makes it live again.
+  function extend(days: number) {
+    const from = ended ? today : dateOnly(task.end_date);
+    void run({ endDate: shiftDate(from, days) });
+  }
+
+  function toggleStudent(name: string) {
+    setDraft((current) => ({
+      ...current,
+      assignedStudents: current.assignedStudents.some((value) => normalizeName(value) === normalizeName(name))
+        ? current.assignedStudents.filter((value) => normalizeName(value) !== normalizeName(name))
+        : [...current.assignedStudents, name]
+    }));
+  }
+
+  if (editing) {
+    return (
+      <div className="daily-task-card">
+        <div className="daily-task-editor">
+          <div>
+            <label>任务标题</label>
+            <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          </div>
+          <div>
+            <label>任务类型</label>
+            <select value={draft.taskType} onChange={(event) => setDraft({ ...draft, taskType: event.target.value })}>
+              {TASK_TYPES.map((type) => (
+                <option key={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>开始日期</label>
+            <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
+          </div>
+          <div>
+            <label>结束日期</label>
+            <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
+          </div>
+          <div className="daily-task-description">
+            <label>任务说明</label>
+            <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+          </div>
+          <div className="daily-task-students">
+            <label>分配给学生</label>
+            <div className="student-check-list compact">
+              {students.map((student) => (
+                <label key={student.id} className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={draft.assignedStudents.some((value) => normalizeName(value) === normalizeName(student.name))}
+                    onChange={() => toggleStudent(student.name)}
+                  />
+                  <span>{student.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="daily-task-actions">
+          <button className="btn" type="button" disabled={saving} onClick={() => void run(draft, true)}>
+            {saving ? "保存中..." : "保存修改"}
+          </button>
+          <button className="btn secondary" type="button" disabled={saving} onClick={() => setEditing(false)}>
+            取消
+          </button>
+        </div>
+        <p className="hint">
+          改动只影响任务本身，学生已经打过的卡不会丢。缩短日期或移除学生只是让他们看不到这项任务。
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="daily-task-card">
       <div className="section-head compact">
@@ -429,15 +558,41 @@ function StudentAssignedTaskCard({
           <h3>{task.title}</h3>
           <div className="hint">{task.task_type}</div>
         </div>
-        <span className="pill">{formatDate(task.start_date)} - {formatDate(task.end_date)}</span>
+        <div className="daily-task-badges">
+          {!task.is_active && <span className="pill warn">已暂停</span>}
+          {task.is_active && ended && <span className="pill">已结束</span>}
+          <span className="pill">{formatDate(task.start_date)} - {formatDate(task.end_date)}</span>
+        </div>
       </div>
       {task.description && <p>{task.description}</p>}
       <TaskProgress task={task} studentName={studentName} />
-      <button className="btn danger" type="button" onClick={() => void onDelete(task.id)}>
-        删除
-      </button>
+      <div className="daily-task-actions">
+        <button className="btn secondary" type="button" disabled={saving} onClick={() => extend(7)}>
+          {ended ? "重开 7 天" : "延长 7 天"}
+        </button>
+        <button className="btn secondary" type="button" disabled={saving} onClick={open}>
+          编辑
+        </button>
+        <button className="btn secondary" type="button" disabled={saving} onClick={() => void run({ isActive: !task.is_active })}>
+          {task.is_active ? "暂停" : "恢复"}
+        </button>
+        <button className="btn danger" type="button" disabled={saving} onClick={() => void onDelete(task.id)}>
+          删除
+        </button>
+      </div>
     </div>
   );
+}
+
+function toDraft(task: DailyTask) {
+  return {
+    title: task.title,
+    description: task.description,
+    taskType: task.task_type,
+    startDate: dateOnly(task.start_date),
+    endDate: dateOnly(task.end_date),
+    assignedStudents: [...task.assigned_students]
+  };
 }
 
 function TeacherDailyTaskCard({ task, onDelete }: { task: DailyTask; onDelete: (taskId: string) => Promise<void> }) {

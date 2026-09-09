@@ -3112,3 +3112,25 @@ PLACEHOLDER
     position: static;
   }
 }
+
+/* A task's actions sit in a row under it: extend, edit, pause, delete. */
+.daily-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.daily-task-actions .btn {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13.5px;
+}
+
+.daily-task-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
