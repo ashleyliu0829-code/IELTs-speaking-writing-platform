@@ -2229,6 +2229,49 @@ audio {
   color: var(--muted);
 }
 
+.student-select-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.student-select-toggle.open {
+  border-color: var(--brand);
+}
+
+.student-select-toggle em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.student-select-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.student-check-list.scrolling {
+  max-height: 220px;
+  overflow: auto;
+}
+
 .manual-student-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

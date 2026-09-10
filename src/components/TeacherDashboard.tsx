@@ -2055,6 +2055,15 @@ function TopicList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+/**
+ * Picks who the homework goes to.
+ *
+ * The roster used to sit open on the page, one row per student, so a teacher
+ * with a dozen of them scrolled past the whole list to reach the questions
+ * below. It is a dropdown now. Closed, it says how many are picked and the
+ * chips underneath say who; open, it is the same rows plus a filter, because
+ * a closed list you cannot search is worse than an open one.
+ */
 function StudentAssignmentSelector({
   selected,
   students,
@@ -2065,7 +2074,31 @@ function StudentAssignmentSelector({
   onChange: (students: string[]) => void;
 }) {
   const [manualName, setManualName] = useState("");
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const selectedKeys = new Set(selected.map(normalizeStudentName));
+
+  // A click anywhere else, or Escape, puts the list away. Without this the
+  // panel hangs over the rest of the form until you find the toggle again.
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const needle = filter.trim().toLowerCase();
+  const shown = needle ? students.filter((student) => student.name.toLowerCase().includes(needle)) : students;
 
   function toggleStudent(name: string) {
     const key = normalizeStudentName(name);
@@ -2081,33 +2114,58 @@ function StudentAssignmentSelector({
     if (!name) return;
     onChange(cleanStudentNames([...selected, name]));
     setManualName("");
+    setFilter("");
   }
 
   return (
-    <div className="student-selector">
-      {students.length ? (
-        <div className="student-check-list">
-          {students.map((student) => (
-            <label className="check-row" key={student.id}>
+    <div className="student-selector" ref={rootRef}>
+      <button
+        className={`student-select-toggle ${open ? "open" : ""}`}
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <span>{selected.length ? `已选 ${selected.length} 名学生` : "全部学生"}</span>
+        <em>{open ? "收起" : "选择"}</em>
+      </button>
+
+      {open && (
+        <div className="student-select-panel">
+          {students.length ? (
+            <>
               <input
-                checked={selectedKeys.has(student.normalized_name)}
-                onChange={() => toggleStudent(student.name)}
-                type="checkbox"
+                className="student-select-filter"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                placeholder="搜索学生姓名"
               />
-              <span>{student.name}</span>
-              <small>{student.submission_count || 0} 次提交</small>
-            </label>
-          ))}
+              <div className="student-check-list scrolling">
+                {shown.map((student) => (
+                  <label className="check-row" key={student.id}>
+                    <input
+                      checked={selectedKeys.has(student.normalized_name)}
+                      onChange={() => toggleStudent(student.name)}
+                      type="checkbox"
+                    />
+                    <span>{student.name}</span>
+                    <small>{student.submission_count || 0} 次提交</small>
+                  </label>
+                ))}
+                {!shown.length && <p className="hint">没有匹配的学生。</p>}
+              </div>
+            </>
+          ) : (
+            <p className="hint">还没有学生档案。学生注册或填写姓名后会出现在这里。</p>
+          )}
+          <div className="manual-student-row">
+            <input value={manualName} onChange={(event) => setManualName(event.target.value)} placeholder="添加学生姓名" />
+            <button className="btn secondary" onClick={addManualStudent} type="button">
+              添加
+            </button>
+          </div>
         </div>
-      ) : (
-        <p className="hint">还没有学生档案。学生注册或填写姓名后会出现在这里。</p>
       )}
-      <div className="manual-student-row">
-        <input value={manualName} onChange={(event) => setManualName(event.target.value)} placeholder="添加学生姓名" />
-        <button className="btn secondary" onClick={addManualStudent} type="button">
-          添加
-        </button>
-      </div>
+
       {selected.length > 0 && (
         <div className="selected-students">
           {selected.map((student) => (
