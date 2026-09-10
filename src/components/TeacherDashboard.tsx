@@ -3350,6 +3350,16 @@ function TranscriptWorkspace({
   );
 }
 
+type DemoDraft = { blob: Blob; url: string; duration: number };
+
+/**
+ * Records the teacher's sample answer.
+ *
+ * Stopping used to upload immediately, so a fluffed line could only be undone
+ * by recording the whole thing again over the top of it. Stopping now produces
+ * a draft the teacher can listen back to and either keep or throw away, and the
+ * recording can be paused mid-answer.
+ */
 function TeacherDemoRecorder({
   recordingId,
   disabled,
@@ -3363,34 +3373,51 @@ function TeacherDemoRecorder({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
+  const draftRef = useRef<DemoDraft | null>(null);
   const [active, setActive] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [canPause, setCanPause] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [draft, setDraft] = useState<DemoDraft | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
       recorderRef.current?.stream.getTracks().forEach((track) => track.stop());
+      if (draftRef.current) URL.revokeObjectURL(draftRef.current.url);
     };
   }, []);
 
-  async function toggle() {
-    if (active) {
-      setProcessing(true);
-      recorderRef.current?.stop();
-      if (timerRef.current) window.clearInterval(timerRef.current);
-      timerRef.current = null;
-      setActive(false);
-      return;
-    }
+  function stopTimer() {
+    if (timerRef.current) window.clearInterval(timerRef.current);
+    timerRef.current = null;
+  }
 
+  function startTimer() {
+    stopTimer();
+    timerRef.current = window.setInterval(() => {
+      elapsedRef.current += 1;
+      setSeconds(elapsedRef.current);
+    }, 1000);
+  }
+
+  function clearDraft() {
+    if (draftRef.current) URL.revokeObjectURL(draftRef.current.url);
+    draftRef.current = null;
+    setDraft(null);
+  }
+
+  async function start() {
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("当前浏览器不支持网页录音。请使用 Chrome、Edge 或 Safari。");
       return;
     }
 
     setError("");
+    clearDraft();
+
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -3405,6 +3432,9 @@ function TeacherDemoRecorder({
     chunksRef.current = [];
     elapsedRef.current = 0;
     setSeconds(0);
+    // Safari was late to pause(); hide the control rather than offer one that
+    // throws.
+    setCanPause(typeof recorder.pause === "function" && typeof recorder.resume === "function");
 
     recorder.ondataavailable = (event) => {
       if (event.data.size) chunksRef.current.push(event.data);
@@ -3414,32 +3444,100 @@ function TeacherDemoRecorder({
       stream.getTracks().forEach((track) => track.stop());
       const blobType = recorder.mimeType || chunksRef.current[0]?.type || "audio/webm";
       const blob = new Blob(chunksRef.current, { type: blobType });
-      const duration = Math.max(elapsedRef.current, seconds);
+      setProcessing(false);
       if (!blob.size) {
         setError("录音内容为空，请重新录制。");
-        setProcessing(false);
         return;
       }
-      const file = new File([blob], `teacher-sample.${audioExtension(blob.type)}`, { type: blob.type });
-      onSave(recordingId, file, duration);
-      setProcessing(false);
+      const next = { blob, url: URL.createObjectURL(blob), duration: elapsedRef.current };
+      draftRef.current = next;
+      setDraft(next);
     };
 
     recorder.start(1000);
     setActive(true);
-    timerRef.current = window.setInterval(() => {
-      elapsedRef.current += 1;
-      setSeconds(elapsedRef.current);
-    }, 1000);
+    setPaused(false);
+    startTimer();
+  }
+
+  function togglePause() {
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    if (recorder.state === "recording") {
+      recorder.pause();
+      stopTimer();
+      setPaused(true);
+    } else if (recorder.state === "paused") {
+      recorder.resume();
+      startTimer();
+      setPaused(false);
+    }
+  }
+
+  function stop() {
+    setProcessing(true);
+    stopTimer();
+    setActive(false);
+    setPaused(false);
+    recorderRef.current?.stop();
+  }
+
+  function save() {
+    if (!draft) return;
+    const file = new File([draft.blob], `teacher-sample.${audioExtension(draft.blob.type)}`, {
+      type: draft.blob.type
+    });
+    onSave(recordingId, file, draft.duration);
+    clearDraft();
+    setSeconds(0);
+  }
+
+  function discard() {
+    clearDraft();
+    setSeconds(0);
+    setError("");
+  }
+
+  if (draft) {
+    return (
+      <div className="recorder-row demo-review">
+        <audio controls src={draft.url} />
+        <span className="timer">{formatTime(draft.duration)}</span>
+        <button className="btn" disabled={disabled} onClick={save} type="button">
+          {disabled ? "保存中..." : "保存示范"}
+        </button>
+        <button className="btn secondary" disabled={disabled} onClick={discard} type="button">
+          重录
+        </button>
+        <span className="hint">满意再保存，保存后会覆盖上一条示范。</span>
+      </div>
+    );
   }
 
   return (
     <div className="recorder-row">
-      <button className={`btn ${active ? "danger" : "secondary"}`} disabled={disabled || processing} onClick={toggle} type="button">
-        {disabled ? "保存中..." : active ? "停止示范录音" : processing ? "准备中..." : "录制示范回答"}
-      </button>
+      {active ? (
+        <>
+          {canPause && (
+            <button className="btn secondary" onClick={togglePause} type="button">
+              {paused ? "继续" : "暂停"}
+            </button>
+          )}
+          <button className="btn danger" onClick={stop} type="button">
+            停止
+          </button>
+        </>
+      ) : (
+        <button className="btn secondary" disabled={disabled || processing} onClick={() => void start()} type="button">
+          {disabled ? "保存中..." : processing ? "处理中..." : "录制示范回答"}
+        </button>
+      )}
       <span className="timer">{formatTime(seconds)}</span>
-      {error ? <span className="error">{error}</span> : <span className="hint">可以直接在本页面录制。</span>}
+      {error ? (
+        <span className="error">{error}</span>
+      ) : (
+        <span className="hint">{active ? (paused ? "已暂停，点「继续」接着录。" : "录制中，停止后可以先试听。") : "可以直接在本页面录制。"}</span>
+      )}
     </div>
   );
 }
