@@ -758,6 +758,12 @@ h3 {
   align-items: start;
 }
 
+.home-lesson-sections {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .home-lesson-date {
   display: grid;
   gap: 2px;
@@ -780,7 +786,7 @@ h3 {
 
 .home-lesson {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -1453,6 +1459,283 @@ textarea:focus {
   width: 200px;
   padding: 7px 10px;
   font-size: 13px;
+}
+
+/* The lesson-progress table: long text wraps, lessons still ahead are muted,
+   ticked ones get the done wash. */
+.lesson-table th:first-child,
+.lesson-table td:first-child {
+  width: 32px;
+  color: var(--muted);
+}
+
+.lesson-table .progress-text {
+  min-width: 160px;
+  max-width: 320px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.lesson-table tr.ahead td {
+  color: var(--muted);
+}
+
+.lesson-table tr.completed td:first-child {
+  color: var(--done-ink);
+  font-weight: 700;
+}
+
+.lesson-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+
+.progress-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.progress-new {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.progress-new-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.progress-new textarea,
+.progress-new input,
+.progress-new select {
+  font-size: 13px;
+}
+
+.progress-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.progress-editor textarea,
+.progress-editor input {
+  font-size: 13px;
+}
+
+.progress-editor-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.progress-editor-sections .check-row {
+  margin: 0;
+  font-size: 13px;
+}
+
+.student-profile-sidebar .overview-search {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* The student cards: a grid of folded cards; an open one spans the row so
+   its detail grid has room. Stopped students are greyed like the old rows. */
+.overview-group {
+  display: grid;
+  gap: 8px;
+}
+
+.overview-group + .overview-group {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.overview-group-title {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.student-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  overflow: hidden;
+}
+
+.student-card.open {
+  grid-column: 1 / -1;
+  border-color: var(--secondary);
+}
+
+.student-card.inactive {
+  background: var(--paper);
+}
+
+.student-card.inactive .overview-name strong {
+  color: var(--muted);
+}
+
+.student-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 18px;
+  min-height: 66px;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.student-card-head:hover {
+  background: var(--paper);
+}
+
+.student-card-head .overview-name strong {
+  font-size: 16px;
+}
+
+.student-card-next {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+
+.student-card-next strong {
+  font-size: 16px;
+}
+
+.student-card-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-card-chevron {
+  padding-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.student-card-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.student-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 16px;
+}
+
+.student-card-grid > div {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+
+.student-card-grid small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.student-card-grid em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.student-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.overview-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 160px)) minmax(220px, 1fr);
+  gap: 12px;
+}
+
+.overview-totals .metric-card strong small {
+  margin-left: 4px;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  opacity: .8;
+}
+
+.overview-totals .metric-card.wide .overview-area {
+  color: var(--white);
+}
+
+.overview-totals .metric-card.wide .overview-area small {
+  color: var(--white);
+}
+
+.overview-totals .metric-card.wide .overview-area i {
+  background: rgba(255, 255, 255, .85);
+}
+
+.overview-totals .metric-card.wide .overview-areas {
+  gap: 2px;
+}
+
+@media (max-width: 900px) {
+  .overview-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.overview-areas {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.overview-area {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 30px;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.overview-area i {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--secondary);
+}
+
+.overview-area small {
+  text-align: right;
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .overview-scroll {

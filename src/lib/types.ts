@@ -73,9 +73,16 @@ export type StudentOverviewRow = {
   taught_hours_auto: number;
   /** The teacher's own figure, when they have set one; null means use the automatic total. */
   taught_hours_override: number | null;
+  /** Lessons taught so far, and the hours by area (a two-area lesson splits its time). */
+  lesson_stats: StudentOverviewStats;
   speaking: StudentOverviewScore | null;
   writing: StudentOverviewScore | null;
   next_lesson: StudentOverviewLesson | null;
+};
+
+export type StudentOverviewStats = {
+  lessons: number;
+  by_section: Partial<Record<LessonSection | "Other", number>>;
 };
 
 export type StudentOverviewScore = {
@@ -92,6 +99,9 @@ export type TeacherHomeLesson = {
   status: "pending" | "confirmed";
   booking_type: string;
   course_minutes: number;
+  /** From the lesson-progress page, when the teacher has planned the lesson. */
+  sections: LessonSection[];
+  topic: string;
 };
 
 /** One item on the teacher's own to-do list. */
@@ -281,23 +291,16 @@ export type LessonBooking = {
   cancelled_at?: string | null;
   teacher_suggested_time?: string | null;
   created_at?: string;
+  /** The lesson-progress fields: what the lesson covered, once it has been taught. */
+  lesson_topic?: string;
+  lesson_material?: string;
+  lesson_sections?: LessonSection[];
+  lesson_note?: string;
+  /** Set when the teacher ticks the lesson as done. */
+  completed_at?: string | null;
 };
 
-export type LessonRecord = {
-  id: string;
-  student_name: string;
-  lesson_at: string;
-  sections: Array<"Speaking" | "Listening" | "Reading" | "Writing">;
-  duration_minutes: number;
-  pre_homework_assignment_ids: string[];
-  post_homework_assignment_ids: string[];
-  preparation_note: string;
-  homework_note: string;
-  created_at?: string;
-  updated_at?: string;
-  pre_homework?: Assignment[];
-  post_homework?: Assignment[];
-};
+export type LessonSection = "Speaking" | "Listening" | "Reading" | "Writing" | "Mock" | "Trial";
 
 export type DailyTask = {
   id: string;

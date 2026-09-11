@@ -5,6 +5,7 @@ import type { TeacherHomeActivity, TeacherHomeLesson } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
 import { TeacherTodoPanel } from "@/components/TeacherTodos";
 import { activeAnnouncements } from "@/lib/announcements";
+import { sectionLabel } from "@/components/LessonProgress";
 
 /**
  * The teacher's home page once the workspaces moved into the sidebar: what is
@@ -87,6 +88,14 @@ export function TeacherHomePanels({
                   <span className="home-lesson-meta">
                     {lesson.course_minutes ? t(`${lesson.course_minutes} 分钟`, `${lesson.course_minutes} min`) : ""}
                     {lessonTypeLabel(lesson.booking_type)}
+                  </span>
+                  {/* Always rendered so the status pill keeps its column. */}
+                  <span className="home-lesson-sections" title={lesson.topic || undefined}>
+                    {lesson.sections.map((section) => (
+                      <span className="pill compact" key={section}>
+                        {sectionLabel(section)}
+                      </span>
+                    ))}
                   </span>
                   <span className={`pill ${lesson.status === "confirmed" ? "ok" : "warn"}`}>
                     {lesson.status === "confirmed" ? t("已确认", "Confirmed") : t("待确认", "Pending")}

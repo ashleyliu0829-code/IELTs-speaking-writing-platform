@@ -119,12 +119,9 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ booking: data });
   }
 
-  if (!canCancelBeforeFourHours(booking.start_at)) {
-    return Response.json({ error: "Lessons can only be cancelled at least 4 hours before the start time." }, { status: 400 });
-  }
-  if (!payload.teacherSuggestedTime.trim()) {
-    return Response.json({ error: "Please suggest another time slot before cancelling." }, { status: 400 });
-  }
+  // The four-hour notice and the suggested new time are the student-side
+  // rules; the teacher cancels their own lesson outright, with a suggested
+  // time attached only if they offered one.
 
   const { data, error } = await supabase
     .from("lesson_bookings")
@@ -138,10 +135,6 @@ export async function PATCH(request: NextRequest) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ booking: data });
-}
-
-function canCancelBeforeFourHours(startAt: string) {
-  return new Date(startAt).getTime() - Date.now() >= 4 * 60 * 60 * 1000;
 }
 
 function getLessonType(request: NextRequest): "regular" | "practice" {

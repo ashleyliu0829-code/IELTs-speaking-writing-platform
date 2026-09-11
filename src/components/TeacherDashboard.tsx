@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Assignment, AssignmentType, Feedback, FeedbackDetail, LessonRecord, QuestionItem, Recording, SpeakingPracticeSubmission, StudentProfile, Submission, WritingResponse, WritingTask } from "@/lib/types";
+import type { Assignment, AssignmentType, Feedback, FeedbackDetail, QuestionItem, Recording, SpeakingPracticeSubmission, StudentProfile, Submission, WritingResponse, WritingTask } from "@/lib/types";
 import { mergeFeedbackDetails, questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
+import { LessonProgressPanel } from "@/components/LessonProgress";
 import { averageScore, defaultAssignment, defaultWritingAssignment, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TeacherSchedulePanel } from "@/components/LessonScheduler";
@@ -925,7 +926,7 @@ export function TeacherDashboard() {
                 type="button"
                 onClick={openLessonRecording}
               >
-                {t("记录", "Records")}
+                {t("课程进度", "Progress")}
               </button>
             </div>
 
@@ -1394,7 +1395,7 @@ export function TeacherDashboard() {
 
       {hasTeacherAccess && navLevel === "detail" && teacherSection === "lessonRecording" && (
         <section className="single-column">
-          <TeacherLessonRecordsPanel students={students} assignments={assignments} api={api} />
+          <LessonProgressPanel students={students} />
         </section>
       )}
 
@@ -1638,18 +1639,10 @@ function sectionLabel(section: TeacherSection, language: TeacherLanguage = "zh")
     assignments: { zh: "作业布置", en: "Homework publishing" },
     grading: { zh: "作业批改", en: "Homework grading" },
     schedule: { zh: "课程排课", en: "Lesson scheduling" },
-    lessonRecording: { zh: "上课记录", en: "Lesson records" },
+    lessonRecording: { zh: "课程进度", en: "Lesson progress" },
     dailyTasks: { zh: "每日任务", en: "Daily tasks" }
   };
   return labels[section][language];
-}
-
-function lessonSectionLabel(section: LessonRecord["sections"][number]) {
-  if (section === "Speaking") return tr("口语", "Speaking");
-  if (section === "Listening") return tr("听力", "Listening");
-  if (section === "Reading") return tr("阅读", "Reading");
-  if (section === "Writing") return tr("写作", "Writing");
-  return section;
 }
 
 function SpeakingTopicLine({
@@ -2378,267 +2371,6 @@ function assignmentFromSubmission(submission: Submission): Assignment | null {
     assigned_students: [submission.student_name],
     is_active: true
   };
-}
-
-function TeacherLessonRecordsPanel({
-  students,
-  assignments,
-  api
-}: {
-  students: StudentProfile[];
-  assignments: Assignment[];
-  api: (path: string, init?: RequestInit) => Promise<any>;
-}) {
-  const [selectedStudent, setSelectedStudent] = useState("");
-  const [records, setRecords] = useState<LessonRecord[]>([]);
-  const [lessonAt, setLessonAt] = useState(() => toDateTimeLocalValue(new Date()));
-  const [sections, setSections] = useState<LessonRecord["sections"]>(["Speaking"]);
-  const [durationMinutes, setDurationMinutes] = useState(60);
-  const [preHomeworkIds, setPreHomeworkIds] = useState<string[]>([]);
-  const [postHomeworkIds, setPostHomeworkIds] = useState<string[]>([]);
-  const [preparationNote, setPreparationNote] = useState("");
-  const [homeworkNote, setHomeworkNote] = useState("");
-  const [status, setStatus] = useState("");
-  const [loadingRecords, setLoadingRecords] = useState(false);
-  const studentAssignments = selectedStudent
-    ? assignments.filter((assignment) => assignmentIsVisibleToStudent(assignment, selectedStudent))
-    : [];
-  const studentAssignmentIds = new Set(studentAssignments.map((assignment) => assignment.id));
-
-  useEffect(() => {
-    if (!selectedStudent && students[0]) setSelectedStudent(students[0].name);
-  }, [selectedStudent, students]);
-
-  useEffect(() => {
-    if (selectedStudent) void loadRecords(selectedStudent);
-  }, [selectedStudent]);
-
-  useEffect(() => {
-    setPreHomeworkIds((ids) => ids.filter((id) => studentAssignmentIds.has(id)));
-    setPostHomeworkIds((ids) => ids.filter((id) => studentAssignmentIds.has(id)));
-  }, [selectedStudent, assignments]);
-
-  async function loadRecords(studentName: string) {
-    setLoadingRecords(true);
-    setStatus("");
-    try {
-      const data = await api(`/api/teacher/lesson-records?studentName=${encodeURIComponent(studentName)}`);
-      setRecords(data.records || []);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : tr("无法加载上课记录。", "Could not load lesson records."));
-    } finally {
-      setLoadingRecords(false);
-    }
-  }
-
-  async function saveRecord() {
-    if (!selectedStudent) {
-      setStatus(tr("请选择学生。", "Choose a student."));
-      return;
-    }
-    setLoadingRecords(true);
-    setStatus("");
-    try {
-      const data = await api("/api/teacher/lesson-records", {
-        method: "POST",
-        body: JSON.stringify({
-          studentName: selectedStudent,
-          lessonAt: new Date(lessonAt).toISOString(),
-          sections,
-          durationMinutes,
-          preHomeworkAssignmentIds: preHomeworkIds,
-          postHomeworkAssignmentIds: postHomeworkIds,
-          preparationNote,
-          homeworkNote
-        })
-      });
-      setRecords([data.record, ...records]);
-      setLessonAt(toDateTimeLocalValue(new Date()));
-      setSections(["Speaking"]);
-      setDurationMinutes(60);
-      setPreHomeworkIds([]);
-      setPostHomeworkIds([]);
-      setPreparationNote("");
-      setHomeworkNote("");
-      setStatus(tr("上课记录已保存。", "Lesson record saved."));
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : tr("无法保存上课记录。", "Could not save the lesson record."));
-    } finally {
-      setLoadingRecords(false);
-    }
-  }
-
-  function toggleSection(section: LessonRecord["sections"][number]) {
-    setSections((current) => {
-      if (current.includes(section)) return current.length === 1 ? current : current.filter((item) => item !== section);
-      return [...current, section];
-    });
-  }
-
-  return (
-    <article className="card stack">
-      <div className="section-head">
-        <div>
-          <h2>{tr("上课记录", "Lesson records")}</h2>
-          <div className="hint">{tr("选择学生后，添加上课记录并关联对应作业。", "Choose a student, then add a lesson record and link the related homework.")}</div>
-        </div>
-        <span className="pill">{tr(`${students.length} 位学生`, `${students.length} students`)}</span>
-      </div>
-      <div className="student-profile-layout">
-        <aside className="stack">
-          {students.length ? (
-            students.map((student) => (
-              <button
-                className={`daily-student-card ${student.name === selectedStudent ? "active" : ""}`}
-                key={student.id}
-                type="button"
-                onClick={() => setSelectedStudent(student.name)}
-              >
-                <strong>{student.name}</strong>
-                <span>{student.phone || student.normalized_name}</span>
-              </button>
-            ))
-          ) : (
-            <p className="hint">{tr("还没有学生档案。", "No student profiles yet.")}</p>
-          )}
-        </aside>
-        <div className="stack">
-          <section className="question-card stack">
-            <div className="section-head compact">
-              <h3>{tr("新增上课记录", "New lesson record")}</h3>
-              <span className="pill">{selectedStudent || tr("未选择学生", "No student chosen")}</span>
-            </div>
-            <div className="form-grid">
-              <div>
-                <label>{tr("上课时间", "Lesson time")}</label>
-                <input type="datetime-local" value={lessonAt} onChange={(event) => setLessonAt(event.target.value)} />
-              </div>
-              <div>
-                <label>{tr("上课时长", "Length")}</label>
-                <input type="number" min={1} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value) || 0)} />
-              </div>
-            </div>
-            <div>
-              <label>{tr("上课板块", "Areas")}</label>
-              <div className="checkbox-grid">
-                {(["Speaking", "Listening", "Reading", "Writing"] as LessonRecord["sections"]).map((section) => (
-                  <label className="check-row" key={section}>
-                    <input type="checkbox" checked={sections.includes(section)} onChange={() => toggleSection(section)} />
-                    {lessonSectionLabel(section)}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <HomeworkCheckboxes title={tr("课前作业", "Homework before")} assignments={studentAssignments} selectedIds={preHomeworkIds} setSelectedIds={setPreHomeworkIds} />
-            <div>
-              <label>{tr("课前准备", "Preparation")}</label>
-              <textarea value={preparationNote} onChange={(event) => setPreparationNote(event.target.value)} placeholder={tr("学生课前需要准备的内容。", "What the student should prepare beforehand.")} />
-            </div>
-            <HomeworkCheckboxes title={tr("课后作业", "Homework after")} assignments={studentAssignments} selectedIds={postHomeworkIds} setSelectedIds={setPostHomeworkIds} />
-            <div>
-              <label>{tr("课后作业备注", "Homework notes")}</label>
-              <textarea value={homeworkNote} onChange={(event) => setHomeworkNote(event.target.value)} placeholder={tr("本节课额外作业备注。", "Extra homework notes for this lesson.")} />
-            </div>
-            <button className="btn" type="button" disabled={loadingRecords || !selectedStudent || !sections.length || !lessonAt} onClick={saveRecord}>
-              {loadingRecords ? tr("保存中...", "Saving...") : tr("保存上课记录", "Save lesson record")}
-            </button>
-            {status && <p className={status.includes("Could not") || status.includes("Please") ? "error" : "hint"}>{status}</p>}
-          </section>
-
-          <section className="stack">
-            <div className="section-head compact">
-              <h3>{tr("上课历史", "Past lessons")}</h3>
-              <span className="pill">{records.length}</span>
-            </div>
-            {records.length ? (
-              records.map((record) => (
-                <div className="submission-row" key={record.id}>
-                  <div className="homework-history-title-row">
-                    <strong>{new Date(record.lesson_at).toLocaleString(tr("zh-CN", "en-GB"))}</strong>
-                    <span className="pill">{record.duration_minutes} {tr("分钟", "min")}</span>
-                  </div>
-                  <div className="topic-chip-group">
-                    {(record.sections || []).map((section) => (
-                      <span className="topic-chip" key={section}>
-                        {lessonSectionLabel(section)}
-                      </span>
-                    ))}
-                  </div>
-                  <LinkedHomework label={tr("课前作业", "Homework before")} assignments={record.pre_homework || []} />
-                  {record.preparation_note && <p className="hint">{tr("课前准备：", "Preparation: ")}{record.preparation_note}</p>}
-                  <LinkedHomework label={tr("课后作业", "Homework after")} assignments={record.post_homework || []} />
-                  {record.homework_note && <p className="hint">{tr("课后作业备注：", "Homework notes: ")}{record.homework_note}</p>}
-                </div>
-              ))
-            ) : (
-              <p className="hint">{loadingRecords ? tr("正在加载上课记录...", "Loading lesson records...") : tr("该学生还没有上课记录。", "No lesson records for this student yet.")}</p>
-            )}
-          </section>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function HomeworkCheckboxes({
-  title,
-  assignments,
-  selectedIds,
-  setSelectedIds
-}: {
-  title: string;
-  assignments: Assignment[];
-  selectedIds: string[];
-  setSelectedIds: (ids: string[]) => void;
-}) {
-  return (
-    <div>
-      <label>{title}</label>
-      <div className="lesson-homework-list">
-        {assignments.length ? (
-          assignments.map((assignment) => (
-            <label className="check-row" key={assignment.id}>
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(assignment.id)}
-                onChange={(event) => {
-                  setSelectedIds(event.target.checked ? [...selectedIds, assignment.id] : selectedIds.filter((id) => id !== assignment.id));
-                }}
-              />
-              <span>
-                {assignment.title}
-                <span className="hint"> {assignment.assignment_type === "writing" ? tr("写作", "Writing") : tr("口语", "Speaking")}</span>
-              </span>
-            </label>
-          ))
-        ) : (
-          <p className="hint">{tr("还没有发布过作业。", "No homework published yet.")}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LinkedHomework({ label, assignments }: { label: string; assignments: Assignment[] }) {
-  if (!assignments.length) return null;
-  return (
-    <div className="stack">
-      <strong>{label}</strong>
-      <div className="topic-chip-group">
-        {assignments.map((assignment) => (
-          <span className="topic-chip" key={assignment.id}>
-            {assignment.title}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function toDateTimeLocalValue(date: Date) {
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60 * 1000);
-  return local.toISOString().slice(0, 16);
 }
 
 function StudentPanel({

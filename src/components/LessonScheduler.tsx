@@ -238,7 +238,13 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         })
       });
       await loadSlots();
-      setMessage(action === "confirm" ? t("课程已确认。", "Lesson confirmed.") : t("课程已取消，并已附上建议时间。", "Lesson cancelled with a suggested new time."));
+      setMessage(
+        action === "confirm"
+          ? t("课程已确认。", "Lesson confirmed.")
+          : suggestions[bookingId]
+            ? t("课程已取消，并已附上建议时间。", "Lesson cancelled with a suggested new time.")
+            : t("课程已取消。", "Lesson cancelled.")
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t("无法更新预约。", "Could not update the booking."));
     } finally {
@@ -837,7 +843,7 @@ function TeacherBookingGroup({
                 {t("确认", "Confirm")}
               </button>
               <div>
-                <label>{t("取消后建议的新时间", "Suggested new time if cancelled")}</label>
+                <label>{t("建议的新时间（可选）", "Suggested new time (optional)")}</label>
                 <input
                   type="datetime-local"
                   value={suggestions[booking.id] || ""}
@@ -846,7 +852,7 @@ function TeacherBookingGroup({
               </div>
               <button
                 className="btn secondary"
-                disabled={loading || !canCancelBeforeFourHours(booking.start_at)}
+                disabled={loading}
                 onClick={() => onUpdate(booking.id, "cancel")}
                 type="button"
               >

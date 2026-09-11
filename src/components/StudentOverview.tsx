@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { coursePlanFamily, coursePlans } from "@/lib/coursePlans";
 import type { StudentOverviewLesson, StudentOverviewRow } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
+import { sectionLabel } from "@/components/LessonProgress";
+import type { LessonSection } from "@/lib/types";
 
 /**
  * The first page of the student archive: every student on one line.
@@ -31,10 +33,6 @@ type StudentEdit = {
 };
 
 /** Marks the row that starts the stopped-students block, for the divider. */
-function isFirstInactive(rows: StudentOverviewRow[], index: number) {
-  return !rows[index].is_active && (index === 0 || rows[index - 1].is_active);
-}
-
 export function StudentOverviewPanel({
   onOpenStudent
 }: {
@@ -46,6 +44,8 @@ export function StudentOverviewPanel({
   const [editing, setEditing] = useState<StudentOverviewRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  // Which card is unfolded; one at a time keeps the grid readable.
+  const [openId, setOpenId] = useState<string | null>(null);
   // Filtered by name only; inactive students keep their place at the bottom.
   const needle = search.trim().toLowerCase();
   const shown = needle ? rows.filter((row) => row.name.toLowerCase().includes(needle)) : rows;
@@ -137,100 +137,36 @@ export function StudentOverviewPanel({
 
       {status && <p className="error">{status}</p>}
 
+      {rows.length > 0 && <OverviewTotals rows={rows} />}
+
       {!loading && !rows.length && <p className="hint">{t("还没有学生档案。学生注册或填写姓名后会出现在这里。", "No students yet. They appear here once they sign up or are added.")}</p>}
 
       {rows.length > 0 && !shown.length && <p className="hint">{t("没有匹配的学生。", "No matching students.")}</p>}
 
       {shown.length > 0 && (
-        <div className="overview-scroll">
-          <table className="overview-table">
-            <thead>
-              <tr>
-                <th>{t("学生", "Student")}</th>
-                <th>{t("学习时长", "Studying for")}</th>
-                <th>{t("已上课时", "Lessons taught")}</th>
-                <th>{t("当前水平", "Current level")}</th>
-                <th>{t("距离考试", "Exam in")}</th>
-                <th>{t("课程计划", "Course plan")}</th>
-                <th>{t("下次上课", "Next lesson")}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row, index) => (
-                <tr
-                  className={`${row.is_active ? "" : "inactive"} ${isFirstInactive(shown, index) ? "first-inactive" : ""}`}
-                  key={row.id}
-                >
-                  <td>
-                    <div className="overview-name">
-                      {!row.is_active && <span className="pill stopped">{t("已停课", "Stopped")}</span>}
-                      {onOpenStudent ? (
-                        <button className="btn link" type="button" onClick={() => onOpenStudent(row.name)}>
-                          {row.name}
-                        </button>
-                      ) : (
-                        <strong>{row.name}</strong>
-                      )}
-                      <small>{row.account_id ? row.phone || t("已注册账号", "Registered") : t("未注册（老师手动添加）", "Not registered (added by teacher)")}</small>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="overview-stack">
-                      <strong>{formatDuration(row.registered_at, today)}</strong>
-                      <small>
-                        {row.registered_from_account ? t("注册于 ", "Signed up ") : t("首次记录 ", "First seen ")}
-                        {formatDay(row.registered_at)}
-                      </small>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="overview-stack">
-                      <strong>{formatHours(row.taught_hours_override ?? row.taught_hours_auto)}</strong>
-                      <small>{row.taught_hours_override == null ? t("按课程表统计", "From the schedule") : t("手动填写", "Entered by hand")}</small>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="overview-levels">
-                      <ScoreLine label={t("口语", "Speaking")} score={row.speaking?.score} at={row.speaking?.submitted_at} />
-                      <ScoreLine label={t("写作", "Writing")} score={row.writing?.score} at={row.writing?.submitted_at} />
-                    </div>
-                  </td>
-                  <td>
-                    {row.exam_date ? (
-                      <div className="overview-stack">
-                        <strong className={examUrgencyClass(row.exam_date, today)}>
-                          {formatCountdown(row.exam_date, today)}
-                        </strong>
-                        <small>
-                          {row.exam_date_confirmed ? t("考试日 ", "Exam day ") : t("预计 ", "Estimated ")}
-                          {formatDay(row.exam_date)}
-                        </small>
-                      </div>
-                    ) : (
-                      <em>{t("未确定", "Not set")}</em>
-                    )}
-                  </td>
-                  <td>
-                    {row.course_plan ? (
-                      <span className={`pill plan ${coursePlanFamily(row.course_plan) || ""}`}>{row.course_plan}</span>
-                    ) : (
-                      <em>{t("未设置", "None")}</em>
-                    )}
-                  </td>
-                  <td>
-                    <NextLessonCell lesson={row.next_lesson} today={today} />
-                  </td>
-                  <td className="overview-actions">
-                    <button className="btn ghost" type="button" onClick={() => setEditing(row)}>
-                      {t("编辑", "Edit")}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {[shown.filter((row) => row.is_active), shown.filter((row) => !row.is_active)].map((group, index) =>
+            group.length ? (
+              <div className="overview-group" key={index ? "stopped" : "active"}>
+                {/* Stopped students sit in their own block below, not tacked onto the grid. */}
+                {index === 1 && <div className="overview-group-title">{t(`已停课（${group.length}）`, `Stopped (${group.length})`)}</div>}
+                <div className="overview-cards">
+                  {group.map((row) => (
+                    <StudentCard
+                      key={row.id}
+                      row={row}
+                      today={today}
+                      open={openId === row.id}
+                      onToggle={() => setOpenId((current) => (current === row.id ? null : row.id))}
+                      onEdit={() => setEditing(row)}
+                      onOpenStudent={onOpenStudent}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null
+          )}
+        </>
       )}
 
       {editing && (
@@ -243,6 +179,115 @@ export function StudentOverviewPanel({
         />
       )}
     </article>
+  );
+}
+
+/**
+ * One student as a card: folded, it is the three things the teacher glances
+ * at — who, how long they have been studying, how many hours so far.
+ * Unfolded, the rest of the profile and the edit button.
+ */
+function StudentCard({
+  row,
+  today,
+  open,
+  onToggle,
+  onEdit,
+  onOpenStudent
+}: {
+  row: StudentOverviewRow;
+  today: Date;
+  open: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onOpenStudent?: (studentName: string) => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div className={`student-card ${row.is_active ? "" : "inactive"} ${open ? "open" : ""}`}>
+      <button className="student-card-head" type="button" onClick={onToggle} aria-expanded={open}>
+        <div className="overview-name">
+          {!row.is_active && <span className="pill stopped">{t("已停课", "Stopped")}</span>}
+          <strong>{row.name}</strong>
+          <small>{formatDuration(row.registered_at, today)}</small>
+        </div>
+        <div className="student-card-next">
+          <span className="student-card-label">{t("总上课时数", "Hours taught")}</span>
+          <strong>{formatHours(row.taught_hours_override ?? row.taught_hours_auto)}</strong>
+        </div>
+        <span className="student-card-chevron" aria-hidden="true">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="student-card-body">
+          <div className="student-card-grid">
+            <div>
+              <span className="student-card-label">{t("账号", "Account")}</span>
+              <small>{row.account_id ? row.phone || t("已注册账号", "Registered") : t("未注册（老师手动添加）", "Not registered (added by teacher)")}</small>
+              <small>
+                {row.registered_from_account ? t("注册于 ", "Signed up ") : t("首次记录 ", "First seen ")}
+                {formatDay(row.registered_at)}
+              </small>
+            </div>
+            <div>
+              <span className="student-card-label">{t("已上课时", "Lessons taught")}</span>
+              <strong>{formatHours(row.taught_hours_override ?? row.taught_hours_auto)}</strong>
+              <small>
+                {t(`共 ${row.lesson_stats.lessons} 节课`, `${row.lesson_stats.lessons} lessons`)}
+                {row.taught_hours_override != null ? t(" · 手动填写", " · entered by hand") : ""}
+              </small>
+            </div>
+            <div>
+              <span className="student-card-label">{t("各科课时", "Hours by area")}</span>
+              <SectionHours stats={row.lesson_stats.by_section} />
+            </div>
+            <div>
+              <span className="student-card-label">{t("当前水平", "Current level")}</span>
+              <div className="overview-levels">
+                <ScoreLine label={t("口语", "Speaking")} score={row.speaking?.score} at={row.speaking?.submitted_at} />
+                <ScoreLine label={t("写作", "Writing")} score={row.writing?.score} at={row.writing?.submitted_at} />
+              </div>
+            </div>
+            <div>
+              <span className="student-card-label">{t("距离考试", "Exam in")}</span>
+              {row.exam_date ? (
+                <>
+                  <strong className={examUrgencyClass(row.exam_date, today)}>{formatCountdown(row.exam_date, today)}</strong>
+                  <small>
+                    {row.exam_date_confirmed ? t("考试日 ", "Exam day ") : t("预计 ", "Estimated ")}
+                    {formatDay(row.exam_date)}
+                  </small>
+                </>
+              ) : (
+                <em>{t("未确定", "Not set")}</em>
+              )}
+            </div>
+            <div>
+              <span className="student-card-label">{t("课程计划", "Course plan")}</span>
+              {row.course_plan ? (
+                <span className={`pill plan ${coursePlanFamily(row.course_plan) || ""}`}>{row.course_plan}</span>
+              ) : (
+                <em>{t("未设置", "None")}</em>
+              )}
+            </div>
+            <div>
+              <span className="student-card-label">{t("下次上课", "Next lesson")}</span>
+              <NextLessonCell lesson={row.next_lesson} today={today} />
+            </div>
+          </div>
+          <div className="student-card-actions">
+            {onOpenStudent && (
+              <button className="btn secondary" type="button" onClick={() => onOpenStudent(row.name)}>
+                {t("查看学生情况", "Open student")}
+              </button>
+            )}
+            <button className="btn" type="button" onClick={onEdit}>
+              {t("编辑", "Edit")}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -451,6 +496,71 @@ function StudentEditDialog({
         </div>
       </form>
     </dialog>
+  );
+}
+
+/**
+ * The whole roster in four numbers, above the table: who is currently
+ * studying, how many lessons have been taught, how many hours that is, and
+ * how those hours split by area. Hours use the same figure as each row (the
+ * teacher's manual value when set, else the schedule), so the total agrees
+ * with the column beneath it.
+ */
+function OverviewTotals({ rows }: { rows: StudentOverviewRow[] }) {
+  const { t } = useLanguage();
+  const active = rows.filter((row) => row.is_active).length;
+  const lessons = rows.reduce((sum, row) => sum + row.lesson_stats.lessons, 0);
+  const hours = Math.round(rows.reduce((sum, row) => sum + (row.taught_hours_override ?? row.taught_hours_auto), 0) * 10) / 10;
+  const byArea: Partial<Record<LessonSection | "Other", number>> = {};
+  for (const row of rows) {
+    for (const [area, value] of Object.entries(row.lesson_stats.by_section)) {
+      const key = area as LessonSection | "Other";
+      byArea[key] = Math.round(((byArea[key] || 0) + (value || 0)) * 10) / 10;
+    }
+  }
+  return (
+    <div className="overview-totals">
+      <div className="metric-card">
+        <span>{t("在读学生", "Active students")}</span>
+        <strong>
+          {active}
+          <small>/ {rows.length}</small>
+        </strong>
+      </div>
+      <div className="metric-card">
+        <span>{t("总课程数", "Lessons taught")}</span>
+        <strong>{lessons}</strong>
+      </div>
+      <div className="metric-card">
+        <span>{t("总上课时数", "Hours taught")}</span>
+        <strong>{hours}</strong>
+      </div>
+      <div className="metric-card wide">
+        <span>{t("各科课时", "Hours by area")}</span>
+        <SectionHours stats={byArea} />
+      </div>
+    </div>
+  );
+}
+
+// The by-area bars: widest is the area with the most hours, the rest scale
+// against it, so the split reads at a glance without a legend.
+function SectionHours({ stats }: { stats: Partial<Record<LessonSection | "Other", number>> }) {
+  const { t } = useLanguage();
+  const order: Array<LessonSection | "Other"> = ["Speaking", "Listening", "Reading", "Writing", "Mock", "Trial", "Other"];
+  const entries = order.filter((area) => (stats[area] || 0) > 0).map((area) => [area, stats[area] as number] as const);
+  if (!entries.length) return <em>{t("暂无", "None")}</em>;
+  const max = Math.max(...entries.map(([, hours]) => hours));
+  return (
+    <div className="overview-areas">
+      {entries.map(([area, hours]) => (
+        <div className="overview-area" key={area}>
+          <span>{area === "Other" ? t("未分类", "Untagged") : sectionLabel(area)}</span>
+          <i style={{ width: `${Math.max(8, Math.round((hours / max) * 100))}%` }} />
+          <small>{hours}</small>
+        </div>
+      ))}
+    </div>
   );
 }
 

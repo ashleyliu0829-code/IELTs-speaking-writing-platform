@@ -23,6 +23,8 @@ type BookingRow = {
   status: string;
   booking_type: string | null;
   course_minutes: number | null;
+  lesson_sections?: string[] | null;
+  lesson_topic?: string | null;
   created_at: string;
   cancelled_at: string | null;
   cancelled_by: string | null;
@@ -48,7 +50,7 @@ export async function GET() {
   const [upcoming, submissions, recentBookings, newStudents] = await Promise.all([
     supabase
       .from("lesson_bookings")
-      .select("id, student_name, start_at, end_at, status, booking_type, course_minutes, created_at, cancelled_at, cancelled_by, lesson_slots!inner(teacher_id)")
+      .select("id, student_name, start_at, end_at, status, booking_type, course_minutes, lesson_sections, lesson_topic, created_at, cancelled_at, cancelled_by, lesson_slots!inner(teacher_id)")
       .eq("lesson_slots.teacher_id", account.id)
       .in("status", ["pending", "confirmed"])
       .gte("start_at", now.toISOString())
@@ -87,7 +89,9 @@ export async function GET() {
     end_at: row.end_at,
     status: row.status === "confirmed" ? "confirmed" : "pending",
     booking_type: row.booking_type || "regular",
-    course_minutes: Number(row.course_minutes || 0)
+    course_minutes: Number(row.course_minutes || 0),
+    sections: (row.lesson_sections || []) as TeacherHomeLesson["sections"],
+    topic: row.lesson_topic || ""
   }));
 
   const activity: TeacherHomeActivity[] = [];

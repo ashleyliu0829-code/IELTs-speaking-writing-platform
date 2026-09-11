@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { isCoursePlan } from "@/lib/coursePlans";
-import type { StudentOverviewLesson, StudentOverviewRow, StudentOverviewScore } from "@/lib/types";
+import type { LessonSection, StudentOverviewLesson, StudentOverviewRow, StudentOverviewScore, StudentOverviewStats } from "@/lib/types";
 
 /**
  * Everything the teacher wants to know about a student on one line: who they
@@ -58,7 +58,7 @@ export async function GET() {
     // Lessons already taught: confirmed bookings whose start has passed.
     supabase
       .from("lesson_bookings")
-      .select("student_name, student_account_id, course_minutes, lesson_slots!inner(teacher_id)")
+      .select("student_name, student_account_id, course_minutes, lesson_sections, lesson_slots!inner(teacher_id)")
       .eq("lesson_slots.teacher_id", account.id)
       .eq("status", "confirmed")
       .lt("start_at", now)
@@ -109,15 +109,43 @@ export async function GET() {
   // booking carries one, by name for the ones that predate accounts.
   const taughtByName = new Map<string, number>();
   const taughtByAccount = new Map<string, number>();
-  ((pastBookings.data || []) as unknown as Pick<BookingRow, "student_name" | "student_account_id" | "course_minutes">[]).forEach((row) => {
+  // Per-student breakdown: how many lessons, and the hours by area. A lesson
+  // tagged with two areas splits its time between them, so the areas add up
+  // to the total rather than beyond it.
+  const statsByName = new Map<string, StudentOverviewStats>();
+  const statsByAccount = new Map<string, StudentOverviewStats>();
+  const emptyStats = (): StudentOverviewStats => ({ lessons: 0, by_section: {} });
+  ((pastBookings.data || []) as unknown as Array<Pick<BookingRow, "student_name" | "student_account_id" | "course_minutes"> & { lesson_sections?: string[] | null }>).forEach((row) => {
     const minutes = Number(row.course_minutes || 0);
+    const nameKey = normalize(row.student_name);
+    let stats: StudentOverviewStats;
     if (row.student_account_id) {
       taughtByAccount.set(row.student_account_id, (taughtByAccount.get(row.student_account_id) || 0) + minutes);
+      stats = statsByAccount.get(row.student_account_id) || emptyStats();
+      statsByAccount.set(row.student_account_id, stats);
     } else {
-      const nameKey = normalize(row.student_name);
       taughtByName.set(nameKey, (taughtByName.get(nameKey) || 0) + minutes);
+      stats = statsByName.get(nameKey) || emptyStats();
+      statsByName.set(nameKey, stats);
+    }
+    stats.lessons += 1;
+    const areas = (row.lesson_sections || []) as LessonSection[];
+    const share = areas.length ? minutes / areas.length : minutes;
+    for (const area of areas.length ? areas : (["Other"] as const)) {
+      stats.by_section[area] = (stats.by_section[area] || 0) + share;
     }
   });
+  const mergeStats = (a?: StudentOverviewStats, b?: StudentOverviewStats): StudentOverviewStats => {
+    const out = emptyStats();
+    for (const s of [a, b]) {
+      if (!s) continue;
+      out.lessons += s.lessons;
+      for (const [area, mins] of Object.entries(s.by_section)) out.by_section[area as keyof typeof out.by_section] = (out.by_section[area as keyof typeof out.by_section] || 0) + mins;
+    }
+    // minutes -> hours, one decimal
+    for (const area of Object.keys(out.by_section) as Array<keyof typeof out.by_section>) out.by_section[area] = Math.round((out.by_section[area] || 0) / 6) / 10;
+    return out;
+  };
 
   const rows: StudentOverviewRow[] = (students.data || []).map((student) => {
     const accountId = (student.account_id as string | null) || null;
@@ -138,6 +166,7 @@ export async function GET() {
       is_active: student.is_active !== false,
       taught_hours_auto: Math.round((((accountId ? taughtByAccount.get(accountId) : 0) || 0) + (taughtByName.get(key) || 0)) / 6) / 10,
       taught_hours_override: student.taught_hours_override == null ? null : Number(student.taught_hours_override),
+      lesson_stats: mergeStats(accountId ? statsByAccount.get(accountId) : undefined, statsByName.get(key)),
       speaking: latestScores.get(`${key}::speaking`) || null,
       writing: latestScores.get(`${key}::writing`) || null,
       next_lesson:
