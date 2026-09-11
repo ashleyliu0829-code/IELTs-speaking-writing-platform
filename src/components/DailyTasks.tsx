@@ -1,18 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { tr, useLanguage } from "@/lib/i18n";
 import type { DailyTask, StudentProfile } from "@/lib/types";
 
 const TASK_TYPES = ["词汇", "口语话题", "听力", "阅读", "写作", "综合"];
 
+// The type is stored in Chinese; this is only how it is shown.
+const TASK_TYPE_EN: Record<string, string> = {
+  词汇: "Vocabulary",
+  口语话题: "Speaking topic",
+  听力: "Listening",
+  阅读: "Reading",
+  写作: "Writing",
+  综合: "Mixed"
+};
+function taskTypeLabel(type: string) {
+  return tr(type, TASK_TYPE_EN[type] || type);
+}
+
 type TeacherDailyTasksProps = {
   students: StudentProfile[];
   api: (path: string, init?: RequestInit) => Promise<any>;
-  mode?: "assign" | "progress";
+  mode?: "assign" | "progress" | "both";
   language?: "zh" | "en";
 };
 
-export function TeacherDailyTasksPanel({ students, api, mode = "assign", language = "zh" }: TeacherDailyTasksProps) {
+export function TeacherDailyTasksPanel({ students, api, mode = "both", language = "zh" }: TeacherDailyTasksProps) {
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [selectedStudentName, setSelectedStudentName] = useState("");
   const [title, setTitle] = useState("");
@@ -24,7 +38,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const selectedStudent = selectedStudentName || students[0]?.name || "";
-  const t = (zh: string, en: string) => (language === "zh" ? zh : en);
+  const { t } = useLanguage();
 
   useEffect(() => {
     void loadTasks();
@@ -36,7 +50,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
       const data = await api("/api/teacher/daily-tasks");
       setTasks(data.tasks || []);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法加载每日任务。");
+      setMessage(error instanceof Error ? error.message : tr("无法加载每日任务。", "Could not load daily tasks."));
     } finally {
       setLoading(false);
     }
@@ -45,8 +59,8 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
   async function createTask() {
     setMessage("");
     try {
-      if (!title.trim()) throw new Error("请输入任务标题。");
-      if (!selectedStudents.length) throw new Error("请至少选择一位学生。");
+      if (!title.trim()) throw new Error(tr("请输入任务标题。", "Please enter a task title."));
+      if (!selectedStudents.length) throw new Error(tr("请至少选择一位学生。", "Please select at least one student."));
       const data = await api("/api/teacher/daily-tasks", {
         method: "POST",
         body: JSON.stringify({
@@ -62,9 +76,9 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
       setTitle("");
       setDescription("");
       setSelectedStudents([]);
-      setMessage("每日任务已创建。");
+      setMessage(tr("每日任务已创建。", "Daily task created."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法创建每日任务。");
+      setMessage(error instanceof Error ? error.message : tr("无法创建每日任务。", "Could not create the task."));
     }
   }
 
@@ -76,9 +90,9 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
         body: JSON.stringify({ taskId, ...patch })
       });
       setTasks((current) => current.map((task) => (task.id === taskId ? data.task : task)));
-      setMessage("每日任务已更新。");
+      setMessage(tr("每日任务已更新。", "Daily task updated."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法更新每日任务。");
+      setMessage(error instanceof Error ? error.message : tr("无法更新每日任务。", "Could not update the task."));
       throw error;
     }
   }
@@ -88,9 +102,9 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
     try {
       await api(`/api/teacher/daily-tasks?taskId=${taskId}`, { method: "DELETE" });
       setTasks(tasks.filter((task) => task.id !== taskId));
-      setMessage("每日任务已删除。");
+      setMessage(tr("每日任务已删除。", "Daily task deleted."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法删除每日任务。");
+      setMessage(error instanceof Error ? error.message : tr("无法删除每日任务。", "Could not delete the task."));
     }
   }
 
@@ -108,7 +122,12 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
           <div className="hint">
             {mode === "assign"
               ? t("为学生设置一段时间内每天需要完成的任务。", "Set daily tasks for students over a date range.")
-              : t("查看学生每日任务完成情况和打卡进度。", "Review student daily task completion and check-in progress.")}
+              : mode === "progress"
+                ? t("查看学生每日任务完成情况和打卡进度。", "Review student daily task completion and check-in progress.")
+                : t(
+                    "设置每天要完成的任务，并查看学生的打卡情况。",
+                    "Set the daily tasks, and see how students are checking in."
+                  )}
           </div>
         </div>
         <button className="btn secondary" type="button" onClick={() => void loadTasks()} disabled={loading}>
@@ -116,7 +135,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
         </button>
       </div>
 
-      {mode === "assign" && (
+      {mode !== "progress" && (
         <section className="daily-task-editor">
           <div>
             <label>{t("任务标题", "Task title")}</label>
@@ -126,7 +145,9 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
             <label>{t("任务类型", "Task type")}</label>
             <select value={taskType} onChange={(event) => setTaskType(event.target.value)}>
               {TASK_TYPES.map((type) => (
-                <option key={type}>{type}</option>
+                <option key={type} value={type}>
+                  {taskTypeLabel(type)}
+                </option>
               ))}
             </select>
           </div>
@@ -157,7 +178,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
               ))}
             </div>
           </div>
-          <button className="btn daily-task-create" type="button" onClick={() => void createTask()}>
+          <button className="btn accent daily-task-create" type="button" onClick={() => void createTask()}>
             {t("创建每日任务", "Create daily task")}
           </button>
         </section>
@@ -165,7 +186,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
 
       {message && <p className={message.includes("Could not") || message.includes("Please") ? "error" : "hint"}>{message}</p>}
 
-      {mode === "progress" && (
+      {mode !== "assign" && (
         <StudentDailyTaskHistory
           students={students}
           tasks={tasks}
@@ -225,6 +246,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "assign", languag
 }
 
 export function StudentDailyTasksPanel({ account }: { account?: { id: string; role: string; display_name: string } | null }) {
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [today, setToday] = useState(todayString());
   const [message, setMessage] = useState("");
@@ -239,7 +261,7 @@ export function StudentDailyTasksPanel({ account }: { account?: { id: string; ro
     const response = await fetch("/api/student/daily-tasks", { credentials: "include" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setMessage(data.error || "无法加载每日任务。");
+      setMessage(data.error || tr("无法加载每日任务。", "Could not load daily tasks."));
       return;
     }
     setTasks(data.tasks || []);
@@ -257,7 +279,7 @@ export function StudentDailyTasksPanel({ account }: { account?: { id: string; ro
         body: JSON.stringify({ taskId, checkinDate: today })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "打卡失败。");
+      if (!response.ok) throw new Error(data.error || tr("打卡失败。", "Check-in failed."));
       setTasks((current) =>
         current.map((task) =>
           task.id === taskId
@@ -278,9 +300,9 @@ export function StudentDailyTasksPanel({ account }: { account?: { id: string; ro
         )
       );
       await loadTasks();
-      setMessage("今日已打卡。");
+      setMessage(tr("今日已打卡。", "Checked in for today."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "打卡失败。");
+      setMessage(error instanceof Error ? error.message : tr("打卡失败。", "Check-in failed."));
     } finally {
       setLoadingTaskId("");
     }
@@ -290,21 +312,21 @@ export function StudentDailyTasksPanel({ account }: { account?: { id: string; ro
     <article className="card stack">
       <div className="section-head">
         <div>
-          <h2>每日学习打卡</h2>
-          <div className="hint">完成老师布置的每日任务后，在这里打卡。</div>
+          <h2>{t("每日学习打卡", "Daily check-in")}</h2>
+          <div className="hint">{t("完成老师布置的每日任务后，在这里打卡。", "Check in here once you have done the day's tasks.")}</div>
         </div>
-        <span className="pill">{tasks.length} 项</span>
+        <span className="pill">{t(`${tasks.length} 项`, `${tasks.length}`)}</span>
       </div>
       {message && <p className={message.includes("Could not") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>}
       <section className={`daily-today-summary ${todaySummary.due && todaySummary.completed >= todaySummary.due ? "completed" : ""}`}>
         <div>
           <strong>
-            今日进度 {todaySummary.completed}/{todaySummary.due}
+            {t("今日进度", "Today")} {todaySummary.completed}/{todaySummary.due}
           </strong>
           <p className="hint">
             {todaySummary.due && todaySummary.completed >= todaySummary.due
-              ? "你已完成当日全部打卡任务！"
-              : "完成任务后点击打卡，今日进度会自动更新。"}
+              ? t("你已完成当日全部打卡任务！", "All of today's tasks are done!")
+              : t("完成任务后点击打卡，今日进度会自动更新。", "Check in after each task; today's progress updates on its own.")}
           </p>
         </div>
       </section>
@@ -317,9 +339,9 @@ export function StudentDailyTasksPanel({ account }: { account?: { id: string; ro
                 <div className="section-head compact">
                   <div>
                     <h3>{task.title}</h3>
-                    <div className="hint">{task.task_type}</div>
+                    <div className="hint">{taskTypeLabel(task.task_type)}</div>
                   </div>
-                  <span className={`pill ${checkedToday ? "ok" : "warn"}`}>{checkedToday ? "已打卡" : "待打卡"}</span>
+                  <span className={`pill ${checkedToday ? "ok" : "warn"}`}>{checkedToday ? t("已打卡", "Done") : t("待打卡", "To do")}</span>
                 </div>
                 {task.description && <p>{task.description}</p>}
                 <div className="hint">
@@ -327,13 +349,13 @@ export function StudentDailyTasksPanel({ account }: { account?: { id: string; ro
                 </div>
                 <TaskProgress task={task} studentName="" />
                 <button className="btn" type="button" disabled={checkedToday || loadingTaskId === task.id} onClick={() => void checkIn(task.id)}>
-                  {checkedToday ? "今日已完成" : loadingTaskId === task.id ? "保存中..." : "今日打卡"}
+                  {checkedToday ? t("今日已完成", "Done today") : loadingTaskId === task.id ? t("保存中...", "Saving...") : t("今日打卡", "Check in")}
                 </button>
               </div>
             );
           })
         ) : (
-          <p className="hint">今天没有每日任务。</p>
+          <p className="hint">{t("今天没有每日任务。", "No tasks today.")}</p>
         )}
       </div>
     </article>
@@ -358,15 +380,16 @@ function StudentDailyTaskHistory({
   const selectedTasks = tasks.filter((task) =>
     task.assigned_students.some((studentName) => normalizeName(studentName) === normalizeName(selectedStudent))
   );
+  const { t } = useLanguage();
 
   return (
     <section className="daily-history-panel">
       <div className="section-head">
         <div>
-          <h2>每日任务历史</h2>
-          <div className="hint">选择学生后查看已分配任务和完成进度。</div>
+          <h2>{t("每日任务历史", "Task history")}</h2>
+          <div className="hint">{t("选择学生后查看已分配任务和完成进度。", "Pick a student to see their tasks and progress.")}</div>
         </div>
-        <span className="pill">{students.length} 位学生</span>
+        <span className="pill">{t(`${students.length} 位学生`, `${students.length} students`)}</span>
       </div>
       <div className="daily-history-layout">
         <aside className="daily-history-sidebar">
@@ -385,16 +408,16 @@ function StudentDailyTaskHistory({
                   onClick={() => onSelectStudent(student.name)}
                 >
                   <strong>{student.name}</strong>
-                  <span>{student.phone || "暂无手机号"}</span>
-                  <span>{assignedCount} 项每日任务</span>
+                  <span>{student.phone || t("暂无手机号", "No phone")}</span>
+                  <span>{t(`${assignedCount} 项每日任务`, `${assignedCount} tasks`)}</span>
                   <span className={`pill ${summary.due && summary.completed >= summary.due ? "ok" : summary.due ? "warn" : ""}`}>
-                    今日 {summary.completed}/{summary.due}
+                    {t("今日", "Today")} {summary.completed}/{summary.due}
                   </span>
                 </button>
               );
             })
           ) : (
-            <p className="hint">还没有学生档案。</p>
+            <p className="hint">{t("还没有学生档案。", "No students yet.")}</p>
           )}
         </aside>
         <div className="daily-history-main">
@@ -403,9 +426,9 @@ function StudentDailyTaskHistory({
               <div className="section-head compact">
                 <div>
                   <h3>{selectedStudent}</h3>
-                  <div className="hint">已分配每日任务和打卡进度。</div>
+                  <div className="hint">{t("已分配每日任务和打卡进度。", "Assigned tasks and check-ins.")}</div>
                 </div>
-                <span className="pill">{selectedTasks.length} 项任务</span>
+                <span className="pill">{t(`${selectedTasks.length} 项任务`, `${selectedTasks.length} tasks`)}</span>
               </div>
               <div className="daily-student-task-list">
                 {selectedTasks.length ? (
@@ -420,15 +443,15 @@ function StudentDailyTaskHistory({
                     />
                   ))
                 ) : (
-                  <p className="hint">还没有给该学生分配每日任务。</p>
+                  <p className="hint">{t("还没有给该学生分配每日任务。", "No tasks assigned to this student yet.")}</p>
                 )}
               </div>
               <StudentCheckinCalendar studentName={selectedStudent} tasks={tasks} />
             </>
           ) : (
             <div className="empty-state">
-              <h3>请选择学生</h3>
-              <p className="hint">从左侧选择学生后查看每日任务。</p>
+              <h3>{t("请选择学生", "Pick a student")}</h3>
+              <p className="hint">{t("从左侧选择学生后查看每日任务。", "Choose a student on the left to see their tasks.")}</p>
             </div>
           )}
         </div>
@@ -453,6 +476,7 @@ function StudentAssignedTaskCard({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(() => toDraft(task));
+  const { t } = useLanguage();
 
   const today = todayString();
   const ended = dateOnly(task.end_date) < today;
@@ -497,31 +521,33 @@ function StudentAssignedTaskCard({
       <div className="daily-task-card">
         <div className="daily-task-editor">
           <div>
-            <label>任务标题</label>
+            <label>{t("任务标题", "Task title")}</label>
             <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
           </div>
           <div>
-            <label>任务类型</label>
+            <label>{t("任务类型", "Task type")}</label>
             <select value={draft.taskType} onChange={(event) => setDraft({ ...draft, taskType: event.target.value })}>
               {TASK_TYPES.map((type) => (
-                <option key={type}>{type}</option>
+                <option key={type} value={type}>
+                  {taskTypeLabel(type)}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label>开始日期</label>
+            <label>{t("开始日期", "Start date")}</label>
             <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
           </div>
           <div>
-            <label>结束日期</label>
+            <label>{t("结束日期", "End date")}</label>
             <input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} />
           </div>
           <div className="daily-task-description">
-            <label>任务说明</label>
+            <label>{t("任务说明", "Task details")}</label>
             <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
           </div>
           <div className="daily-task-students">
-            <label>分配给学生</label>
+            <label>{t("分配给学生", "Assign to students")}</label>
             <div className="student-check-list compact">
               {students.map((student) => (
                 <label key={student.id} className="check-row">
@@ -538,14 +564,14 @@ function StudentAssignedTaskCard({
         </div>
         <div className="daily-task-actions">
           <button className="btn" type="button" disabled={saving} onClick={() => void run(draft, true)}>
-            {saving ? "保存中..." : "保存修改"}
+            {saving ? t("保存中...", "Saving...") : t("保存修改", "Save changes")}
           </button>
           <button className="btn secondary" type="button" disabled={saving} onClick={() => setEditing(false)}>
-            取消
+            {t("取消", "Cancel")}
           </button>
         </div>
         <p className="hint">
-          改动只影响任务本身，学生已经打过的卡不会丢。缩短日期或移除学生只是让他们看不到这项任务。
+          {t("改动只影响任务本身，学生已经打过的卡不会丢。缩短日期或移除学生只是让他们看不到这项任务。", "Edits change the task only; check-ins already made are kept. Shortening the dates or removing a student just hides the task from them.")}
         </p>
       </div>
     );
@@ -556,11 +582,11 @@ function StudentAssignedTaskCard({
       <div className="section-head compact">
         <div>
           <h3>{task.title}</h3>
-          <div className="hint">{task.task_type}</div>
+          <div className="hint">{taskTypeLabel(task.task_type)}</div>
         </div>
         <div className="daily-task-badges">
-          {!task.is_active && <span className="pill warn">已暂停</span>}
-          {task.is_active && ended && <span className="pill">已结束</span>}
+          {!task.is_active && <span className="pill warn">{t("已暂停", "Paused")}</span>}
+          {task.is_active && ended && <span className="pill">{t("已结束", "Ended")}</span>}
           <span className="pill">{formatDate(task.start_date)} - {formatDate(task.end_date)}</span>
         </div>
       </div>
@@ -568,16 +594,16 @@ function StudentAssignedTaskCard({
       <TaskProgress task={task} studentName={studentName} />
       <div className="daily-task-actions">
         <button className="btn secondary" type="button" disabled={saving} onClick={() => extend(7)}>
-          {ended ? "重开 7 天" : "延长 7 天"}
+          {ended ? t("重开 7 天", "Reopen 7 days") : t("延长 7 天", "Extend 7 days")}
         </button>
         <button className="btn secondary" type="button" disabled={saving} onClick={open}>
-          编辑
+          {t("编辑", "Edit")}
         </button>
         <button className="btn secondary" type="button" disabled={saving} onClick={() => void run({ isActive: !task.is_active })}>
-          {task.is_active ? "暂停" : "恢复"}
+          {task.is_active ? t("暂停", "Pause") : t("恢复", "Resume")}
         </button>
         <button className="btn danger" type="button" disabled={saving} onClick={() => void onDelete(task.id)}>
-          删除
+          {t("删除", "Delete")}
         </button>
       </div>
     </div>
@@ -596,14 +622,15 @@ function toDraft(task: DailyTask) {
 }
 
 function TeacherDailyTaskCard({ task, onDelete }: { task: DailyTask; onDelete: (taskId: string) => Promise<void> }) {
+  const { t } = useLanguage();
   return (
     <div className="daily-task-card">
       <div className="section-head compact">
         <div>
           <h3>{task.title}</h3>
-          <div className="hint">{task.task_type}</div>
+          <div className="hint">{taskTypeLabel(task.task_type)}</div>
         </div>
-        <span className="pill">{task.assigned_students.length} 位学生</span>
+        <span className="pill">{t(`${task.assigned_students.length} 位学生`, `${task.assigned_students.length} students`)}</span>
       </div>
       {task.description && <p>{task.description}</p>}
       <div className="hint">
@@ -618,7 +645,7 @@ function TeacherDailyTaskCard({ task, onDelete }: { task: DailyTask; onDelete: (
         ))}
       </div>
       <button className="btn danger" type="button" onClick={() => void onDelete(task.id)}>
-        删除
+        {t("删除", "Delete")}
       </button>
     </div>
   );
@@ -632,23 +659,24 @@ function StudentCheckinCalendar({ studentName, tasks }: { studentName: string; t
   const days = useMemo(() => buildStudentCalendarDays(studentTasks, studentName), [studentTasks, studentName]);
   const completedDays = days.filter((day) => day.due > 0 && day.completed >= day.due).length;
   const dueDays = days.filter((day) => day.due > 0).length;
+  const { t } = useLanguage();
 
   return (
     <div className="daily-calendar-card">
       <div className="section-head compact">
         <div>
           <h3>{studentName}</h3>
-          <div className="hint">每日打卡日历</div>
+          <div className="hint">{t("每日打卡日历", "Check-in calendar")}</div>
         </div>
         <span className="pill ok">
-          {completedDays}/{dueDays} 天已完成
+          {t(`${completedDays}/${dueDays} 天已完成`, `${completedDays}/${dueDays} days done`)}
         </span>
       </div>
       {days.length ? (
         <>
           <div className="daily-calendar-weekdays">
-            {["周一", "周二", "周三", "周四", "周五", "周六", "周日"].map((day) => (
-              <strong key={day}>{day}</strong>
+            {["周一", "周二", "周三", "周四", "周五", "周六", "周日"].map((day, index) => (
+              <strong key={day}>{t(day, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index])}</strong>
             ))}
           </div>
           <div className="daily-calendar-grid">
@@ -658,13 +686,13 @@ function StudentCheckinCalendar({ studentName, tasks }: { studentName: string; t
             {days.map((day) => (
               <div className={`daily-calendar-day ${dayClass(day)}`} key={day.date}>
                 <strong>{Number(day.date.slice(-2))}</strong>
-                {day.due ? <span>{day.completed}/{day.due}</span> : <span>无任务</span>}
+                {day.due ? <span>{day.completed}/{day.due}</span> : <span>{t("无任务", "none")}</span>}
               </div>
             ))}
           </div>
         </>
       ) : (
-        <p className="hint">还没有给该学生分配每日任务。</p>
+        <p className="hint">{t("还没有给该学生分配每日任务。", "No tasks assigned to this student yet.")}</p>
       )}
     </div>
   );
@@ -682,7 +710,7 @@ function TaskProgress({ task, studentName }: { task: DailyTask; studentName: str
         <span style={{ width: `${percent}%` }} />
       </div>
       <span className="hint">
-        {completed}/{total} 天
+        {tr(`${completed}/${total} 天`, `${completed}/${total} days`)}
       </span>
     </div>
   );
@@ -786,5 +814,103 @@ function normalizeName(value: string) {
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("zh-CN");
+  return date.toLocaleDateString(tr("zh-CN", "en-GB"));
+}
+
+/**
+ * Today's check-in, small enough for the home page.
+ *
+ * The same data and the same check-in call as the full panel, cut down to
+ * what matters this morning: how many are due, which are still open, and a
+ * button on each. History and the calendar stay on the daily-tasks page.
+ */
+export function StudentDailyCheckinTile({
+  onOpenAll
+}: {
+  onOpenAll: () => void;
+}) {
+  const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [today, setToday] = useState(todayString());
+  const [message, setMessage] = useState("");
+  const [loadingTaskId, setLoadingTaskId] = useState("");
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    void loadTasks();
+  }, []);
+
+  async function loadTasks() {
+    const response = await fetch("/api/student/daily-tasks", { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.error || tr("无法加载每日任务。", "Could not load daily tasks."));
+      return;
+    }
+    setTasks(data.tasks || []);
+    setToday(data.today || todayString());
+  }
+
+  async function checkIn(taskId: string) {
+    setLoadingTaskId(taskId);
+    setMessage("");
+    try {
+      const response = await fetch("/api/student/daily-tasks", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, checkinDate: today })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("打卡失败。", "Check-in failed."));
+      await loadTasks();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : tr("打卡失败。", "Check-in failed."));
+    } finally {
+      setLoadingTaskId("");
+    }
+  }
+
+  const due = tasks.filter((task) => dateOnly(task.start_date) <= today && dateOnly(task.end_date) >= today);
+  const summary = getTodayTaskSummary(tasks, today);
+  const allDone = summary.due > 0 && summary.completed >= summary.due;
+
+  return (
+    <article className="card stack student-home-tile">
+      <div className="section-head compact">
+        <div>
+          <h2>{t("每日打卡", "Daily check-in")}</h2>
+        </div>
+        <button className="btn secondary" type="button" onClick={onOpenAll}>
+          {t("全部任务", "All tasks")}
+        </button>
+      </div>
+      {message && <p className="error">{message}</p>}
+      <div className="student-home-checkin">
+        <strong className={allDone ? "done" : ""}>
+          {summary.completed}/{summary.due}
+          <small>{allDone ? t("今天都打过了", "all done today") : summary.due ? t("今日进度", "today") : t("今天没有任务", "no tasks today")}</small>
+        </strong>
+        {due.length > 0 && (
+          <ul className="student-home-checkin-list">
+            {due.map((task) => {
+              const checked = (task.checkins || []).some((checkin) => sameDate(checkin.checkin_date, today));
+              return (
+                <li key={task.id}>
+                  <span className={checked ? "checked" : ""}>{task.title}</span>
+                  <button
+                    className={`btn ${checked ? "ghost" : "accent"} compact`}
+                    type="button"
+                    disabled={checked || loadingTaskId === task.id}
+                    onClick={() => void checkIn(task.id)}
+                  >
+                    {checked ? t("已打卡", "Done") : loadingTaskId === task.id ? "..." : t("打卡", "Check in")}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </article>
+  );
 }

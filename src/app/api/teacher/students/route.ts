@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   const assignmentType = request.nextUrl.searchParams.get("assignmentType");
   const [{ data: students, error: studentsError }, { data: submissions, error: submissionsError }] = await Promise.all([
-    supabase.from("students").select("*").order("last_seen_at", { ascending: false }),
+    supabase.from("students").select("*").neq("is_active", false).order("last_seen_at", { ascending: false }),
     supabase
       .from("submissions")
       .select("id, student_name, submitted_at, submission_status, assignments(assignment_type), feedback(overall_score, published_at)")

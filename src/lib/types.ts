@@ -43,6 +43,73 @@ export type StudentProfile = {
   reviewed_count?: number;
   latest_submission_at?: string | null;
   latest_score?: number | null;
+  /** The exam being worked towards. Null until the teacher sets one. */
+  exam_date?: string | null;
+  /** False while the date is the teacher's estimate rather than a booking. */
+  exam_date_confirmed?: boolean;
+  course_plan?: string;
+  is_active?: boolean;
+};
+
+/** One row of the student overview: everything about a student on one line. */
+export type StudentOverviewRow = {
+  id: string;
+  name: string;
+  normalized_name: string;
+  phone: string | null;
+  /** Null for a student the teacher typed in who never registered. */
+  account_id: string | null;
+  /** When the student registered, falling back to when the profile appeared. */
+  registered_at: string;
+  /** True when registered_at is the account's own creation date. */
+  registered_from_account: boolean;
+  exam_date: string | null;
+  exam_date_confirmed: boolean;
+  /** The course the student is on. Empty string when nothing is set. */
+  course_plan: string;
+  /** False once the student has stopped taking lessons. */
+  is_active: boolean;
+  speaking: StudentOverviewScore | null;
+  writing: StudentOverviewScore | null;
+  next_lesson: StudentOverviewLesson | null;
+};
+
+export type StudentOverviewScore = {
+  score: number;
+  submitted_at: string;
+};
+
+/** One lesson on the teacher's home schedule. */
+export type TeacherHomeLesson = {
+  id: string;
+  student_name: string;
+  start_at: string;
+  end_at: string;
+  status: "pending" | "confirmed";
+  booking_type: string;
+  course_minutes: number;
+};
+
+/** One line in the home page's activity feed. */
+export type TeacherHomeActivity = {
+  id: string;
+  kind: "submission" | "booking_pending" | "booking_confirmed" | "booking_cancelled" | "student_joined";
+  student_name: string;
+  /** When it happened. The feed is sorted on this. */
+  at: string;
+  /** Homework title, on a submission. */
+  title?: string;
+  area?: "speaking" | "writing";
+  /** When the lesson itself runs, on a booking. */
+  lesson_at?: string;
+  booking_type?: string;
+};
+
+export type StudentOverviewLesson = {
+  start_at: string;
+  status: "pending" | "confirmed";
+  booking_type: string;
+  course_minutes: number;
 };
 
 export type QuestionItem = {

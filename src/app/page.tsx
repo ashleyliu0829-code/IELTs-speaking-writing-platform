@@ -1,35 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-
-type HomeLanguage = "zh" | "en";
+import { useLanguage } from "@/lib/i18n";
 
 export default function Home() {
-  const [language, setLanguage] = useState<HomeLanguage>("zh");
-
-  useEffect(() => {
-    const savedLanguage = window.localStorage.getItem("homeLanguage");
-    if (savedLanguage === "zh" || savedLanguage === "en") setLanguage(savedLanguage);
-  }, []);
-
-  function toggleLanguage() {
-    setLanguage((current) => {
-      const next = current === "zh" ? "en" : "zh";
-      window.localStorage.setItem("homeLanguage", next);
-      return next;
-    });
-  }
-
-  function t(zh: string, en: string) {
-    return language === "zh" ? zh : en;
-  }
+  const { t } = useLanguage();
 
   return (
     <main className="landing">
-      <button className="landing-lang" type="button" onClick={toggleLanguage}>
-        {language === "zh" ? "English" : "中文"}
-      </button>
 
       <h1 className="landing-title">
         {t("专为雅思老师打造的", "Built for IELTS teachers:")}
@@ -92,7 +70,7 @@ export default function Home() {
       </figure>
 
       <nav className="landing-entry">
-        <Link className="btn" href="/teacher">
+        <Link className="btn accent" href="/teacher">
           {t("老师登录", "Teacher login")}
         </Link>
         <Link className="btn secondary" href="/student">

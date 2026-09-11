@@ -3,6 +3,7 @@
 import type { Feedback, Submission } from "@/lib/types";
 import { scoreDetails } from "@/lib/feedback";
 import { averageScore } from "@/lib/questions";
+import { tr, useLanguage } from "@/lib/i18n";
 
 type ProgressPoint = {
   id: string;
@@ -14,7 +15,9 @@ type ProgressPoint = {
   vocabulary: number;
 };
 
-export function LearningProgressPanel({ submissions }: { submissions: Submission[] }) {
+export function LearningProgressPanel({ submissions, title }: { submissions: Submission[]; title?: string }) {
+  const { t, language } = useLanguage();
+  const heading = title || t("学习情况", "Progress");
   const points = submissions
     .map(toProgressPoint)
     .filter((point): point is ProgressPoint => Boolean(point))
@@ -24,27 +27,26 @@ export function LearningProgressPanel({ submissions }: { submissions: Submission
     <article className="card stack">
       <div className="section-head">
         <div>
-          <h2>学习情况</h2>
-          <div className="hint">每次作业发布反馈后的分数变化</div>
+          <h2>{heading}</h2>
         </div>
-        <span className="pill">{points.length} 条记录</span>
+        <span className="pill">{t(`${points.length} 条记录`, `${points.length} records`)}</span>
       </div>
       {points.length ? (
         <>
           <ScoreChart points={points} />
           <div className="progress-table">
             <div className="progress-row progress-head">
-              <span>作业</span>
-              <span>日期</span>
-              <span>平均分</span>
-              <span>流利度</span>
-              <span>语法</span>
-              <span>词汇</span>
+              <span>{t("作业", "Homework")}</span>
+              <span>{t("日期", "Date")}</span>
+              <span>{t("平均分", "Average")}</span>
+              <span>{t("流利度", "Fluency")}</span>
+              <span>{t("语法", "Grammar")}</span>
+              <span>{t("词汇", "Vocabulary")}</span>
             </div>
             {points.map((point) => (
               <div className="progress-row" key={point.id}>
                 <span>{point.title}</span>
-                <span>{new Date(point.date).toLocaleDateString("zh-CN")}</span>
+                <span>{new Date(point.date).toLocaleDateString(language === "zh" ? "zh-CN" : "en-GB")}</span>
                 <strong>{point.overall.toFixed(1)}</strong>
                 <span>{point.fluency.toFixed(1)}</span>
                 <span>{point.grammar.toFixed(1)}</span>
@@ -54,7 +56,7 @@ export function LearningProgressPanel({ submissions }: { submissions: Submission
           </div>
         </>
       ) : (
-        <p className="hint">还没有可展示的评分。老师发布反馈后，这里会显示分数曲线。</p>
+        <p className="hint">{t("还没有可展示的评分。老师发布反馈后，这里会显示分数曲线。", "No scores yet. Once the teacher publishes feedback, the curve appears here.")}</p>
       )}
     </article>
   );
@@ -76,7 +78,7 @@ function ScoreChart({ points }: { points: ProgressPoint[] }) {
   const polyline = coords.map((coord) => `${coord.x},${coord.y}`).join(" ");
 
   return (
-    <div className="score-chart" aria-label="分数变化图">
+    <div className="score-chart" aria-label={tr("分数变化图", "Score chart")}>
       <svg viewBox={`0 0 ${width} ${height}`} role="img">
         <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} />
         <line x1={pad} y1={pad} x2={pad} y2={height - pad} />
@@ -119,7 +121,7 @@ function toProgressPoint(submission: Submission): ProgressPoint | null {
 
   return {
     id: submission.id,
-    title: submission.submission_title || assignment?.title || "口语作业",
+    title: submission.submission_title || assignment?.title || tr("口语作业", "Speaking homework"),
     date: feedback.published_at || submission.submitted_at,
     overall: Number(feedback.overall_score || averageScore(scores)),
     fluency,

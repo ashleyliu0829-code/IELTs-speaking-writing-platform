@@ -3,6 +3,7 @@
 import { p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { getSpeakingTopicProgress } from "@/lib/speakingProgress";
 import type { Submission } from "@/lib/types";
+import { useLanguage } from "@/lib/i18n";
 
 type SpeakingPracticePart = "p1" | "p2";
 
@@ -21,6 +22,7 @@ export function SpeakingTopicProgressPanel({
   practiceLoadingId?: string;
   practiceMessage?: string;
 }) {
+  const { t } = useLanguage();
   const progress = getSpeakingTopicProgress(submissions);
   const p1Completed = new Set([...progress.p1Completed, ...completedP1TopicIds]);
   const p2Completed = new Set([...progress.p2Completed, ...completedP2TopicIds]);
@@ -29,11 +31,11 @@ export function SpeakingTopicProgressPanel({
     <section className="topic-progress-panel">
       <div className="section-head compact">
         <div>
-          <h3>口语过题情况</h3>
+          <h3>{t("口语过题情况", "Speaking topics covered")}</h3>
           <div className="hint">
             {onPracticeTopic
-              ? "统计正式作业覆盖和自主练习完成的话题。点击话题可进入自主练习。"
-              : "统计正式作业覆盖、已提交录音和自主练习完成的 Part 1 / Part 2 话题。"}
+              ? t("点击话题可进入自主练习。", "Click a topic to start a practice.")
+              : t("统计正式作业覆盖、已提交录音和自主练习完成的 Part 1 / Part 2 话题。", "Part 1 / Part 2 topics covered by homework, recordings and practice.")}
           </div>
         </div>
       </div>
@@ -51,10 +53,10 @@ export function SpeakingTopicProgressPanel({
           </strong>
         </div>
       </div>
-      {practiceMessage && <div className={`practice-inline-status ${practiceMessage.includes("失败") || practiceMessage.includes("无法") || practiceMessage.includes("错误") ? "error" : ""}`}>{practiceMessage}</div>}
+      {practiceMessage && <div className={`practice-inline-status ${/失败|无法|错误|fail|could not|error/i.test(practiceMessage) ? "error" : ""}`}>{practiceMessage}</div>}
       <div className="topic-progress-grid">
         <TopicList
-          title="Part 1 话题"
+          title={t("Part 1 话题", "Part 1 topics")}
           part="p1"
           onPracticeTopic={onPracticeTopic}
           practiceLoadingId={practiceLoadingId}
@@ -65,7 +67,7 @@ export function SpeakingTopicProgressPanel({
           }))}
         />
         <TopicList
-          title="Part 2 话题"
+          title={t("Part 2 话题", "Part 2 topics")}
           part="p2"
           onPracticeTopic={onPracticeTopic}
           practiceLoadingId={practiceLoadingId}
@@ -93,6 +95,7 @@ function TopicList({
   practiceLoadingId?: string;
   items: { id: string; label: string; completed: boolean }[];
 }) {
+  const { t } = useLanguage();
   return (
     <div className="topic-list-card">
       <div className="section-head compact">
@@ -105,7 +108,7 @@ function TopicList({
           const content = (
             <>
               <span>{item.label}</span>
-              {isLoading ? <strong>打开中...</strong> : item.completed ? <strong>✓ 已完成</strong> : onPracticeTopic ? <strong>练习</strong> : null}
+              {isLoading ? <strong>{t("打开中...", "Opening...")}</strong> : item.completed ? <strong>{t("✓ 已完成", "✓ Done")}</strong> : onPracticeTopic ? <strong>{t("练习", "Practise")}</strong> : null}
             </>
           );
           if (onPracticeTopic) {

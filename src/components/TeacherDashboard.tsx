@@ -9,15 +9,16 @@ import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TeacherSchedulePanel } from "@/components/LessonScheduler";
 import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { TeacherDailyTasksPanel } from "@/components/DailyTasks";
+import { StudentOverviewPanel } from "@/components/StudentOverview";
+import { tr, useLanguage } from "@/lib/i18n";
+import { TeacherHomePanels } from "@/components/TeacherHome";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
 import { TrackedTextEditor } from "@/components/TrackedTextEditor";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
 import { newInlineCommentId, parseReviewComment, stringifyReviewComment, type InlineComment, type ReviewComment } from "@/lib/reviewComments";
 import homeworkIcon from "../../public/icons/workspace-homework.png";
 import lessonSchedulingIcon from "../../public/icons/workspace-lesson-scheduling.png";
-import dailyTasksIcon from "../../public/icons/workspace-daily-tasks.png";
-import teacherSpeakingIcon from "../../public/icons/speaking_teacher.png";
-import teacherWritingIcon from "../../public/icons/writing_teacher.png";
+import studentProfileIcon from "../../public/icons/Student profile.png";
 
 type DraftAssignment = Omit<Assignment, "updated_at">;
 type AuthAccount = {
@@ -46,6 +47,16 @@ type StudentTopicHistory = {
 };
 type TeacherLanguage = "zh" | "en";
 
+type TeacherSection =
+  | "students"
+  | "studentOverview"
+  | "studentInvite"
+  | "assignments"
+  | "grading"
+  | "schedule"
+  | "lessonRecording"
+  | "dailyTasks";
+
 export function TeacherDashboard() {
   const [token, setToken] = useState("");
   const [account, setAccount] = useState<AuthAccount | null>(null);
@@ -54,9 +65,8 @@ export function TeacherDashboard() {
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [activeArea, setActiveArea] = useState<AssignmentType>("speaking");
-  const [teacherSection, setTeacherSection] = useState<"students" | "assignments" | "grading" | "schedule" | "lessonRecording" | "dailyTasks">("students");
+  const [teacherSection, setTeacherSection] = useState<TeacherSection>("students");
   const [navLevel, setNavLevel] = useState<"root" | "area" | "section" | "detail">("root");
-  const [dailyTaskMode, setDailyTaskMode] = useState<"assign" | "progress">("assign");
   const [assignmentView, setAssignmentView] = useState<"history" | "new">("history");
   const [gradingMode, setGradingMode] = useState<"assignment" | "student">("assignment");
   const [gradingStudentName, setGradingStudentName] = useState("");
@@ -77,7 +87,7 @@ export function TeacherDashboard() {
   const [savingTranscriptId, setSavingTranscriptId] = useState("");
   const [savingWritingId, setSavingWritingId] = useState("");
   const [uploadingDemoId, setUploadingDemoId] = useState("");
-  const [teacherLanguage, setTeacherLanguage] = useState<TeacherLanguage>("zh");
+  const { language: teacherLanguage, t } = useLanguage();
   const [activationCode, setActivationCode] = useState("");
   const [activating, setActivating] = useState(false);
 
@@ -98,22 +108,8 @@ export function TeacherDashboard() {
   }, [account?.phone]);
 
   useEffect(() => {
-    const savedLanguage = typeof window !== "undefined" ? window.localStorage.getItem("teacherLanguage") : "";
-    if (savedLanguage === "zh" || savedLanguage === "en") setTeacherLanguage(savedLanguage);
     void loadCurrentAccount();
   }, []);
-
-  function toggleTeacherLanguage() {
-    setTeacherLanguage((current) => {
-      const next = current === "zh" ? "en" : "zh";
-      if (typeof window !== "undefined") window.localStorage.setItem("teacherLanguage", next);
-      return next;
-    });
-  }
-
-  function t(zh: string, en: string) {
-    return teacherLanguage === "zh" ? zh : en;
-  }
 
   async function api(path: string, init: RequestInit = {}) {
     const headers: Record<string, string> = {
@@ -127,7 +123,7 @@ export function TeacherDashboard() {
       headers
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "请求失败。");
+    if (!response.ok) throw new Error(data.error || tr("请求失败。", "Request failed."));
     return data;
   }
 
@@ -150,9 +146,9 @@ export function TeacherDashboard() {
       } else {
         startNewAssignment();
       }
-      setMessage("工作台已加载。");
+      setMessage(tr("工作台已加载。", "Workspace loaded."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "加载失败。");
+      setMessage(error instanceof Error ? error.message : tr("加载失败。", "Could not load."));
     } finally {
       setLoading(false);
     }
@@ -186,7 +182,7 @@ export function TeacherDashboard() {
         })
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "学生情况加载失败。");
+      setMessage(error instanceof Error ? error.message : tr("学生情况加载失败。", "Could not load student profiles."));
     }
   }
 
@@ -225,13 +221,13 @@ export function TeacherDashboard() {
         })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "账号请求失败。");
+      if (!response.ok) throw new Error(data.error || tr("账号请求失败。", "Account request failed."));
       setAccount(data.account);
       setToken("");
-      setMessage("老师账号已准备好。");
+      setMessage(tr("老师账号已准备好。", "Teacher account ready."));
       await loadAssignments();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "账号请求失败。");
+      setMessage(error instanceof Error ? error.message : tr("账号请求失败。", "Account request failed."));
     } finally {
       setLoading(false);
     }
@@ -246,7 +242,7 @@ export function TeacherDashboard() {
     setSelectedId("");
     setSelectedSubmissionId("");
     setFeedbackDraft(null);
-    setMessage("已退出登录。");
+    setMessage(tr("已退出登录。", "Signed out."));
   }
 
   function selectAssignment(id: string) {
@@ -309,9 +305,9 @@ export function TeacherDashboard() {
       setSelectedId(data.assignment.id);
       await loadAssignments();
       await loadAreaSubmissions(activeArea);
-      setMessage(asNew ? "新作业已保存。" : "作业已保存。");
+      setMessage(asNew ? tr("新作业已保存。", "New homework saved.") : tr("作业已保存。", "Homework saved."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存失败。");
+      setMessage(error instanceof Error ? error.message : tr("保存失败。", "Could not save."));
     }
   }
 
@@ -327,9 +323,9 @@ export function TeacherDashboard() {
       setFeedbackDraft(data.feedback);
       await loadSubmissions();
       if (selectedSubmission?.student_name) await loadStudentProgress(selectedSubmission.student_name);
-      setMessage("AI 反馈草稿已生成。");
+      setMessage(tr("AI 反馈草稿已生成。", "AI feedback draft ready."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "AI 分析失败。");
+      setMessage(error instanceof Error ? error.message : tr("AI 分析失败。", "AI analysis failed."));
     } finally {
       setLoading(false);
     }
@@ -356,15 +352,15 @@ export function TeacherDashboard() {
       if (selectedSubmission?.student_name) await loadStudentProgress(selectedSubmission.student_name);
       await loadStudentsForArea(activeArea);
       await loadAreaSubmissions(activeArea);
-      setMessage("批改已发布。");
+      setMessage(tr("批改已发布。", "Feedback published."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "发布失败。");
+      setMessage(error instanceof Error ? error.message : tr("发布失败。", "Could not publish."));
     }
   }
 
   async function deleteSubmission() {
     if (!selectedSubmission) return;
-    const confirmed = window.confirm(`确定删除 ${selectedSubmission.student_name} 的提交和全部录音吗？`);
+    const confirmed = window.confirm(tr(`确定删除 ${selectedSubmission.student_name} 的提交和全部录音吗？`, `Delete ${selectedSubmission.student_name}'s submission and all its recordings?`));
     if (!confirmed) return;
 
     setLoading(true);
@@ -380,9 +376,9 @@ export function TeacherDashboard() {
       }
       await loadStudentsForArea(activeArea);
       await loadAreaSubmissions(activeArea);
-      setMessage("提交已删除。");
+      setMessage(tr("提交已删除。", "Submission deleted."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除失败。");
+      setMessage(error instanceof Error ? error.message : tr("删除失败。", "Could not delete."));
     } finally {
       setLoading(false);
     }
@@ -392,8 +388,8 @@ export function TeacherDashboard() {
     const stats = assignmentStats(assignment.id);
     const confirmed = window.confirm(
       stats.submitted
-        ? `确定从作业列表隐藏“${assignment.title}”吗？已有的 ${stats.submitted} 份学生提交会保留。`
-        : `确定从作业列表隐藏“${assignment.title}”吗？`
+        ? tr(`确定从作业列表隐藏“${assignment.title}”吗？已有的 ${stats.submitted} 份学生提交会保留。`, `Hide "${assignment.title}" from the homework list? The ${stats.submitted} existing submissions are kept.`)
+        : tr(`确定从作业列表隐藏“${assignment.title}”吗？`, `Hide "${assignment.title}" from the homework list?`)
     );
     if (!confirmed) return;
 
@@ -405,9 +401,9 @@ export function TeacherDashboard() {
       });
       await loadAssignments();
       await loadAreaSubmissions(activeArea);
-      setMessage("作业已从发布列表隐藏。");
+      setMessage(tr("作业已从发布列表隐藏。", "Homework hidden from the list."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除作业失败。");
+      setMessage(error instanceof Error ? error.message : tr("删除作业失败。", "Could not delete the homework."));
     } finally {
       setLoading(false);
     }
@@ -438,6 +434,12 @@ export function TeacherDashboard() {
     setNavLevel("section");
   }
 
+  function openGrading(area: AssignmentType) {
+    switchArea(area);
+    setTeacherSection("grading");
+    setNavLevel("detail");
+  }
+
   async function activateAccount() {
     if (!activationCode.trim()) return;
     setActivating(true);
@@ -449,21 +451,51 @@ export function TeacherDashboard() {
         body: JSON.stringify({ code: activationCode.trim() })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "激活失败。");
+      if (!response.ok) throw new Error(data.error || tr("激活失败。", "Activation failed."));
       setActivationCode("");
       // Re-read the session so activated_at is present and the workspace opens.
       await loadCurrentAccount();
-      setMessage("激活成功，可以开始使用了。");
+      setMessage(tr("激活成功，可以开始使用了。", "Activated — you're all set."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "激活失败。");
+      setMessage(error instanceof Error ? error.message : tr("激活失败。", "Activation failed."));
     } finally {
       setActivating(false);
     }
   }
 
-  function openSection(section: "students" | "assignments" | "grading") {
+  function openSection(section: "students" | "assignments") {
     setTeacherSection(section);
     setNavLevel("detail");
+  }
+
+  // Which index entry is lit. A homework section belongs to whichever area
+  // is open, which is why speaking and writing cannot share one test.
+  function atSection(section: TeacherSection) {
+    return navLevel === "detail" && teacherSection === section;
+  }
+
+  const isPublishingSection =
+    navLevel === "section" ||
+    (navLevel === "detail" && (teacherSection === "students" || teacherSection === "assignments"));
+  const isGradingSection = navLevel === "detail" && teacherSection === "grading";
+
+  function openStudentInvite() {
+    setTeacherSection("studentInvite");
+    setNavLevel("detail");
+  }
+
+  function openStudentOverview() {
+    setTeacherSection("studentOverview");
+    setNavLevel("detail");
+  }
+
+  // From a row in the overview into that student's own homework history. The
+  // overview is workspace-wide; the panel it opens is per-area, so it lands on
+  // whichever area the teacher last had open.
+  function openStudentFromOverview(studentName: string) {
+    setTeacherSection("students");
+    setNavLevel("detail");
+    void loadStudentProgress(studentName);
   }
 
   function openSchedule() {
@@ -476,8 +508,7 @@ export function TeacherDashboard() {
     setNavLevel("detail");
   }
 
-  function openDailyTasks(mode: "assign" | "progress" = "assign") {
-    setDailyTaskMode(mode);
+  function openDailyTasks() {
     setTeacherSection("dailyTasks");
     setNavLevel("detail");
   }
@@ -534,7 +565,7 @@ export function TeacherDashboard() {
     setSubmissions([]);
     setSelectedSubmissionId("");
     setFeedbackDraft(null);
-    setMessage(`已为 ${studentName} 开始创建新的${activeArea === "writing" ? "写作" : "口语"}作业。`);
+    setMessage(tr(`已为 ${studentName} 开始创建新的${activeArea === "writing" ? "写作" : "口语"}作业。`, `Started a new ${activeArea} homework for ${studentName}.`));
   }
 
   async function transcribeRecording(recordingId: string) {
@@ -546,9 +577,9 @@ export function TeacherDashboard() {
         body: JSON.stringify({ recordingId })
       });
       patchRecording(recordingId, data.recording || {});
-      setMessage("转写已生成。");
+      setMessage(tr("转写已生成。", "Transcript ready."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "转写失败。");
+      setMessage(error instanceof Error ? error.message : tr("转写失败。", "Transcription failed."));
     } finally {
       setTranscribingId("");
     }
@@ -563,9 +594,9 @@ export function TeacherDashboard() {
         body: JSON.stringify({ recordingId, correctedTranscript })
       });
       patchRecording(recordingId, data.recording || {});
-      setMessage("转写修改已保存。");
+      setMessage(tr("转写修改已保存。", "Transcript edits saved."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存转写失败。");
+      setMessage(error instanceof Error ? error.message : tr("保存转写失败。", "Could not save the transcript."));
     } finally {
       setSavingTranscriptId("");
     }
@@ -593,12 +624,12 @@ export function TeacherDashboard() {
         body: formData
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "示范回答保存失败。");
+      if (!response.ok) throw new Error(data.error || tr("示范回答保存失败。", "Could not save the sample answer."));
 
       patchRecording(recordingId, { teacher_demo: data.demo || null });
-      setMessage("示范回答已保存。");
+      setMessage(tr("示范回答已保存。", "Sample answer saved."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "示范回答保存失败。");
+      setMessage(error instanceof Error ? error.message : tr("示范回答保存失败。", "Could not save the sample answer."));
     } finally {
       setUploadingDemoId("");
     }
@@ -625,9 +656,9 @@ export function TeacherDashboard() {
         body: JSON.stringify({ responseId, teacherRevisionText })
       });
       patchWritingResponse(responseId, data.writingResponse || {});
-      setMessage("作文修改已保存。");
+      setMessage(tr("作文修改已保存。", "Essay edits saved."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "作文修改保存失败。");
+      setMessage(error instanceof Error ? error.message : tr("作文修改保存失败。", "Could not save the essay edits."));
     } finally {
       setSavingWritingId("");
     }
@@ -740,7 +771,7 @@ export function TeacherDashboard() {
                 autoFocus
               />
             </div>
-            {message && <p className={message.includes("成功") ? "hint" : "error"}>{message}</p>}
+            {message && <p className={message.includes("成功") || message.startsWith("Activated") ? "hint" : "error"}>{message}</p>}
             <button className="btn" disabled={activating || !activationCode.trim()} onClick={activateAccount} type="button">
               {activating ? t("激活中...", "Activating...") : t("激活账号", "Activate")}
             </button>
@@ -797,146 +828,170 @@ export function TeacherDashboard() {
   }
 
   return (
-    <main className="shell">
-      <section className="hero">
-        <div>
-          <h1>{t("老师工作台", "Teacher dashboard")}</h1>
-          <p>{t("管理学生档案、布置作业、批改提交内容并发布反馈。", "Manage student profiles, assign homework, review submissions, and publish feedback.")}</p>
-          <div className="bank-actions hero-actions">
-              <button className="btn secondary" onClick={toggleTeacherLanguage} type="button">
-                {teacherLanguage === "zh" ? "English" : "中文"}
+    <main className="shell shell-wide">
+      {hasTeacherAccess && (
+        <div className="home-layout">
+          {/* The index stays put. Everything it opens renders in the pane on
+              the right, so the teacher never loses their place in the list. */}
+          <nav className="home-nav" aria-label={t("工作区", "Workspaces")}>
+            <button
+              className={`home-nav-home ${navLevel === "root" ? "active" : ""}`}
+              type="button"
+              onClick={() => setNavLevel("root")}
+            >
+              {t("工作台", "Dashboard")}
+            </button>
+
+            <div className="home-nav-group">
+              <strong className="home-nav-title">
+                <img src={homeworkIcon.src} alt="" />
+                {t("作业布置", "Homework")}
+              </strong>
+              <button
+                className={`home-nav-item ${isPublishingSection && activeArea === "speaking" ? "active" : ""}`}
+                type="button"
+                onClick={() => openArea("speaking")}
+              >
+                {t("口语", "Speaking")}
               </button>
-              <button className="btn secondary" onClick={loadAssignments} disabled={loading} type="button">
-                {loading ? t("加载中...", "Loading...") : t("刷新", "Refresh")}
+              <button
+                className={`home-nav-item ${isPublishingSection && activeArea === "writing" ? "active" : ""}`}
+                type="button"
+                onClick={() => openArea("writing")}
+              >
+                {t("写作", "Writing")}
               </button>
+              <button
+                className={`home-nav-item ${atSection("dailyTasks") ? "active" : ""}`}
+                type="button"
+                onClick={openDailyTasks}
+              >
+                {t("每日任务", "Daily tasks")}
+              </button>
+            </div>
+
+            <div className="home-nav-group">
+              <strong className="home-nav-title">
+                {/* Drawn inline rather than imported: the icon set has no
+                    marking icon, and a mismatched one is worse than none. */}
+                <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4.5 2.5h8l3 3v12h-11z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 11.4l2.2 2.2 4.3-4.6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {t("作业批改", "Grading")}
+              </strong>
+              <button
+                className={`home-nav-item ${isGradingSection && activeArea === "speaking" ? "active" : ""}`}
+                type="button"
+                onClick={() => openGrading("speaking")}
+              >
+                {t("口语", "Speaking")}
+              </button>
+              <button
+                className={`home-nav-item ${isGradingSection && activeArea === "writing" ? "active" : ""}`}
+                type="button"
+                onClick={() => openGrading("writing")}
+              >
+                {t("写作", "Writing")}
+              </button>
+            </div>
+
+            <div className="home-nav-group">
+              <strong className="home-nav-title">
+                <img src={lessonSchedulingIcon.src} alt="" />
+                {t("排课管理", "Scheduling")}
+              </strong>
+              <button
+                className={`home-nav-item ${atSection("schedule") ? "active" : ""}`}
+                type="button"
+                onClick={openSchedule}
+              >
+                {t("排课", "Schedule")}
+              </button>
+              <button
+                className={`home-nav-item ${atSection("lessonRecording") ? "active" : ""}`}
+                type="button"
+                onClick={openLessonRecording}
+              >
+                {t("记录", "Records")}
+              </button>
+            </div>
+
+            <div className="home-nav-group">
+              <strong className="home-nav-title">
+                <img src={studentProfileIcon.src} alt="" />
+                {t("学生档案", "Student archive")}
+              </strong>
+              <button
+                className={`home-nav-item ${atSection("studentOverview") ? "active" : ""}`}
+                type="button"
+                onClick={openStudentOverview}
+              >
+                {t("总览", "Overview")}
+              </button>
+              <button
+                className={`home-nav-item ${atSection("studentInvite") ? "active" : ""}`}
+                type="button"
+                onClick={openStudentInvite}
+              >
+                {t("学生注册", "Student sign-up")}
+              </button>
+            </div>
+
+            <div className="home-nav-foot">
+              <UsagePanel language={teacherLanguage} />
               {account && (
-                <button className="btn secondary" onClick={logout} type="button">
+                <button className="home-nav-logout" onClick={logout} type="button">
                   {t("退出登录", "Log out")}
                 </button>
               )}
-          </div>
-        </div>
-      </section>
-      {hasTeacherAccess && message && (
-        <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>
-      )}
-
-      {hasTeacherAccess && navLevel === "root" && (
-        <section className="single-column">
-          <article className="card stack">
-            <div>
-              <h2>{t("选择工作区", "Choose workspace")}</h2>
-              <p className="hint">{t("作业、上课记录和每日任务是三个独立工作区。", "Homework, lesson records, and daily tasks are separate workspaces.")}</p>
             </div>
-            {studentInviteLink && (
-              <div className="question-card">
-                <label>{t("学生自助注册链接", "Student self-registration link")}</label>
-                <input value={studentInviteLink} readOnly />
-                <button className="btn secondary" type="button" onClick={() => navigator.clipboard.writeText(studentInviteLink)}>
-                  {t("复制链接", "Copy link")}
-                </button>
-              </div>
+          </nav>
+
+          <div className="home-main">
+            <div className="dashboard-actions">
+              <button className="btn secondary" onClick={loadAssignments} disabled={loading} type="button">
+                {loading ? t("加载中...", "Loading...") : t("刷新", "Refresh")}
+              </button>
+            </div>
+            {message && (
+              <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>
             )}
-            <UsagePanel language={teacherLanguage} />
-            <div className="area-tabs">
-              <div className="area-tab homework-workspace-card">
-                <strong className="workspace-title">
-                  <img src={homeworkIcon.src} alt="" />
-                  {t("作业", "Homework")}
-                </strong>
-                <span>{t("口语和写作作业", "Speaking and writing homework")}</span>
-                <div className="homework-workspace-actions">
-                  <button className="homework-subtab" type="button" onClick={() => openArea("speaking")}>
-                    <img src={teacherSpeakingIcon.src} alt="" />
-                    {t("口语", "Speaking")}
-                  </button>
-                  <button className="homework-subtab" type="button" onClick={() => openArea("writing")}>
-                    <img src={teacherWritingIcon.src} alt="" />
-                    {t("写作", "Writing")}
-                  </button>
-                </div>
-              </div>
-              <div className="area-tab homework-workspace-card">
-                <strong className="workspace-title">
-                  <img src={lessonSchedulingIcon.src} alt="" />
-                  {t("上课记录", "Lesson records")}
-                </strong>
-                <span>{t("排课、课堂记录和课程备注", "Scheduling, lesson records, and class notes")}</span>
-                <div className="homework-workspace-actions">
-                  <button className="homework-subtab" type="button" onClick={openSchedule}>
-                    {t("排课", "Schedule")}
-                  </button>
-                  <button className="homework-subtab" type="button" onClick={openLessonRecording}>
-                    {t("记录", "Records")}
-                  </button>
-                </div>
-              </div>
-              <div className="area-tab homework-workspace-card">
-                <strong className="workspace-title">
-                  <img src={dailyTasksIcon.src} alt="" />
-                  {t("每日任务", "Daily tasks")}
-                </strong>
-                <span>{t("每日学习计划和学生打卡", "Daily study plans and student check-ins")}</span>
-                <div className="homework-workspace-actions">
-                  <button className="homework-subtab" type="button" onClick={() => openDailyTasks("assign")}>
-                    {t("布置", "Assign")}
-                  </button>
-                  <button className="homework-subtab" type="button" onClick={() => openDailyTasks("progress")}>
-                    {t("完成情况", "Progress")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </article>
-        </section>
-      )}
-
-      {hasTeacherAccess && navLevel === "area" && (
-        <section className="single-column">
-          <div className="crumb-bar">
-            <button className="btn secondary" type="button" onClick={() => setNavLevel("root")}>
-              {t("返回", "Back")}
-            </button>
-            <span className="pill">{t("作业", "Homework")}</span>
-          </div>
-          <article className="card stack">
-            <div>
-              <h2>{t("选择作业板块", "Choose homework area")}</h2>
-              <p className="hint">{t("请先选择口语或写作，再进入学生档案、作业布置或作业批改。", "Choose Speaking or Writing first, then open student profiles, publishing, or grading.")}</p>
-            </div>
-            <div className="area-tabs">
-              <button className="area-tab" type="button" onClick={() => openArea("speaking")}>
-                <strong className="workspace-title">
-                  <img src={teacherSpeakingIcon.src} alt="" />
-                  {t("口语", "Speaking")}
-                </strong>
-                <span>{t("口语作业", "Speaking homework")}</span>
-              </button>
-              <button className="area-tab" type="button" onClick={() => openArea("writing")}>
-                <strong className="workspace-title">
-                  <img src={teacherWritingIcon.src} alt="" />
-                  {t("写作", "Writing")}
-                </strong>
-                <span>{t("写作作业", "Writing homework")}</span>
-              </button>
-            </div>
-          </article>
-        </section>
+      {navLevel === "root" && (
+        <TeacherHomePanels
+          onOpenSchedule={openSchedule}
+          onOpenGrading={() => {
+            setTeacherSection("grading");
+            setNavLevel("detail");
+          }}
+        />
       )}
 
       {hasTeacherAccess && navLevel === "section" && (
         <section className="single-column">
           <div className="crumb-bar">
-            <button className="btn secondary" type="button" onClick={() => setNavLevel("root")}>
-              {t("返回", "Back")}
-            </button>
-            <span className="pill">{t("作业", "Homework")}</span>
+            <span className="pill">{t("作业布置", "Homework")}</span>
             <span className="pill ok">{activeArea === "writing" ? t("写作", "Writing") : t("口语", "Speaking")}</span>
           </div>
           <article className="card stack">
             <div>
               <h2>{activeArea === "writing" ? t("写作工作区", "Writing workspace") : t("口语工作区", "Speaking workspace")}</h2>
-              <p className="hint">{t("请选择一个模块继续。", "Choose a module to continue.")}</p>
+              <p className="hint">
+                {t("请选择一个模块继续。批改在左侧「作业批改」里。", "Choose a module to continue. Marking lives under Grading in the index.")}
+              </p>
             </div>
             <div className="area-tabs">
               <button className="area-tab" type="button" onClick={() => openSection("students")}>
@@ -947,10 +1002,6 @@ export function TeacherDashboard() {
                 <strong>{t("作业布置", "Homework publishing")}</strong>
                 <span>{t("历史发布作业和发布新作业", "Published homework history and new homework")}</span>
               </button>
-              <button className="area-tab" type="button" onClick={() => openSection("grading")}>
-                <strong>{t("作业批改", "Homework grading")}</strong>
-                <span>{t("学生提交、修改、评分和反馈", "Student submissions, edits, scores, and feedback")}</span>
-              </button>
             </div>
           </article>
         </section>
@@ -959,30 +1010,58 @@ export function TeacherDashboard() {
       {hasTeacherAccess && navLevel === "detail" && (
         <div className="crumb-bar">
           {teacherSection === "schedule" || teacherSection === "lessonRecording" ? (
-            <>
-              <button className="btn secondary" type="button" onClick={() => setNavLevel("root")}>
-                {t("返回首页", "Back to home")}
-              </button>
-              <span className="pill">{t("上课记录", "Lesson records")}</span>
-            </>
+            <span className="pill">{t("排课管理", "Scheduling")}</span>
+          ) : teacherSection === "studentOverview" || teacherSection === "studentInvite" ? (
+            <span className="pill">{t("学生档案", "Student archive")}</span>
           ) : teacherSection === "dailyTasks" ? (
-            <button className="btn secondary" type="button" onClick={() => setNavLevel("root")}>
-              {t("返回首页", "Back to home")}
-            </button>
+            <span className="pill">{t("作业布置", "Homework")}</span>
+          ) : teacherSection === "grading" ? (
+            <>
+              <span className="pill">{t("作业批改", "Grading")}</span>
+              <span className="pill ok">{activeArea === "writing" ? t("写作", "Writing") : t("口语", "Speaking")}</span>
+            </>
           ) : (
             <>
               <button className="btn secondary" type="button" onClick={() => setNavLevel("section")}>
                 {t("返回作业模块", "Back to homework modules")}
               </button>
-              <button className="btn secondary" type="button" onClick={() => setNavLevel("root")}>
-                {t("切换作业板块", "Change homework area")}
-              </button>
-              <span className="pill">{t("作业", "Homework")}</span>
+              <span className="pill">{t("作业布置", "Homework")}</span>
               <span className="pill ok">{activeArea === "writing" ? t("写作", "Writing") : t("口语", "Speaking")}</span>
             </>
           )}
-          <span className="pill">{sectionLabel(teacherSection, teacherLanguage)}</span>
+          {teacherSection !== "grading" && (
+            <span className="pill">{sectionLabel(teacherSection, teacherLanguage)}</span>
+          )}
         </div>
+      )}
+
+      {hasTeacherAccess && navLevel === "detail" && teacherSection === "studentInvite" && (
+        <section className="single-column">
+          <article className="card stack">
+            <div>
+              <h2>{t("学生注册", "Student sign-up")}</h2>
+              <p className="hint">
+                {t(
+                  "把这个链接发给学生，他们打开后自己注册，注册好就直接进入你的班级，不需要你再手动添加。",
+                  "Send this link to a student. They sign up themselves and land in your workspace — nothing for you to add by hand."
+                )}
+              </p>
+            </div>
+            <div className="question-card">
+              <label>{t("注册链接", "Sign-up link")}</label>
+              <input value={studentInviteLink} readOnly onFocus={(event) => event.currentTarget.select()} />
+              <button className="btn secondary" type="button" onClick={() => navigator.clipboard.writeText(studentInviteLink)}>
+                {t("复制链接", "Copy link")}
+              </button>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {hasTeacherAccess && navLevel === "detail" && teacherSection === "studentOverview" && (
+        <section className="single-column">
+          <StudentOverviewPanel onOpenStudent={openStudentFromOverview} />
+        </section>
       )}
 
       {hasTeacherAccess && navLevel === "detail" && teacherSection === "students" && (
@@ -1087,7 +1166,7 @@ export function TeacherDashboard() {
                     setMessage={setMessage}
                   />
                   <div className="bank-actions">
-                    <button className="btn" onClick={() => saveAssignment(false)} disabled={!token && !account} type="button">
+                    <button className="btn accent" onClick={() => saveAssignment(false)} disabled={!token && !account} type="button">
                       {t("保存作业", "Save homework")}
                     </button>
                     <button className="btn secondary" onClick={() => saveAssignment(true)} disabled={!token && !account} type="button">
@@ -1164,7 +1243,7 @@ export function TeacherDashboard() {
               )}
               <div className="grading-finder-count">
                 <label>{t("提交记录", "Submissions")}</label>
-                <span className="pill">{submissions.length}</span>
+                <span className={`pill ${submissions.length ? "accent" : ""}`}>{submissions.length}</span>
               </div>
             </div>
             {gradingMode === "assignment" && (
@@ -1233,7 +1312,7 @@ export function TeacherDashboard() {
                   onRevisionSave={saveWritingRevision}
                 />
                 <LearningProgressPanel submissions={studentProgress} />
-                <button className="btn secondary" onClick={analyzeSubmission} disabled={loading} type="button">
+                <button className="btn ai" onClick={analyzeSubmission} disabled={loading} type="button">
                   {loading ? t("生成中...", "Generating...") : t("生成 AI 反馈草稿", "Generate AI feedback draft")}
                 </button>
                 <FeedbackEditor
@@ -1288,7 +1367,7 @@ export function TeacherDashboard() {
                   />
                 )}
                 <LearningProgressPanel submissions={studentProgress} />
-                <button className="btn secondary" onClick={analyzeSubmission} disabled={loading} type="button">
+                <button className="btn ai" onClick={analyzeSubmission} disabled={loading} type="button">
                   {loading ? t("生成中...", "Generating...") : t("生成 AI 反馈草稿", "Generate AI feedback draft")}
                 </button>
                 <FeedbackEditor
@@ -1316,7 +1395,7 @@ export function TeacherDashboard() {
 
       {hasTeacherAccess && navLevel === "detail" && teacherSection === "schedule" && (
         <section className="single-column">
-          <TeacherSchedulePanel token={token} />
+          <TeacherSchedulePanel token={token} language={teacherLanguage} />
         </section>
       )}
 
@@ -1328,8 +1407,11 @@ export function TeacherDashboard() {
 
       {hasTeacherAccess && navLevel === "detail" && teacherSection === "dailyTasks" && (
         <section className="single-column">
-          <TeacherDailyTasksPanel students={students} api={api} mode={dailyTaskMode} language={teacherLanguage} />
+          <TeacherDailyTasksPanel students={students} api={api} language={teacherLanguage} />
         </section>
+      )}
+          </div>
+        </div>
       )}
     </main>
   );
@@ -1356,7 +1438,7 @@ function createManualFeedback(submission: Submission): Feedback {
 
 function submissionTitle(submission: Submission) {
   const assignment = Array.isArray(submission.assignments) ? submission.assignments[0] : submission.assignments;
-  return assignment?.title || "口语作业";
+  return assignment?.title || tr("口语作业", "Speaking homework");
 }
 
 function assignmentArea(assignment: Pick<Assignment, "assignment_type" | "writing_tasks">): AssignmentType {
@@ -1500,11 +1582,11 @@ function uniqueStrings(values: string[]) {
 }
 
 function assignmentDateLabel(assignment: Pick<Assignment, "due_date" | "deadline_text">) {
-  return assignment.due_date ? formatDate(assignment.due_date) : assignment.deadline_text || "未设置截止日期";
+  return assignment.due_date ? formatDate(assignment.due_date) : assignment.deadline_text || tr("未设置截止日期", "No due date");
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return "暂无日期";
+  if (!value) return tr("暂无日期", "No date");
   const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (dateOnly && value.length <= 10) return `${dateOnly[1]}/${dateOnly[2]}/${dateOnly[3]}`;
   const date = new Date(value);
@@ -1556,9 +1638,11 @@ function hasPublishedFeedback(submission: Submission) {
   return Boolean(feedback?.published_at);
 }
 
-function sectionLabel(section: "students" | "assignments" | "grading" | "schedule" | "lessonRecording" | "dailyTasks", language: TeacherLanguage = "zh") {
-  const labels: Record<typeof section, { zh: string; en: string }> = {
+function sectionLabel(section: TeacherSection, language: TeacherLanguage = "zh") {
+  const labels: Record<TeacherSection, { zh: string; en: string }> = {
     students: { zh: "学生情况", en: "Student profiles" },
+    studentOverview: { zh: "总览", en: "Overview" },
+    studentInvite: { zh: "学生注册", en: "Student sign-up" },
     assignments: { zh: "作业布置", en: "Homework publishing" },
     grading: { zh: "作业批改", en: "Homework grading" },
     schedule: { zh: "课程排课", en: "Lesson scheduling" },
@@ -1569,10 +1653,10 @@ function sectionLabel(section: "students" | "assignments" | "grading" | "schedul
 }
 
 function lessonSectionLabel(section: LessonRecord["sections"][number]) {
-  if (section === "Speaking") return "口语";
-  if (section === "Listening") return "听力";
-  if (section === "Reading") return "阅读";
-  if (section === "Writing") return "写作";
+  if (section === "Speaking") return tr("口语", "Speaking");
+  if (section === "Listening") return tr("听力", "Listening");
+  if (section === "Reading") return tr("阅读", "Reading");
+  if (section === "Writing") return tr("写作", "Writing");
   return section;
 }
 
@@ -1713,12 +1797,12 @@ function UsagePanel({ language }: { language: TeacherLanguage }) {
 }
 
 function formatUsage(item: UsageItem) {
-  if (item.unit === "seconds") return `${Math.round(item.used / 60)} / ${Math.round(item.limit / 60)} 分钟`;
+  if (item.unit === "seconds") return `${Math.round(item.used / 60)} / ${Math.round(item.limit / 60)} ${tr("分钟", "min")}`;
   if (item.unit === "bytes") {
     const gb = (value: number) => (value / 1024 / 1024 / 1024).toFixed(1);
     return `${gb(item.used)} / ${gb(item.limit)} GB`;
   }
-  return `${item.used} / ${item.limit} 次`;
+  return `${item.used} / ${item.limit}${tr(" 次", "")}`;
 }
 
 function AssignmentPicker({
@@ -1735,7 +1819,7 @@ function AssignmentPicker({
   /** "row" scrolls sideways, for use above the content rather than beside it. */
   layout?: "list" | "row";
 }) {
-  if (!assignments.length) return <p className="hint">还没有保存过作业。</p>;
+  if (!assignments.length) return <p className="hint">{tr("还没有保存过作业。", "No homework saved yet.")}</p>;
 
   const containerClass = layout === "row" ? "assignment-row-list" : compact ? "compact-assignment-list" : "stack";
 
@@ -1751,7 +1835,7 @@ function AssignmentPicker({
           <strong>{assignment.title}</strong>
           <SpeakingTopicLine assignment={assignment} />
           <WritingTopicLine assignment={assignment} />
-          {!compact && <span className="pill">{assignment.assignment_type === "writing" ? "写作" : "口语"}</span>}
+          {!compact && <span className="pill">{assignment.assignment_type === "writing" ? tr("写作", "Writing") : tr("口语", "Speaking")}</span>}
           <span className="hint">{assignmentDateLabel(assignment)}</span>
         </button>
       ))}
@@ -1822,20 +1906,20 @@ function AssignmentEditor({
   return (
     <div className="stack">
       <div>
-        <label>作业标题</label>
+        <label>{tr("作业标题", "Title")}</label>
         <input
           value={draft.title}
           placeholder={activeArea === "speaking" ? suggestedSpeakingTitle : ""}
           onChange={(event) => setDraft({ ...draft, title: event.target.value })}
         />
-        {activeArea === "speaking" && <p className="hint">建议标题：{suggestedSpeakingTitle}。你可以手动修改。</p>}
+        {activeArea === "speaking" && <p className="hint">{tr("建议标题：", "Suggested title: ")}{suggestedSpeakingTitle}{tr("。你可以手动修改。", ". You can edit it.")}</p>}
       </div>
       <div>
-        <label>创建日期</label>
-        <input value={draft.created_at ? formatDate(draft.created_at) : "保存时自动生成"} readOnly />
+        <label>{tr("创建日期", "Created")}</label>
+        <input value={draft.created_at ? formatDate(draft.created_at) : tr("保存时自动生成", "Set when saved")} readOnly />
       </div>
       <div>
-        <label>截止日期</label>
+        <label>{tr("截止日期", "Due date")}</label>
         <input
           type="date"
           value={draft.due_date || ""}
@@ -1843,21 +1927,21 @@ function AssignmentEditor({
         />
       </div>
       <div>
-        <label>训练说明</label>
+        <label>{tr("训练说明", "Instructions")}</label>
         <textarea value={draft.training_note} onChange={(event) => setDraft({ ...draft, training_note: event.target.value })} />
       </div>
       <div className="area-badge">
-        <label>当前板块</label>
-        <span className="pill ok">{activeArea === "writing" ? "仅写作作业" : "仅口语作业"}</span>
+        <label>{tr("当前板块", "Area")}</label>
+        <span className="pill ok">{activeArea === "writing" ? tr("仅写作作业", "Writing only") : tr("仅口语作业", "Speaking only")}</span>
       </div>
       <div>
-        <label>分配学生</label>
+        <label>{tr("分配学生", "Students")}</label>
         <StudentAssignmentSelector
           selected={draft.assigned_students || []}
           students={students}
           onChange={(assigned_students) => setDraft({ ...draft, assigned_students })}
         />
-        <p className="hint">如果不勾选任何学生，这份作业会对所有学生可见。</p>
+        <p className="hint">{tr("如果不勾选任何学生，这份作业会对所有学生可见。", "With no student ticked, every student can see this homework.")}</p>
       </div>
       <StudentTopicHistoryPanel activeArea={activeArea} history={topicHistory} />
       {activeArea === "writing" ? (
@@ -1873,14 +1957,14 @@ function AssignmentEditor({
           <div className="bank-panel">
             <div>
               <TopicPicker
-                label="Part 1 题库"
+                label={tr("Part 1 题库", "Part 1 topic bank")}
                 topics={p1QuestionBank}
                 selectedId={selectedP1SetId}
                 assignedIds={assignedTopicIds.p1}
                 onSelect={setSelectedP1SetId}
               />
               {selectedP1Set && assignedTopicIds.p1.has(selectedP1Set.id) && (
-                <p className="hint warn">这个话题已经布置给该学生了。</p>
+                <p className="hint warn">{tr("这个话题已经布置给该学生了。", "This topic has already been set for this student.")}</p>
               )}
             </div>
             {selectedP1Set && (
@@ -1892,25 +1976,25 @@ function AssignmentEditor({
             )}
             <div className="bank-actions">
               <button className="btn ghost" type="button" onClick={addP1Set}>
-                添加到 Part 1
+                {tr("添加到 Part 1", "Add to Part 1")}
               </button>
               <button className="btn secondary" type="button" onClick={replaceP1Set}>
-                替换 Part 1
+                {tr("替换 Part 1", "Replace Part 1")}
               </button>
             </div>
           </div>
-          <QuestionInputs title="Part 1 题目" values={draft.p1_questions} onChange={(p1_questions) => updateSpeakingDraft({ ...draft, p1_questions })} />
+          <QuestionInputs title={tr("Part 1 题目", "Part 1 questions")} values={draft.p1_questions} onChange={(p1_questions) => updateSpeakingDraft({ ...draft, p1_questions })} />
           <div className="bank-panel">
             <div>
               <TopicPicker
-                label="Part 2 & 3 题库"
+                label={tr("Part 2 & 3 题库", "Part 2 & 3 topic bank")}
                 topics={p2P3QuestionBank}
                 selectedId={selectedP2P3SetId}
                 assignedIds={assignedTopicIds.p2}
                 onSelect={setSelectedP2P3SetId}
               />
               {selectedP2P3Set && assignedTopicIds.p2.has(selectedP2P3Set.id) && (
-                <p className="hint warn">这个话题已经布置给该学生了。</p>
+                <p className="hint warn">{tr("这个话题已经布置给该学生了。", "This topic has already been set for this student.")}</p>
               )}
             </div>
             {selectedP2P3Set && (
@@ -1923,14 +2007,14 @@ function AssignmentEditor({
               </div>
             )}
             <button className="btn ghost" type="button" onClick={applyP2P3Set}>
-              应用到 Part 2 & 3
+              {tr("应用到 Part 2 & 3", "Apply to Part 2 & 3")}
             </button>
           </div>
           <div>
-            <label>Part 2 题卡</label>
+            <label>{tr("Part 2 题卡", "Part 2 cue card")}</label>
             <textarea value={draft.p2_prompt} onChange={(event) => updateSpeakingDraft({ ...draft, p2_prompt: event.target.value })} />
           </div>
-          <QuestionInputs title="Part 3 题目" values={draft.p3_questions} onChange={(p3_questions) => updateSpeakingDraft({ ...draft, p3_questions })} />
+          <QuestionInputs title={tr("Part 3 题目", "Part 3 questions")} values={draft.p3_questions} onChange={(p3_questions) => updateSpeakingDraft({ ...draft, p3_questions })} />
         </>
       )}
     </div>
@@ -1972,7 +2056,7 @@ function TopicPicker({
           className="topic-picker-filter"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          placeholder="筛选话题"
+          placeholder={tr("筛选话题", "Filter topics")}
         />
       </div>
       <div className="topic-picker-list">
@@ -1984,13 +2068,13 @@ function TopicPicker({
             type="button"
           >
             <span>{set.topic}</span>
-            {assignedIds.has(set.id) && <em>已布置过</em>}
+            {assignedIds.has(set.id) && <em>{tr("已布置过", "Set before")}</em>}
           </button>
         ))}
-        {!shown.length && <p className="hint">没有匹配的话题。</p>}
+        {!shown.length && <p className="hint">{tr("没有匹配的话题。", "No matching topics.")}</p>}
       </div>
       <p className="hint">
-        {needle ? `匹配 ${shown.length} / ${topics.length} 个话题` : `共 ${topics.length} 个话题`}
+        {needle ? tr(`匹配 ${shown.length} / ${topics.length} 个话题`, `${shown.length} of ${topics.length} topics match`) : tr(`共 ${topics.length} 个话题`, `${topics.length} topics`)}
       </p>
     </div>
   );
@@ -2009,14 +2093,14 @@ function StudentTopicHistoryPanel({
     <div className="question-card stack">
       <div className="section-head compact">
         <div>
-          <label>该学生之前发布过的话题</label>
-          <div className="hint">选新题前可以快速检查，避免重复。</div>
+          <label>{tr("该学生之前发布过的话题", "Topics already set for this student")}</label>
+          <div className="hint">{tr("选新题前可以快速检查，避免重复。", "A quick check before picking new ones, to avoid repeats.")}</div>
         </div>
-        <span className="pill">{total} 个话题</span>
+        <span className="pill">{tr(`${total} 个话题`, `${total} topics`)}</span>
       </div>
       {total ? (
         activeArea === "writing" ? (
-          <TopicList title="写作任务" items={history.writing} />
+          <TopicList title={tr("写作任务", "Writing tasks")} items={history.writing} />
         ) : (
           <div className="topic-history-grid">
             <TopicList title="Part 1" items={history.p1} />
@@ -2024,7 +2108,7 @@ function StudentTopicHistoryPanel({
           </div>
         )
       ) : (
-        <p className="hint">请选择学生，或先为该学生发布第一份作业来生成话题历史。</p>
+        <p className="hint">{tr("请选择学生，或先为该学生发布第一份作业来生成话题历史。", "Choose a student, or publish their first homework to start a topic history.")}</p>
       )}
     </div>
   );
@@ -2044,11 +2128,11 @@ function TopicList({ title, items }: { title: string; items: string[] }) {
           ))}
         </ul>
       ) : (
-        <p className="hint">还没有话题记录。</p>
+        <p className="hint">{tr("还没有话题记录。", "No topics yet.")}</p>
       )}
       {items.length > 12 && (
         <button className="btn link" type="button" onClick={() => setExpanded(!expanded)}>
-          {expanded ? "收起" : `展开全部 ${items.length} 个`}
+          {expanded ? tr("收起", "Collapse") : tr(`展开全部 ${items.length} 个`, `Show all ${items.length}`)}
         </button>
       )}
     </div>
@@ -2125,8 +2209,8 @@ function StudentAssignmentSelector({
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <span>{selected.length ? `已选 ${selected.length} 名学生` : "全部学生"}</span>
-        <em>{open ? "收起" : "选择"}</em>
+        <span>{selected.length ? tr(`已选 ${selected.length} 名学生`, `${selected.length} students selected`) : tr("全部学生", "All students")}</span>
+        <em>{open ? tr("收起", "Close") : tr("选择", "Choose")}</em>
       </button>
 
       {open && (
@@ -2137,7 +2221,7 @@ function StudentAssignmentSelector({
                 className="student-select-filter"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
-                placeholder="搜索学生姓名"
+                placeholder={tr("搜索学生姓名", "Search by name")}
               />
               <div className="student-check-list scrolling">
                 {shown.map((student) => (
@@ -2148,19 +2232,19 @@ function StudentAssignmentSelector({
                       type="checkbox"
                     />
                     <span>{student.name}</span>
-                    <small>{student.submission_count || 0} 次提交</small>
+                    <small>{tr(`${student.submission_count || 0} 次提交`, `${student.submission_count || 0} submissions`)}</small>
                   </label>
                 ))}
-                {!shown.length && <p className="hint">没有匹配的学生。</p>}
+                {!shown.length && <p className="hint">{tr("没有匹配的学生。", "No matching students.")}</p>}
               </div>
             </>
           ) : (
-            <p className="hint">还没有学生档案。学生注册或填写姓名后会出现在这里。</p>
+            <p className="hint">{tr("还没有学生档案。学生注册或填写姓名后会出现在这里。", "No student profiles yet. Students appear here once they sign up or enter a name.")}</p>
           )}
           <div className="manual-student-row">
-            <input value={manualName} onChange={(event) => setManualName(event.target.value)} placeholder="添加学生姓名" />
+            <input value={manualName} onChange={(event) => setManualName(event.target.value)} placeholder={tr("添加学生姓名", "Add a student name")} />
             <button className="btn secondary" onClick={addManualStudent} type="button">
-              添加
+              {tr("添加", "Add")}
             </button>
           </div>
         </div>
@@ -2236,8 +2320,8 @@ function getStudentHomeworkRows(assignments: Assignment[], submissions: Submissi
         title: submission?.submission_title || assignment.title,
         status: reviewed ? "reviewed" : submission ? "submitted" : "assigned",
         dateLabel: submission
-          ? `提交时间：${new Date(submission.submitted_at).toLocaleString("zh-CN")}`
-          : `发布时间：${assignment.created_at ? formatDate(assignment.created_at) : "暂无日期"}${assignment.due_date ? ` | 截止日期：${formatDate(assignment.due_date)}` : ""}`
+          ? `${tr("提交时间：", "Submitted: ")}${new Date(submission.submitted_at).toLocaleString(tr("zh-CN", "en-GB"))}`
+          : `${tr("发布时间：", "Published: ")}${assignment.created_at ? formatDate(assignment.created_at) : tr("暂无日期", "No date")}${assignment.due_date ? ` | ${tr("截止日期：", "Due: ")}${formatDate(assignment.due_date)}` : ""}`
       };
     });
 
@@ -2253,7 +2337,7 @@ function getStudentHomeworkRows(assignments: Assignment[], submissions: Submissi
       submission,
       title: submission.submission_title || assignment.title,
       status: reviewed ? "reviewed" : "submitted",
-      dateLabel: `提交时间：${new Date(submission.submitted_at).toLocaleString("zh-CN")}`
+      dateLabel: `${tr("提交时间：", "Submitted: ")}${new Date(submission.submitted_at).toLocaleString(tr("zh-CN", "en-GB"))}`
     });
   });
 
@@ -2328,7 +2412,7 @@ function TeacherLessonRecordsPanel({
       const data = await api(`/api/teacher/lesson-records?studentName=${encodeURIComponent(studentName)}`);
       setRecords(data.records || []);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "无法加载上课记录。");
+      setStatus(error instanceof Error ? error.message : tr("无法加载上课记录。", "Could not load lesson records."));
     } finally {
       setLoadingRecords(false);
     }
@@ -2336,7 +2420,7 @@ function TeacherLessonRecordsPanel({
 
   async function saveRecord() {
     if (!selectedStudent) {
-      setStatus("请选择学生。");
+      setStatus(tr("请选择学生。", "Choose a student."));
       return;
     }
     setLoadingRecords(true);
@@ -2363,9 +2447,9 @@ function TeacherLessonRecordsPanel({
       setPostHomeworkIds([]);
       setPreparationNote("");
       setHomeworkNote("");
-      setStatus("上课记录已保存。");
+      setStatus(tr("上课记录已保存。", "Lesson record saved."));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "无法保存上课记录。");
+      setStatus(error instanceof Error ? error.message : tr("无法保存上课记录。", "Could not save the lesson record."));
     } finally {
       setLoadingRecords(false);
     }
@@ -2382,10 +2466,10 @@ function TeacherLessonRecordsPanel({
     <article className="card stack">
       <div className="section-head">
         <div>
-          <h2>上课记录</h2>
-          <div className="hint">选择学生后，添加上课记录并关联对应作业。</div>
+          <h2>{tr("上课记录", "Lesson records")}</h2>
+          <div className="hint">{tr("选择学生后，添加上课记录并关联对应作业。", "Choose a student, then add a lesson record and link the related homework.")}</div>
         </div>
-        <span className="pill">{students.length} 位学生</span>
+        <span className="pill">{tr(`${students.length} 位学生`, `${students.length} students`)}</span>
       </div>
       <div className="student-profile-layout">
         <aside className="stack">
@@ -2402,27 +2486,27 @@ function TeacherLessonRecordsPanel({
               </button>
             ))
           ) : (
-            <p className="hint">还没有学生档案。</p>
+            <p className="hint">{tr("还没有学生档案。", "No student profiles yet.")}</p>
           )}
         </aside>
         <div className="stack">
           <section className="question-card stack">
             <div className="section-head compact">
-              <h3>新增上课记录</h3>
-              <span className="pill">{selectedStudent || "未选择学生"}</span>
+              <h3>{tr("新增上课记录", "New lesson record")}</h3>
+              <span className="pill">{selectedStudent || tr("未选择学生", "No student chosen")}</span>
             </div>
             <div className="form-grid">
               <div>
-                <label>上课时间</label>
+                <label>{tr("上课时间", "Lesson time")}</label>
                 <input type="datetime-local" value={lessonAt} onChange={(event) => setLessonAt(event.target.value)} />
               </div>
               <div>
-                <label>上课时长</label>
+                <label>{tr("上课时长", "Length")}</label>
                 <input type="number" min={1} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value) || 0)} />
               </div>
             </div>
             <div>
-              <label>上课板块</label>
+              <label>{tr("上课板块", "Areas")}</label>
               <div className="checkbox-grid">
                 {(["Speaking", "Listening", "Reading", "Writing"] as LessonRecord["sections"]).map((section) => (
                   <label className="check-row" key={section}>
@@ -2432,33 +2516,33 @@ function TeacherLessonRecordsPanel({
                 ))}
               </div>
             </div>
-            <HomeworkCheckboxes title="课前作业" assignments={studentAssignments} selectedIds={preHomeworkIds} setSelectedIds={setPreHomeworkIds} />
+            <HomeworkCheckboxes title={tr("课前作业", "Homework before")} assignments={studentAssignments} selectedIds={preHomeworkIds} setSelectedIds={setPreHomeworkIds} />
             <div>
-              <label>课前准备</label>
-              <textarea value={preparationNote} onChange={(event) => setPreparationNote(event.target.value)} placeholder="学生课前需要准备的内容。" />
+              <label>{tr("课前准备", "Preparation")}</label>
+              <textarea value={preparationNote} onChange={(event) => setPreparationNote(event.target.value)} placeholder={tr("学生课前需要准备的内容。", "What the student should prepare beforehand.")} />
             </div>
-            <HomeworkCheckboxes title="课后作业" assignments={studentAssignments} selectedIds={postHomeworkIds} setSelectedIds={setPostHomeworkIds} />
+            <HomeworkCheckboxes title={tr("课后作业", "Homework after")} assignments={studentAssignments} selectedIds={postHomeworkIds} setSelectedIds={setPostHomeworkIds} />
             <div>
-              <label>课后作业备注</label>
-              <textarea value={homeworkNote} onChange={(event) => setHomeworkNote(event.target.value)} placeholder="本节课额外作业备注。" />
+              <label>{tr("课后作业备注", "Homework notes")}</label>
+              <textarea value={homeworkNote} onChange={(event) => setHomeworkNote(event.target.value)} placeholder={tr("本节课额外作业备注。", "Extra homework notes for this lesson.")} />
             </div>
             <button className="btn" type="button" disabled={loadingRecords || !selectedStudent || !sections.length || !lessonAt} onClick={saveRecord}>
-              {loadingRecords ? "保存中..." : "保存上课记录"}
+              {loadingRecords ? tr("保存中...", "Saving...") : tr("保存上课记录", "Save lesson record")}
             </button>
             {status && <p className={status.includes("Could not") || status.includes("Please") ? "error" : "hint"}>{status}</p>}
           </section>
 
           <section className="stack">
             <div className="section-head compact">
-              <h3>上课历史</h3>
+              <h3>{tr("上课历史", "Past lessons")}</h3>
               <span className="pill">{records.length}</span>
             </div>
             {records.length ? (
               records.map((record) => (
                 <div className="submission-row" key={record.id}>
                   <div className="homework-history-title-row">
-                    <strong>{new Date(record.lesson_at).toLocaleString("zh-CN")}</strong>
-                    <span className="pill">{record.duration_minutes} 分钟</span>
+                    <strong>{new Date(record.lesson_at).toLocaleString(tr("zh-CN", "en-GB"))}</strong>
+                    <span className="pill">{record.duration_minutes} {tr("分钟", "min")}</span>
                   </div>
                   <div className="topic-chip-group">
                     {(record.sections || []).map((section) => (
@@ -2467,14 +2551,14 @@ function TeacherLessonRecordsPanel({
                       </span>
                     ))}
                   </div>
-                  <LinkedHomework label="课前作业" assignments={record.pre_homework || []} />
-                  {record.preparation_note && <p className="hint">课前准备：{record.preparation_note}</p>}
-                  <LinkedHomework label="课后作业" assignments={record.post_homework || []} />
-                  {record.homework_note && <p className="hint">课后作业备注：{record.homework_note}</p>}
+                  <LinkedHomework label={tr("课前作业", "Homework before")} assignments={record.pre_homework || []} />
+                  {record.preparation_note && <p className="hint">{tr("课前准备：", "Preparation: ")}{record.preparation_note}</p>}
+                  <LinkedHomework label={tr("课后作业", "Homework after")} assignments={record.post_homework || []} />
+                  {record.homework_note && <p className="hint">{tr("课后作业备注：", "Homework notes: ")}{record.homework_note}</p>}
                 </div>
               ))
             ) : (
-              <p className="hint">{loadingRecords ? "正在加载上课记录..." : "该学生还没有上课记录。"}</p>
+              <p className="hint">{loadingRecords ? tr("正在加载上课记录...", "Loading lesson records...") : tr("该学生还没有上课记录。", "No lesson records for this student yet.")}</p>
             )}
           </section>
         </div>
@@ -2510,12 +2594,12 @@ function HomeworkCheckboxes({
               />
               <span>
                 {assignment.title}
-                <span className="hint"> {assignment.assignment_type === "writing" ? "写作" : "口语"}</span>
+                <span className="hint"> {assignment.assignment_type === "writing" ? tr("写作", "Writing") : tr("口语", "Speaking")}</span>
               </span>
             </label>
           ))
         ) : (
-          <p className="hint">还没有发布过作业。</p>
+          <p className="hint">{tr("还没有发布过作业。", "No homework published yet.")}</p>
         )}
       </div>
     </div>
@@ -2601,18 +2685,18 @@ function StudentPanel({
       const response = await fetch(`/api/teacher/speaking-practice?studentName=${encodeURIComponent(studentName)}`);
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setPracticeStatus(data.error || `无法加载自主练习。状态码：${response.status}`);
+        setPracticeStatus(data.error || tr(`无法加载自主练习。状态码：${response.status}`, `Could not load practice submissions (status ${response.status}).`));
         return;
       }
       setPracticeRows(data.practices || []);
       setPracticeStatus("");
     } catch (error) {
-      setPracticeStatus(error instanceof Error ? error.message : "无法加载自主练习。");
+      setPracticeStatus(error instanceof Error ? error.message : tr("无法加载自主练习。", "Could not load practice submissions."));
     }
   }
 
   async function savePracticeFeedback(practice: SpeakingPracticeSubmission, patch: PracticeFeedbackDraft) {
-    setPracticeStatus("保存中...");
+    setPracticeStatus(tr("保存中...", "Saving..."));
     const response = await fetch("/api/teacher/speaking-practice", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -2627,21 +2711,21 @@ function StudentPanel({
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setPracticeStatus(data.error || "保存失败。");
+      setPracticeStatus(data.error || tr("保存失败。", "Could not save."));
       return;
     }
     if (data.practice) setPracticeRows((current) => current.map((item) => (item.id === data.practice.id ? data.practice : item)));
-    setPracticeStatus("已保存自主练习批改。");
+    setPracticeStatus(tr("已保存自主练习批改。", "Practice feedback saved."));
   }
 
   return (
     <article className="card stack">
       <div className="section-head">
         <div>
-          <h2>学生情况</h2>
-          <div className="hint">打开学生档案后，可以查看{activeArea === "writing" ? "写作" : "口语"}进度和提交记录。</div>
+          <h2>{tr("学生情况", "Students")}</h2>
+          <div className="hint">{activeArea === "writing" ? tr("打开学生档案后，可以查看写作进度和提交记录。", "Open a student to see their writing progress and submissions.") : tr("打开学生档案后，可以查看口语进度和提交记录。", "Open a student to see their speaking progress and submissions.")}</div>
         </div>
-        <span className="pill">{students.length} 位学生</span>
+        <span className="pill">{tr(`${students.length} 位学生`, `${students.length} students`)}</span>
       </div>
       <div className="student-profile-layout">
         <aside className="student-profile-sidebar">
@@ -2655,9 +2739,10 @@ function StudentPanel({
                   type="button"
                 >
                   <strong>{student.name}</strong>
-                  <span>{student.phone || "暂无手机号"}</span>
-                  <span>{student.submission_count || 0} 次提交</span>
-                  <span>{student.reviewed_count || 0} 次批改</span>
+                  <span className="student-row-progress">
+                    <em>{tr("批改进度", "Marked")}</em>
+                    {student.reviewed_count || 0}/{student.submission_count || 0}
+                  </span>
                   {student.latest_score !== null && student.latest_score !== undefined && (
                     <span className="pill score">{Number(student.latest_score).toFixed(1)}</span>
                   )}
@@ -2665,7 +2750,7 @@ function StudentPanel({
               ))}
             </div>
           ) : (
-            <p className="hint">还没有学生档案。</p>
+            <p className="hint">{tr("还没有学生档案。", "No student profiles yet.")}</p>
           )}
         </aside>
 
@@ -2676,12 +2761,11 @@ function StudentPanel({
                 <div>
                   <h3>{selectedStudentName}</h3>
                   <div className="hint">
-                    {selectedStudent?.phone ? `${selectedStudent.phone} | ` : ""}
-                    {homeworkRows.length} 份已发布作业，{studentProgress.length} 次提交。
+                    {tr(`${homeworkRows.length} 份已发布作业，${studentProgress.length} 次提交。`, `${homeworkRows.length} homework published, ${studentProgress.length} submissions.`)}
                   </div>
                 </div>
                 <button className="btn secondary" type="button" onClick={() => onAssignHomework(selectedStudentName)}>
-                  布置作业
+                  {tr("布置作业", "Set homework")}
                 </button>
               </div>
               <LearningProgressPanel submissions={studentProgress} />
@@ -2703,14 +2787,14 @@ function StudentPanel({
               <details className="history-card">
                 <summary>
                   <div>
-                    <h3>给该学生发布作业</h3>
-                    <div className="hint">可以直接从学生档案中创建{activeArea === "writing" ? "写作" : "口语"}作业。</div>
+                    <h3>{tr("给该学生发布作业", "Publish homework for this student")}</h3>
+                    <div className="hint">{activeArea === "writing" ? tr("可以直接从学生档案中创建写作作业。", "Create writing homework straight from the profile.") : tr("可以直接从学生档案中创建口语作业。", "Create speaking homework straight from the profile.")}</div>
                   </div>
-                  <span className="pill ok">{activeArea === "writing" ? "写作" : "口语"}</span>
+                  <span className="pill ok">{activeArea === "writing" ? tr("写作", "Writing") : tr("口语", "Speaking")}</span>
                 </summary>
                 <div className="stack">
                   <button className="btn secondary" type="button" onClick={() => onPrepareHomework(selectedStudentName)}>
-                    为 {selectedStudentName} 新建作业
+                    {tr(`为 ${selectedStudentName} 新建作业`, `New homework for ${selectedStudentName}`)}
                   </button>
                   <AssignmentEditor
                     draft={draft}
@@ -2725,14 +2809,14 @@ function StudentPanel({
                   />
                   <div className="bank-actions">
                     <button className="btn" disabled={!token && !hasTeacherAccount} type="button" onClick={() => onSaveHomework(true)}>
-                      发布为新作业
+                      {tr("发布为新作业", "Publish as new homework")}
                     </button>
                   </div>
                 </div>
               </details>
               <div className="stack">
                 <div className="section-head compact">
-                  <h3>作业历史</h3>
+                  <h3>{tr("作业历史", "Homework history")}</h3>
                   <span className="pill">{homeworkRows.length}</span>
                 </div>
                 {homeworkRows.length ? (
@@ -2741,7 +2825,7 @@ function StudentPanel({
                       <span className="homework-history-title-row">
                         <strong>{row.title}</strong>
                         <span className={`pill compact ${row.status === "reviewed" ? "ok" : row.status === "submitted" ? "warn" : ""}`}>
-                          {row.status === "reviewed" ? "已批改" : row.status === "submitted" ? "已提交" : "已发布"}
+                          {row.status === "reviewed" ? tr("已批改", "Marked") : row.status === "submitted" ? tr("已提交", "Submitted") : tr("已发布", "Published")}
                         </span>
                       </span>
                       {activeArea === "speaking" ? (
@@ -2753,14 +2837,14 @@ function StudentPanel({
                     </button>
                   ))
                 ) : (
-                  <p className="hint">还没有给该学生发布过作业。</p>
+                  <p className="hint">{tr("还没有给该学生发布过作业。", "No homework published for this student yet.")}</p>
                 )}
               </div>
             </div>
           ) : (
             <div className="empty-state">
-              <h3>请选择学生</h3>
-              <p className="hint">从左侧选择学生后查看学习进度和提交记录。</p>
+              <h3>{tr("请选择学生", "Choose a student")}</h3>
+              <p className="hint">{tr("从左侧选择学生后查看学习进度和提交记录。", "Pick a student on the left to see their progress and submissions.")}</p>
             </div>
           )}
         </section>
@@ -2792,11 +2876,11 @@ function TeacherSpeakingPracticePanel({
     <div className="stack">
       <div className="section-head compact">
         <div>
-          <h3>自主口语练习</h3>
-          <div className="hint">学生从口语过题情况里自主提交的 P1 或 P2+P3 练习。</div>
+          <h3>{tr("自主口语练习", "Self-practice (speaking)")}</h3>
+          <div className="hint">{tr("学生从口语过题情况里自主提交的 P1 或 P2+P3 练习。", "P1 or P2+P3 practice the student submitted from the topic board.")}</div>
         </div>
         <button className="btn secondary" type="button" onClick={onRefresh}>
-          刷新
+          {tr("刷新", "Refresh")}
         </button>
       </div>
       {status && <p className="hint">{status}</p>}
@@ -2807,7 +2891,7 @@ function TeacherSpeakingPracticePanel({
           ))}
         </div>
       ) : (
-        <p className="hint">该学生还没有提交自主口语练习。</p>
+        <p className="hint">{tr("该学生还没有提交自主口语练习。", "No practice submissions from this student yet.")}</p>
       )}
     </div>
   );
@@ -2841,7 +2925,7 @@ function TeacherPracticeCard({
   const items = getPracticeQuestionItems(practice);
   const recordingsByKey = Object.fromEntries((practice.recordings || []).map((recording) => [recording.question_key, recording]));
   const practiceLabel = practice.practice_type === "p1" ? "P1" : "P2+P3";
-  const statusLabel = practice.status === "reviewed" ? "已批改" : "待批改";
+  const statusLabel = practice.status === "reviewed" ? tr("已批改", "Marked") : tr("待批改", "To mark");
   const recordingCount = practice.recordings?.length || 0;
 
   return (
@@ -2854,8 +2938,8 @@ function TeacherPracticeCard({
         <strong className="practice-review-topic">{practice.topic_title}</strong>
         <div className="practice-review-meta">
           <span>{formatDateTime(practice.submitted_at || practice.created_at)}</span>
-          <span>{recordingCount} 条录音</span>
-          <span>点击查看批改</span>
+          <span>{tr(`${recordingCount} 条录音`, `${recordingCount} recordings`)}</span>
+          <span>{tr("点击查看批改", "Open to mark")}</span>
         </div>
       </summary>
       <div className="practice-review-body">
@@ -2867,10 +2951,10 @@ function TeacherPracticeCard({
                 <span className="hint">{item.label}</span>
                 <strong>{item.question}</strong>
               </div>
-              {recording?.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">这题还没有录音。</p>}
+              {recording?.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">{tr("这题还没有录音。", "No recording for this question.")}</p>}
               {recording && (
                 <div>
-                  <label>本题点评</label>
+                  <label>{tr("本题点评", "Comment")}</label>
                   <textarea
                     value={draft.recordingComments[recording.id] || ""}
                     onChange={(event) =>
@@ -2900,11 +2984,11 @@ function TeacherPracticeCard({
           </div>
         </div>
         <div>
-          <label>总评</label>
+          <label>{tr("总评", "Overall comment")}</label>
           <textarea value={draft.teacherComment} onChange={(event) => setDraft({ ...draft, teacherComment: event.target.value })} />
         </div>
         <button className="btn" type="button" onClick={() => onSave(practice, draft)}>
-          保存自主练习批改
+          {tr("保存自主练习批改", "Save practice feedback")}
         </button>
       </div>
     </details>
@@ -2939,7 +3023,7 @@ function QuestionInputs({
             disabled={values.length <= 1}
             onClick={() => onChange(values.filter((_, valueIndex) => valueIndex !== index))}
           >
-            删除
+            {tr("删除", "Delete")}
           </button>
         </div>
       ))}
@@ -2967,6 +3051,12 @@ function WritingTaskInputs({
   const [uploadingTaskKey, setUploadingTaskKey] = useState("");
   const task1Types = ["折线图", "柱状图", "饼图", "表格", "流程图", "地图"];
   const task2Types = ["单边观点", "双边讨论", "原因分析+观点", "现状分析+观点"];
+  // Stored values stay Chinese; only the option text is translated.
+  const typeLabel = (type: string) =>
+    ({
+      折线图: "Line graph", 柱状图: "Bar chart", 饼图: "Pie chart", 表格: "Table", 流程图: "Process", 地图: "Map",
+      单边观点: "Opinion (one side)", 双边讨论: "Discuss both views", "原因分析+观点": "Causes + opinion", "现状分析+观点": "Situation + opinion"
+    })[type] || type;
   const hasTask1 = safeTasks.some((task) => task.key === "writing_task_1");
   const hasTask2 = safeTasks.some((task) => task.key === "writing_task_2");
 
@@ -2977,7 +3067,7 @@ function WritingTaskInputs({
   async function uploadTaskImage(index: number, file?: File) {
     if (!file) return;
     if (!token && !hasTeacherAccount) {
-      setMessage("请先以老师身份登录，再上传图片。");
+      setMessage(tr("请先以老师身份登录，再上传图片。", "Sign in as a teacher before uploading images."));
       return;
     }
 
@@ -2999,7 +3089,7 @@ function WritingTaskInputs({
       updateTask(index, { image_urls: [...(task.image_urls || []), data.imageUrl] });
       setMessage("Image uploaded.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "图片上传失败。");
+      setMessage(error instanceof Error ? error.message : tr("图片上传失败。", "Image upload failed."));
     } finally {
       setUploadingTaskKey("");
     }
@@ -3007,7 +3097,7 @@ function WritingTaskInputs({
 
   return (
     <div className="stack">
-      <label>写作任务</label>
+      <label>{tr("写作任务", "Writing tasks")}</label>
       {safeTasks.map((task, index) => {
         const isTask1 = task.key === "writing_task_1";
         const isTask2 = task.key === "writing_task_2";
@@ -3015,22 +3105,22 @@ function WritingTaskInputs({
         <article className="question-card" key={task.key || index}>
           <div className="two">
             <div>
-              <label>任务标题</label>
+              <label>{tr("任务标题", "Task title")}</label>
               <input value={task.title} onChange={(event) => updateTask(index, { title: event.target.value })} />
             </div>
             <div>
-              <label>字数要求</label>
+              <label>{tr("字数要求", "Word count")}</label>
               <input value={task.word_limit || ""} onChange={(event) => updateTask(index, { word_limit: event.target.value })} />
             </div>
           </div>
           {isTask1 && (
             <div>
-              <label>Writing Task 1 类型</label>
+              <label>{tr("Writing Task 1 类型", "Writing Task 1 type")}</label>
               <select value={task.task1_type || ""} onChange={(event) => updateTask(index, { task1_type: event.target.value })}>
-                <option value="">选择 Task 1 类型</option>
+                <option value="">{tr("选择 Task 1 类型", "Choose a Task 1 type")}</option>
                 {task1Types.map((type) => (
                   <option key={type} value={type}>
-                    {type}
+                    {tr(type, typeLabel(type))}
                   </option>
                 ))}
               </select>
@@ -3039,35 +3129,35 @@ function WritingTaskInputs({
           {isTask2 && (
             <div className="two">
               <div>
-                <label>Writing Task 2 类型</label>
+                <label>{tr("Writing Task 2 类型", "Writing Task 2 type")}</label>
                 <select value={task.task2_type || ""} onChange={(event) => updateTask(index, { task2_type: event.target.value })}>
-                  <option value="">选择 Task 2 类型</option>
+                  <option value="">{tr("选择 Task 2 类型", "Choose a Task 2 type")}</option>
                   {task2Types.map((type) => (
                     <option key={type} value={type}>
-                      {type}
+                      {tr(type, typeLabel(type))}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label>Writing Task 2 主题</label>
+                <label>{tr("Writing Task 2 主题", "Writing Task 2 topic")}</label>
                 <input
                   value={task.topic || ""}
                   onChange={(event) => updateTask(index, { topic: event.target.value })}
-                  placeholder="例如：教育、科技、环境..."
+                  placeholder={tr("例如：教育、科技、环境...", "e.g. education, technology, environment...")}
                 />
               </div>
             </div>
           )}
           <div>
-            <label>题目要求</label>
+            <label>{tr("题目要求", "Prompt")}</label>
             <textarea value={task.prompt} onChange={(event) => updateTask(index, { prompt: event.target.value })} />
           </div>
           {isTask1 && (
             <div className="stack">
-              <label>Task 1 图片</label>
+              <label>{tr("Task 1 图片", "Task 1 image")}</label>
               <label className="file-upload">
-                {uploadingTaskKey === task.key ? "上传中..." : "上传图片"}
+                {uploadingTaskKey === task.key ? tr("上传中...", "Uploading...") : tr("上传图片", "Upload image")}
                 <input
                   accept="image/*"
                   disabled={uploadingTaskKey === task.key}
@@ -3079,19 +3169,19 @@ function WritingTaskInputs({
                 <div className="image-preview-grid">
                   {(task.image_urls || []).map((imageUrl) => (
                     <div className="image-preview" key={imageUrl}>
-                      <img alt="Writing Task 1 题目图片" src={imageUrl} />
+                      <img alt={tr("Writing Task 1 题目图片", "Writing Task 1 figure")} src={imageUrl} />
                       <button
                         className="btn secondary"
                         type="button"
                         onClick={() => updateTask(index, { image_urls: (task.image_urls || []).filter((url) => url !== imageUrl) })}
                       >
-                        删除图片
+                        {tr("删除图片", "Remove image")}
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="hint">可选。适用于 IELTS Writing Task 1 的图表、地图、表格和流程图。</p>
+                <p className="hint">{tr("可选。适用于 IELTS Writing Task 1 的图表、地图、表格和流程图。", "Optional: the chart, map, table or process diagram for Writing Task 1.")}</p>
               )}
             </div>
           )}
@@ -3101,17 +3191,17 @@ function WritingTaskInputs({
             type="button"
             onClick={() => onChange(safeTasks.filter((_, taskIndex) => taskIndex !== index))}
           >
-            删除任务
+            {tr("删除任务", "Remove task")}
           </button>
         </article>
         );
       })}
       <div className="bank-actions">
         <button className="btn ghost" disabled={hasTask1} type="button" onClick={() => onChange(sortWritingTasks([...safeTasks, createWritingTask(0)]))}>
-          添加 Task 1
+          {tr("添加 Task 1", "Add Task 1")}
         </button>
         <button className="btn ghost" disabled={hasTask2} type="button" onClick={() => onChange(sortWritingTasks([...safeTasks, createWritingTask(1)]))}>
-          添加 Task 2
+          {tr("添加 Task 2", "Add Task 2")}
         </button>
       </div>
     </div>
@@ -3181,7 +3271,7 @@ function RecordingList({
 
   return (
     <div className="stack">
-      <label>录音</label>
+      <label>{tr("录音", "Recording")}</label>
       {reviewItems.map((item) => {
         const recording = recordingsByKey.get(item.key);
         const comment = comments.find((detail) => detail.part === `comment:${item.key}`);
@@ -3198,12 +3288,12 @@ function RecordingList({
             </div>
             {recording ? (
               <>
-                {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">录音链接暂时不可用。</p>}
+                {recording.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">{tr("录音链接暂时不可用。", "The recording is not available right now.")}</p>}
                 <div className="transcript-editor">
                   <div className="section-head compact">
                     <div>
-                      <label>录音转写</label>
-                      <div className="hint">生成转写后可以修改并保存。发布批改后，学生会看到转写和修改痕迹。</div>
+                      <label>{tr("录音转写", "Transcript")}</label>
+                      <div className="hint">{tr("生成转写后可以修改并保存。发布批改后，学生会看到转写和修改痕迹。", "Generate a transcript, then edit and save it. Once feedback is published the student sees the transcript with your edits.")}</div>
                     </div>
                     <button
                       className="btn secondary"
@@ -3212,10 +3302,10 @@ function RecordingList({
                       type="button"
                     >
                       {transcribingId === recording.id
-                        ? "生成中..."
+                        ? tr("生成中...", "Generating...")
                         : recording.transcript_text
-                          ? "重新生成转写"
-                          : "生成转写"}
+                          ? tr("重新生成转写", "Regenerate transcript")
+                          : tr("生成转写", "Generate transcript")}
                     </button>
                   </div>
                   {recording.transcript_text ? (
@@ -3230,14 +3320,14 @@ function RecordingList({
                       onCommentChange={(next) => commentIndex >= 0 && updateDetail(commentIndex, { comment: next })}
                     />
                   ) : (
-                    <p className="hint">还没有转写。</p>
+                    <p className="hint">{tr("还没有转写。", "No transcript yet.")}</p>
                   )}
                 </div>
                 <div className="transcript-editor">
                   <div className="section-head compact">
                     <div>
-                      <label>示范回答</label>
-                      <div className="hint">可以在这里直接录制老师示范回答。发布批改后，学生可以播放参考。</div>
+                      <label>{tr("示范回答", "Sample answer")}</label>
+                      <div className="hint">{tr("可以在这里直接录制老师示范回答。发布批改后，学生可以播放参考。", "Record a sample answer here. Once feedback is published the student can play it.")}</div>
                     </div>
                   </div>
                   <TeacherDemoRecorder
@@ -3248,19 +3338,19 @@ function RecordingList({
                   {recording.teacher_demo?.signed_url ? (
                     <audio controls src={recording.teacher_demo.signed_url} />
                   ) : (
-                    <p className="hint">还没有示范回答。</p>
+                    <p className="hint">{tr("还没有示范回答。", "No sample answer yet.")}</p>
                   )}
                 </div>
               </>
             ) : (
               <div className="transcript-editor">
-                <span className="pill warn">缺少录音</span>
-                <p className="hint">这个问题还没有上传录音。请学生重新打开作业并再次保存这一题。</p>
+                <span className="pill warn">{tr("缺少录音", "No recording")}</span>
+                <p className="hint">{tr("这个问题还没有上传录音。请学生重新打开作业并再次保存这一题。", "No recording was uploaded for this question. Ask the student to reopen the homework and save it again.")}</p>
               </div>
             )}
             {comment && (
               <div className="inline-comment">
-                <label>本题整体点评</label>
+                <label>{tr("本题整体点评", "Comment on this question")}</label>
                 <textarea
                   value={parseReviewComment(comment.comment).general}
                   onChange={(event) =>
@@ -3319,10 +3409,10 @@ function TranscriptWorkspace({
     const { start, end } = selectionRef.current;
     const selection = editedTranscript.slice(start, end).trim();
     if (!selection) {
-      window.alert("请先在转写里选中要批注的文字。");
+      window.alert(tr("请先在转写里选中要批注的文字。", "Select some text in the transcript first."));
       return;
     }
-    const note = window.prompt(`批注「${selection.slice(0, 40)}${selection.length > 40 ? "..." : ""}」：`);
+    const note = window.prompt(`${tr("批注", "Note on")}「${selection.slice(0, 40)}${selection.length > 40 ? "..." : ""}」${tr("：", ":")}`);
     if (!note?.trim()) return;
     update({
       inlineComments: [...review.inlineComments, { id: newInlineCommentId(), quote: selection, comment: note.trim() }]
@@ -3334,9 +3424,9 @@ function TranscriptWorkspace({
       <div className="speaking-review-main">
         <div className="section-head compact">
           <div>
-            <label>录音转写（审阅模式）</label>
+            <label>{tr("录音转写（审阅模式）", "Transcript (review mode)")}</label>
             <div className="hint">
-              直接修改文字，改动会实时标记：绿色为新增，红色删除线为删去。选中一段后点「添加批注」。
+              {tr("直接修改文字，改动会实时标记：绿色为新增，红色删除线为删去。选中一段后点「添加批注」。", "Edit the text directly; changes are marked as you go (green added, red struck out). Select a passage and click “Add note”.")}
             </div>
           </div>
           <div className="bank-actions">
@@ -3347,7 +3437,7 @@ function TranscriptWorkspace({
               onClick={addInlineComment}
               type="button"
             >
-              添加批注
+              {tr("添加批注", "Add note")}
             </button>
             <button
               className="btn secondary"
@@ -3355,7 +3445,7 @@ function TranscriptWorkspace({
               onClick={() => onTranscriptSave(recordingId, editedTranscript)}
               type="button"
             >
-              {savingTranscript ? "保存中..." : "保存转写修改"}
+              {savingTranscript ? tr("保存中...", "Saving...") : tr("保存转写修改", "Save transcript edits")}
             </button>
           </div>
         </div>
@@ -3372,7 +3462,7 @@ function TranscriptWorkspace({
 
       <aside className="speaking-comment-sidebar">
         <div className="section-head compact">
-          <label>批注</label>
+          <label>{tr("批注", "Notes")}</label>
           <span className="pill">{review.inlineComments.length}</span>
         </div>
         {review.inlineComments.length ? (
@@ -3396,12 +3486,12 @@ function TranscriptWorkspace({
                   update({ inlineComments: review.inlineComments.filter((existing) => existing.id !== item.id) })
                 }
               >
-                删除
+                {tr("删除", "Delete")}
               </button>
             </div>
           ))
         ) : (
-          <p className="hint">在左侧转写里选中文字即可添加批注。</p>
+          <p className="hint">{tr("在左侧转写里选中文字即可添加批注。", "Select text in the transcript to add a note.")}</p>
         )}
       </aside>
     </div>
@@ -3469,7 +3559,7 @@ function TeacherDemoRecorder({
 
   async function start() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("当前浏览器不支持网页录音。请使用 Chrome、Edge 或 Safari。");
+      setError(tr("当前浏览器不支持网页录音。请使用 Chrome、Edge 或 Safari。", "This browser cannot record audio. Please use Chrome, Edge or Safari."));
       return;
     }
 
@@ -3480,7 +3570,7 @@ function TeacherDemoRecorder({
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError("麦克风权限被阻止。请允许麦克风权限后重试。");
+      setError(tr("麦克风权限被阻止。请允许麦克风权限后重试。", "Microphone access is blocked. Allow it and try again."));
       return;
     }
 
@@ -3504,7 +3594,7 @@ function TeacherDemoRecorder({
       const blob = new Blob(chunksRef.current, { type: blobType });
       setProcessing(false);
       if (!blob.size) {
-        setError("录音内容为空，请重新录制。");
+        setError(tr("录音内容为空，请重新录制。", "The recording is empty; please record again."));
         return;
       }
       const next = { blob, url: URL.createObjectURL(blob), duration: elapsedRef.current };
@@ -3562,12 +3652,12 @@ function TeacherDemoRecorder({
         <audio controls src={draft.url} />
         <span className="timer">{formatTime(draft.duration)}</span>
         <button className="btn" disabled={disabled} onClick={save} type="button">
-          {disabled ? "保存中..." : "保存示范"}
+          {disabled ? tr("保存中...", "Saving...") : tr("保存示范", "Save sample")}
         </button>
         <button className="btn secondary" disabled={disabled} onClick={discard} type="button">
-          重录
+          {tr("重录", "Re-record")}
         </button>
-        <span className="hint">满意再保存，保存后会覆盖上一条示范。</span>
+        <span className="hint">{tr("满意再保存，保存后会覆盖上一条示范。", "Save when you're happy with it; saving replaces the previous sample.")}</span>
       </div>
     );
   }
@@ -3578,23 +3668,23 @@ function TeacherDemoRecorder({
         <>
           {canPause && (
             <button className="btn secondary" onClick={togglePause} type="button">
-              {paused ? "继续" : "暂停"}
+              {paused ? tr("继续", "Resume") : tr("暂停", "Pause")}
             </button>
           )}
           <button className="btn danger" onClick={stop} type="button">
-            停止
+            {tr("停止", "Stop")}
           </button>
         </>
       ) : (
-        <button className="btn secondary" disabled={disabled || processing} onClick={() => void start()} type="button">
-          {disabled ? "保存中..." : processing ? "处理中..." : "录制示范回答"}
+        <button className="btn rec" disabled={disabled || processing} onClick={() => void start()} type="button">
+          {disabled ? tr("保存中...", "Saving...") : processing ? tr("处理中...", "Processing...") : tr("录制示范回答", "Record sample answer")}
         </button>
       )}
       <span className="timer">{formatTime(seconds)}</span>
       {error ? (
         <span className="error">{error}</span>
       ) : (
-        <span className="hint">{active ? (paused ? "已暂停，点「继续」接着录。" : "录制中，停止后可以先试听。") : "可以直接在本页面录制。"}</span>
+        <span className="hint">{active ? (paused ? tr("已暂停，点「继续」接着录。", "Paused — click Resume to carry on.") : tr("录制中，停止后可以先试听。", "Recording — stop to listen back first.")) : tr("可以直接在本页面录制。", "Record right here on this page.")}</span>
       )}
     </div>
   );
@@ -3621,7 +3711,7 @@ function WritingResponseList({
 
   return (
     <div className="stack">
-      <label>作文提交</label>
+      <label>{tr("作文提交", "Essay submission")}</label>
       {responses.length ? (
         responses.map((response) => {
           const comment = comments.find((detail) => detail.part === `comment:${response.task_key}`);
@@ -3639,11 +3729,11 @@ function WritingResponseList({
               </div>
               <div className="writing-review-grid">
                 <div>
-                  <label>学生作文</label>
+                  <label>{tr("学生作文", "Student's essay")}</label>
                   <div className="writing-text">{response.response_text}</div>
                 </div>
                 <div>
-                  <label>老师修改版本</label>
+                  <label>{tr("老师修改版本", "Teacher's edited version")}</label>
                   <textarea value={editedText} onChange={(event) => onRevisionChange(response.id, event.target.value)} />
                 </div>
               </div>
@@ -3653,12 +3743,12 @@ function WritingResponseList({
                 onClick={() => onRevisionSave(response.id, editedText)}
                 type="button"
               >
-                {savingWritingId === response.id ? "保存中..." : "保存作文修改"}
+                {savingWritingId === response.id ? tr("保存中...", "Saving...") : tr("保存作文修改", "Save essay edits")}
               </button>
               <TranscriptDiff original={response.response_text} edited={editedText} />
               {comment && (
                 <div className="inline-comment">
-                  <label>本题点评</label>
+                  <label>{tr("本题点评", "Comment")}</label>
                   <textarea
                     value={comment.comment}
                     onChange={(event) => updateDetail(commentIndex, { comment: event.target.value })}
@@ -3669,7 +3759,7 @@ function WritingResponseList({
           );
         })
       ) : (
-        <p className="hint">学生还没有提交作文。</p>
+        <p className="hint">{tr("学生还没有提交作文。", "The student has not submitted an essay.")}</p>
       )}
     </div>
   );
@@ -3697,8 +3787,8 @@ function WritingReviewModeList({
   return (
     <div className="stack">
       <div>
-        <h3>作文审阅</h3>
-        <p className="hint">直接在学生作文上修改；下方会显示修订痕迹，也可以选中文字后添加批注。</p>
+        <h3>{tr("作文审阅", "Essay review")}</h3>
+        <p className="hint">{tr("直接在学生作文上修改；下方会显示修订痕迹，也可以选中文字后添加批注。", "Edit the essay directly; the revisions show below, and you can select text to add a note.")}</p>
       </div>
       {responses.length ? (
         responses.map((response) => {
@@ -3721,7 +3811,7 @@ function WritingReviewModeList({
           );
         })
       ) : (
-        <p className="hint">学生还没有提交作文。</p>
+        <p className="hint">{tr("学生还没有提交作文。", "The student has not submitted an essay.")}</p>
       )}
     </div>
   );
@@ -3767,10 +3857,10 @@ function WritingReviewEditor({
     const end = textarea.selectionEnd;
     const quote = editedText.slice(start, end).trim();
     if (!quote) {
-      window.alert("请先在作文里选中需要批注的文字。");
+      window.alert(tr("请先在作文里选中需要批注的文字。", "Select some text in the essay first."));
       return;
     }
-    const comment = window.prompt("请输入批注内容：");
+    const comment = window.prompt(tr("请输入批注内容：", "Your note:"));
     if (!comment?.trim()) return;
     updateReviewComment({
       inlineComments: [
@@ -3809,12 +3899,12 @@ function WritingReviewEditor({
         <div className="writing-review-main">
           <div className="section-head compact">
             <div>
-              <label>修订</label>
-              <div className="hint">在下方作文框中直接修改学生原文。</div>
+              <label>{tr("修订", "Revisions")}</label>
+              <div className="hint">{tr("在下方作文框中直接修改学生原文。", "Edit the student's text in the box below.")}</div>
             </div>
             <div className="segmented compact-segmented">
               <button className="btn secondary" onClick={addInlineComment} type="button">
-                添加批注
+                {tr("添加批注", "Add note")}
               </button>
               <button
                 className="btn secondary"
@@ -3822,7 +3912,7 @@ function WritingReviewEditor({
                 onClick={() => onRevisionSave(response.id, editedText)}
                 type="button"
               >
-                {savingWritingId === response.id ? "保存中..." : "保存修改"}
+                {savingWritingId === response.id ? tr("保存中...", "Saving...") : tr("保存修改", "Save edits")}
               </button>
             </div>
           </div>
@@ -3834,7 +3924,7 @@ function WritingReviewEditor({
           />
           <TranscriptDiff original={response.response_text} edited={editedText} />
           <div className="inline-comment">
-            <label>本题总点评</label>
+            <label>{tr("本题总点评", "Overall comment on this task")}</label>
             <textarea
               value={reviewComment.general}
               onChange={(event) => updateReviewComment({ general: event.target.value })}
@@ -3844,25 +3934,25 @@ function WritingReviewEditor({
 
         <aside className="writing-comment-sidebar">
           <div className="section-head compact">
-            <label>批注</label>
+            <label>{tr("批注", "Notes")}</label>
             <span className="pill">{reviewComment.inlineComments.length}</span>
           </div>
           {reviewComment.inlineComments.length ? (
             reviewComment.inlineComments.map((item, index) => (
               <div className="writing-comment-bubble" key={item.id}>
-                <div className="comment-anchor">批注 {index + 1}</div>
+                <div className="comment-anchor">{tr("批注", "Note")} {index + 1}</div>
                 <blockquote>{item.quote}</blockquote>
                 <textarea
                   value={item.comment}
                   onChange={(event) => updateInlineComment(item.id, { comment: event.target.value })}
                 />
                 <button className="btn danger compact-button" onClick={() => deleteInlineComment(item.id)} type="button">
-                  删除批注
+                  {tr("删除批注", "Delete note")}
                 </button>
               </div>
             ))
           ) : (
-            <p className="hint">选中作文中的文字后，点击“添加批注”。</p>
+            <p className="hint">{tr("选中作文中的文字后，点击“添加批注”。", "Select text in the essay, then click “Add note”.")}</p>
           )}
         </aside>
       </div>
@@ -3874,8 +3964,8 @@ function WritingStudentResponseList({ responses, tasks }: { responses: WritingRe
   return (
     <div className="writing-grading-column">
       <div>
-        <h3>学生作文</h3>
-        <p className="hint">左侧显示学生提交的原文和题目。</p>
+        <h3>{tr("学生作文", "Student's essay")}</h3>
+        <p className="hint">{tr("左侧显示学生提交的原文和题目。", "The prompt and the student's original text.")}</p>
       </div>
       {responses.length ? (
         responses.map((response) => {
@@ -3887,13 +3977,13 @@ function WritingStudentResponseList({ responses, tasks }: { responses: WritingRe
               <div className="question-title">{response.task_title}</div>
               {taskImages.length ? <TaskImageGrid imageUrls={taskImages} /> : null}
               <p className="hint">{response.task_prompt}</p>
-              <label>学生原文</label>
+              <label>{tr("学生原文", "Original text")}</label>
               <div className="writing-text large">{response.response_text}</div>
             </article>
           );
         })
       ) : (
-        <p className="hint">学生还没有提交作文。</p>
+        <p className="hint">{tr("学生还没有提交作文。", "The student has not submitted an essay.")}</p>
       )}
     </div>
   );
@@ -3919,8 +4009,8 @@ function WritingTeacherReviewList({
   return (
     <div className="writing-grading-column">
       <div>
-        <h3>老师批改</h3>
-        <p className="hint">右侧修改学生作文，并填写每题点评。</p>
+        <h3>{tr("老师批改", "Teacher's marking")}</h3>
+        <p className="hint">{tr("右侧修改学生作文，并填写每题点评。", "Edit the essay and comment on each task here.")}</p>
       </div>
       {responses.length ? (
         responses.map((response) => {
@@ -3932,7 +4022,7 @@ function WritingTeacherReviewList({
             <article className="question-card" key={response.id}>
               <div className="hint">{response.task_label}</div>
               <div className="question-title">{response.task_title}</div>
-              <label>老师修改版本</label>
+              <label>{tr("老师修改版本", "Teacher's edited version")}</label>
               <textarea
                 className="writing-revision-editor"
                 value={editedText}
@@ -3944,12 +4034,12 @@ function WritingTeacherReviewList({
                 onClick={() => onRevisionSave(response.id, editedText)}
                 type="button"
               >
-                {savingWritingId === response.id ? "保存中..." : "保存作文修改"}
+                {savingWritingId === response.id ? tr("保存中...", "Saving...") : tr("保存作文修改", "Save essay edits")}
               </button>
               <TranscriptDiff original={response.response_text} edited={editedText} />
               {comment && (
                 <div className="inline-comment">
-                  <label>本题点评</label>
+                  <label>{tr("本题点评", "Comment")}</label>
                   <textarea
                     value={comment.comment}
                     onChange={(event) => updateDetail(commentIndex, { comment: event.target.value })}
@@ -3960,7 +4050,7 @@ function WritingTeacherReviewList({
           );
         })
       ) : (
-        <p className="hint">学生还没有提交作文。</p>
+        <p className="hint">{tr("学生还没有提交作文。", "The student has not submitted an essay.")}</p>
       )}
     </div>
   );
@@ -3970,7 +4060,7 @@ function TaskImageGrid({ imageUrls }: { imageUrls: string[] }) {
   return (
     <div className="task-image-grid">
       {imageUrls.map((imageUrl) => (
-        <img alt="写作 Task 1 题目图片" className="task-image" key={imageUrl} src={imageUrl} />
+        <img alt={tr("写作 Task 1 题目图片", "Writing Task 1 figure")} className="task-image" key={imageUrl} src={imageUrl} />
       ))}
     </div>
   );
@@ -3994,14 +4084,14 @@ function FeedbackEditor({
     <div className="stack">
       <div className="overall">
         <div className="overall-score">
-          <span>平均分</span>
+          <span>{tr("平均分", "Average")}</span>
           <strong>{average.toFixed(1)}</strong>
         </div>
-        <label>总评</label>
+        <label>{tr("总评", "Overall comment")}</label>
         <textarea value={feedback.overall_comment} onChange={(event) => updateComment(event.target.value)} />
       </div>
       <div className="stack">
-        <label>评分区</label>
+        <label>{tr("评分区", "Scores")}</label>
         {scores.map((detail) => {
           const index = feedback.details.findIndex((item) => item.part === detail.part);
           return (
@@ -4023,8 +4113,8 @@ function FeedbackEditor({
           );
         })}
       </div>
-      <button className="btn" onClick={publish} type="button">
-        发布批改
+      <button className="btn accent" onClick={publish} type="button">
+        {tr("发布批改", "Publish feedback")}
       </button>
     </div>
   );
@@ -4078,7 +4168,7 @@ function nullableScore(value: string) {
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return "暂无时间";
+  if (!value) return tr("暂无时间", "No time");
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("zh-CN");

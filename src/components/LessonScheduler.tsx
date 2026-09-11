@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { bookingTypeLabel, reservedMinutesFor, type BookingType } from "@/lib/lessonBooking";
 import type { LessonBooking, LessonSlot } from "@/lib/types";
+import { tr, useLanguage } from "@/lib/i18n";
 
 const timeZones = [
   "Asia/Shanghai",
@@ -21,7 +22,7 @@ const dayNames = {
 };
 const startHour = 7;
 const endHour = 23;
-const hourHeight = 56;
+const hourHeight = 44;
 
 type BookingChoice = 60 | 120;
 type LessonType = "regular" | "practice";
@@ -87,7 +88,7 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
     if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(path, { ...init, headers });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "请求失败。");
+    if (!response.ok) throw new Error(data.error || tr("请求失败。", "Request failed."));
     return data;
   }
 
@@ -348,7 +349,10 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
   );
 }
 
-export function StudentSchedulePanel({ account, lessonType = "regular", assistantId = "", title = "课程预约", hint = "绿色时间段可以预约，灰色时间段已被预约。一次最多选择 5 节课。" }: { account?: { id: string; role: string; display_name: string } | null; lessonType?: LessonType; assistantId?: string; title?: string; hint?: string }) {
+export function StudentSchedulePanel({ account, lessonType = "regular", assistantId = "", title, hint }: { account?: { id: string; role: string; display_name: string } | null; lessonType?: LessonType; assistantId?: string; title?: string; hint?: string }) {
+  const { t, language } = useLanguage();
+  const heading = title || t("课程预约", "Book a lesson");
+  const subheading = hint || t("绿色时间段可以预约，灰色时间段已被预约。一次最多选择 5 节课。", "Green slots are open, grey ones are taken. Up to 5 lessons at a time.");
   const [slots, setSlots] = useState<LessonSlot[]>([]);
   const [myBookings, setMyBookings] = useState<LessonBooking[]>([]);
   const [timezone, setTimezone] = useState(defaultTimeZone());
@@ -377,11 +381,11 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
       if (assistantId) params.set("assistantId", assistantId);
       const response = await fetch(`/api/student/lesson-bookings?${params.toString()}`, { credentials: "include" });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "无法加载课程安排。");
+      if (!response.ok) throw new Error(data.error || tr("无法加载课程安排。", "Could not load the schedule."));
       setSlots(data.slots || []);
       setMyBookings(data.myBookings || []);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法加载课程安排。");
+      setMessage(error instanceof Error ? error.message : tr("无法加载课程安排。", "Could not load the schedule."));
     } finally {
       setLoading(false);
     }
@@ -396,11 +400,11 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
         return next;
       }
       if (Object.keys(current).length >= 5) {
-        setMessage("一次最多选择 5 节课。");
+        setMessage(tr("一次最多选择 5 节课。", "Up to 5 lessons at a time."));
         return current;
       }
       if (!canBookLesson(slot, startAt, 60, lessonType)) {
-        setMessage("这个开始时间没有足够空间预约 1 小时课程。");
+        setMessage(tr("这个开始时间没有足够空间预约 1 小时课程。", "Not enough room after this start time for a 1-hour lesson."));
         return current;
       }
       return {
@@ -417,7 +421,7 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
 
   async function bookSelected() {
     if (!selectedIds.length) {
-      setMessage("请至少选择一个上课时间。");
+      setMessage(tr("请至少选择一个上课时间。", "Pick at least one time."));
       return;
     }
 
@@ -439,12 +443,12 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
         })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "预约失败。");
+      if (!response.ok) throw new Error(data.error || tr("预约失败。", "Booking failed."));
       setChoices({});
       await loadSchedule();
-      setMessage("预约请求已发送，请等待老师确认。");
+      setMessage(tr("预约请求已发送，请等待老师确认。", "Request sent — waiting for your teacher to confirm."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "预约失败。");
+      setMessage(error instanceof Error ? error.message : tr("预约失败。", "Booking failed."));
     } finally {
       setLoading(false);
     }
@@ -453,34 +457,34 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
   return (
     <article className="card stack">
       <ScheduleHeader
-        title={title}
-        hint={hint}
+        title={heading}
+        hint={subheading}
         timezone={timezone}
         weekStart={weekStart}
         loading={loading}
         setTimezone={setTimezone}
         setWeekStart={setWeekStart}
         onRefresh={loadSchedule}
-        language="zh"
+        language={language}
       />
 
       <div className="section-head compact">
-        <span className="pill">已选 {selectedIds.length}/5</span>
+        <span className="pill">{t(`已选 ${selectedIds.length}/5`, `Selected ${selectedIds.length}/5`)}</span>
         <button className="btn" disabled={loading || !selectedIds.length} onClick={bookSelected} type="button">
-          提交预约
+          {t("提交预约", "Request booking")}
         </button>
       </div>
 
       <CalendarWeek
         days={days}
         timezone={timezone}
-        language="zh"
+        language={language}
         slots={slots}
         selectedSlotIds={selectedIds}
         onEmptyClick={() => null}
         onSlotClick={toggleSlot}
         renderEventAction={(slot) => {
-          return <span>点击开始时间</span>;
+          return <span>{t("点击开始时间", "Click a start time")}</span>;
         }}
       />
 
@@ -507,7 +511,7 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
                     const bookingType = value === "trial" ? "trial" : "regular";
                     const courseMinutes = (value === "120" ? 120 : 60) as BookingChoice;
                     if (!canBookLesson(slot, choice.startAt, courseMinutes, lessonType, bookingType)) {
-                      setMessage("这个开始时间没有足够空间安排该课程时长。");
+                      setMessage(tr("这个开始时间没有足够空间安排该课程时长。", "Not enough room after this start time for that length."));
                       return;
                     }
                     setChoices((current) => ({
@@ -517,12 +521,12 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
                   }}
                 >
                   {lessonType === "practice" ? (
-                    <option value="60">1 小时练习课</option>
+                    <option value="60">{t("1 小时练习课", "1-hour practice")}</option>
                   ) : (
                     <>
-                      {canBookLesson(slot, choice.startAt, 60, lessonType, "trial") && <option value="trial">试课，预留 1 小时</option>}
-                      <option value="60">正式课 1 小时，预留 1.5 小时</option>
-                      {canBookLesson(slot, choice.startAt, 120, lessonType) && <option value="120">正式课 2 小时，预留 2.5 小时</option>}
+                      {canBookLesson(slot, choice.startAt, 60, lessonType, "trial") && <option value="trial">{t("试课，预留 1 小时", "Trial, 1 hour reserved")}</option>}
+                      <option value="60">{t("正式课 1 小时，预留 1.5 小时", "Lesson 1 hour, 1.5 reserved")}</option>
+                      {canBookLesson(slot, choice.startAt, 120, lessonType) && <option value="120">{t("正式课 2 小时，预留 2.5 小时", "Lesson 2 hours, 2.5 reserved")}</option>}
                     </>
                   )}
                 </select>
@@ -537,7 +541,7 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
                     })
                   }
                 >
-                  移除
+                  {t("移除", "Remove")}
                 </button>
               </div>
             );
@@ -548,7 +552,7 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
       {message && <p className={message.includes("failed") || message.includes("Please") || message.includes("already") ? "error" : "hint"}>{message}</p>}
 
       <StudentBookingGroup
-        title="即将开始的课程"
+        title={t("即将开始的课程", "Upcoming lessons")}
         bookings={groupedMyBookings.upcoming}
         timezone={timezone}
         loading={loading}
@@ -556,7 +560,7 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
         onCancel={cancelStudentBooking}
       />
       <StudentBookingGroup
-        title="已结束课程"
+        title={t("已结束课程", "Past lessons")}
         bookings={groupedMyBookings.passed}
         timezone={timezone}
         loading={loading}
@@ -576,11 +580,11 @@ export function StudentSchedulePanel({ account, lessonType = "regular", assistan
         body: JSON.stringify({ bookingId })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "取消失败。");
+      if (!response.ok) throw new Error(data.error || tr("取消失败。", "Could not cancel."));
       await loadSchedule();
-      setMessage("课程已取消。");
+      setMessage(tr("课程已取消。", "Lesson cancelled."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "取消失败。");
+      setMessage(error instanceof Error ? error.message : tr("取消失败。", "Could not cancel."));
     } finally {
       setLoading(false);
     }
@@ -602,6 +606,7 @@ function StudentBookingGroup({
   tone: "upcoming" | "passed";
   onCancel: (bookingId: string) => void;
 }) {
+  const { t, language } = useLanguage();
   return (
     <div className="stack">
       <div className="section-head compact">
@@ -614,14 +619,14 @@ function StudentBookingGroup({
             <div className={`schedule-card booked ${tone}`} key={booking.id}>
               <strong>{formatRange(booking.start_at, booking.end_at, timezone)}</strong>
               <span className={`pill ${isConfirmedBooking(booking) ? "ok" : booking.status === "pending" ? "warn" : ""}`}>
-                {bookingStatusLabel(booking)}
+                {bookingStatusLabel(booking, language)}
               </span>
               <span className="hint">
-                {bookingTypeLabel((booking.booking_type as BookingType) || "regular")} ·{" "}
-                {booking.course_minutes / 60} 小时课程，预留 {booking.reserved_minutes} 分钟
+                {bookingTypeLabel((booking.booking_type as BookingType) || "regular", language)} ·{" "}
+                {t(`${booking.course_minutes / 60} 小时课程，预留 ${booking.reserved_minutes} 分钟`, `${booking.course_minutes / 60} h lesson, ${booking.reserved_minutes} min reserved`)}
               </span>
               {booking.status === "cancelled" && booking.teacher_suggested_time && (
-                <span className="hint">老师建议时间：{formatSuggestedTime(booking.teacher_suggested_time, timezone)}</span>
+                <span className="hint">{t("老师建议时间：", "Teacher suggests: ")}{formatSuggestedTime(booking.teacher_suggested_time, timezone)}</span>
               )}
               {booking.status !== "cancelled" && tone !== "passed" && (
                 <button
@@ -630,14 +635,14 @@ function StudentBookingGroup({
                   onClick={() => onCancel(booking.id)}
                   type="button"
                 >
-                  取消预约
+                  {t("取消预约", "Cancel booking")}
                 </button>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <p className="hint">该分组暂无课程。</p>
+        <p className="hint">{t("该分组暂无课程。", "Nothing here.")}</p>
       )}
     </div>
   );
@@ -895,7 +900,7 @@ function CalendarWeek({
                   role="button"
                   style={{
                     top: `${placement!.top}px`,
-                    height: `${Math.max(placement!.height, 34)}px`
+                    height: `${Math.max(placement!.height, 28)}px`
                   }}
                   tabIndex={0}
                 >
@@ -924,7 +929,7 @@ function CalendarWeek({
                 key={booking.id}
                 style={{
                   top: `${placement!.top}px`,
-                  height: `${Math.max(placement!.height, 34)}px`
+                  height: `${Math.max(placement!.height, 28)}px`
                 }}
               >
                 <strong>{formatRange(booking.start_at, booking.end_at, timezone)}</strong>

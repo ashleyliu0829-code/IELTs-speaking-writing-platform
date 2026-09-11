@@ -1,22 +1,76 @@
 :root {
-  --ink: #14202e;
-  --muted: #66655b;
-  --line: #d3d4c0;
-  --sage-soft: #e3e4d6;
-  --paper: #fbf7ef;
-  --soft: #f3e4c9;
-  --brand: #0a2947;
-  --brand-dark: #061b31;
-  --danger: #a8452e;
-  --danger-deep: #8f3623;
-  --ok: #2c6b43;
-  --warn: #7a4a22;
-  --done: #8b5e3c;
-  --done-ink: #6e4526;
-  --done-wash: #f0e2d2;
-  --done-line: rgba(139, 94, 60, .34);
+  /* Sage primary, a lighter green secondary, a coral accent on a budget, and
+     warm neutrals: an off-white ground, white cards, near-black ink.
+     The primary carries white type (4.9:1). The secondary and the accent are
+     light and carry the ink. The secondary text was lifted a step from the
+     one given — #707a76 measured 4.1:1 on the ground, under the 4.5 the rest
+     of the platform holds — and the primary gets a darker twin for links,
+     where it sits on the ground rather than on a card. */
   --white: #ffffff;
-  --shadow: 0 12px 32px rgba(10, 41, 71, .07);
+  --paper: #f7f5f0;
+  --sage-soft: #f0eee8;
+  --line: #e6e4de;
+  --soft: #dfe9e1;
+  --ink: #26332f;
+  --muted: #55635f;
+  --brand: #52796f;
+  --brand-dark: #3f5f57;
+  --brand-ink: #486d63;
+  --secondary: #84a98c;
+  --secondary-dark: #76a07f;
+  --on-secondary: var(--ink);
+  --accent: #f28c70;
+  --accent-dark: #e97c5e;
+  /* The five states. Each is a fill, a darker ink for type on light, and a
+     wash. The fills are the values given; the inks are the same hues taken
+     down until they hold 4.5:1 on white. */
+  --done: #6baa75;
+  --done-ink: #356d40;
+  --done-wash: #e4f1e5;
+  --done-line: rgba(107, 170, 117, .55);
+  --ok: #356d40;
+  --pending: #e9b44c;
+  --pending-ink: #8a6410;
+  --pending-wash: #fbf1d9;
+  --warn: #8a6410;
+  --revise: #e07a5f;
+  --revise-ink: #a83f25;
+  --revise-wash: #fbe5df;
+  --ai: #8b7ec8;
+  --ai-ink: #5d4fa0;
+  --ai-wash: #ede9f7;
+  --rec: #5b8def;
+  --rec-ink: #2f5fb3;
+  --rec-wash: #e6eefc;
+  --danger: #c0392b;
+  --danger-deep: #9c2b20;
+  --shadow: 0 12px 32px rgba(38, 51, 47, .08);
+  --topbar-h: 54px;
+}
+
+/* A second palette, for comparing: navy primary, slate secondary, coral
+   accent, cool neutrals. Switched by data-theme on <html>; see ThemeSwitch.
+   The five state colours are semantic and stay the same in both.
+   The slate is dark enough for white type (5.3:1), which is why --on-secondary
+   exists — in the default palette the secondary is light and takes the ink. */
+:root[data-theme="navy"] {
+  --white: #ffffff;
+  --paper: #f6f7f9;
+  --sage-soft: #eef0f3;
+  --line: #e3e6ea;
+  --soft: #e4e8ef;
+  --ink: #20242c;
+  /* The slate, taken down a step for small type on the tinted surfaces. */
+  --muted: #4f5b72;
+  --brand: #24324a;
+  --brand-dark: #1a2537;
+  --brand-ink: #24324a;
+  --secondary: #5e6b85;
+  --secondary-dark: #4d5a72;
+  --on-secondary: #ffffff;
+  --accent: #f26b5b;
+  --accent-dark: #e85a49;
+  --shadow: 0 12px 32px rgba(32, 36, 44, .10);
 }
 
 /* The page index jumps rather than teleports, so a reader keeps their place.
@@ -63,7 +117,7 @@ button:disabled {
 .btn:disabled,
 .btn[disabled] {
   border: 1px solid var(--line);
-  background: #ede8db;
+  background: #ebe9e3;
   color: var(--muted);
   box-shadow: none;
   opacity: 1;
@@ -81,9 +135,10 @@ a {
   justify-content: space-between;
   gap: 18px;
   align-items: center;
-  padding: 16px clamp(16px, 4vw, 48px);
-  border-bottom: 1px solid rgba(216, 217, 200, .9);
-  background: rgba(251, 247, 239, .92);
+  height: var(--topbar-h);
+  padding: 0 clamp(16px, 4vw, 48px);
+  border-bottom: 1px solid rgba(230, 228, 222, .9);
+  background: rgba(247, 245, 240, .92);
   backdrop-filter: blur(14px);
 }
 
@@ -168,6 +223,620 @@ h3 {
   align-items: start;
 }
 
+/* Teacher home: an index down the side, the day's work in the middle.
+   The sidebar is narrow and fixed-ish — it holds nav, a link and three meters,
+   none of which get better with width — so everything the window gains goes to
+   the schedule and the feed. */
+.home-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.home-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.home-nav-group {
+  display: grid;
+  gap: 2px;
+}
+
+.home-nav-title {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.home-nav-title img,
+.home-nav-title svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  object-fit: contain;
+}
+
+/* Indented under their heading, the way an index reads. */
+.home-nav-item {
+  padding: 5px 10px 5px 28px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-nav-item:hover {
+  background: var(--soft);
+  color: var(--brand-ink);
+}
+
+.home-nav-foot {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* Meters stack rather than sitting side by side: the column is too narrow to
+   put three of them in a row without squeezing each to nothing. */
+.home-nav-foot .usage-meters {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.home-nav-logout {
+  width: 100%;
+}
+
+/* The dashboard itself is an entry in the index, not a special case: it is
+   what the pane shows when nothing else is selected. */
+/* Signed in, the dashboard takes the whole window: the index becomes a rail
+   against the left edge and the pane gets everything else. The centred shell
+   stays for the login and activation screens, which are one narrow card. */
+.shell.shell-wide {
+  width: 100%;
+  padding: 0 0 48px;
+}
+
+.shell-wide .home-main {
+  padding-top: 0;
+}
+
+.shell-wide > .hint,
+.shell-wide > .error {
+  padding-right: clamp(16px, 2.5vw, 28px);
+  padding-left: clamp(16px, 2.5vw, 28px);
+}
+
+/* Top right of the pane, on one line, out of the way of the work. */
+.dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 0 8px;
+}
+
+.dashboard-actions .btn {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.shell-wide .home-layout {
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 0;
+}
+
+.shell-wide .home-nav {
+  top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
+  max-height: none;
+  overflow: hidden;
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* A short window cannot hold the whole rail, and a log-out button you cannot
+   reach is worse than a rail that scrolls. */
+@media (max-height: 900px) {
+  .shell-wide .home-nav {
+    overflow-y: auto;
+  }
+}
+
+/* Compact enough that the rail fits a screen without scrolling. */
+.home-nav-foot {
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.home-nav-foot .usage-meters {
+  gap: 6px;
+}
+
+.home-nav-foot .question-card {
+  gap: 6px;
+  padding: 10px;
+}
+
+.home-nav-foot .section-head {
+  gap: 6px;
+}
+
+.home-nav-foot .section-head label {
+  font-size: 12px;
+}
+
+.home-nav-foot .usage-meter {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  align-items: center;
+}
+
+.home-nav-foot .usage-meter-head {
+  grid-column: 1 / -1;
+}
+
+.home-nav-foot .usage-meter strong {
+  font-size: 12px;
+}
+
+.home-nav-foot .usage-meter .pill {
+  min-height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.home-nav-foot .usage-meter-track {
+  height: 5px;
+}
+
+.home-nav-foot .section-head .hint,
+.home-nav-foot .usage-meter .hint {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.home-nav-logout {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-nav-logout:hover {
+  background: none;
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.shell-wide .home-main {
+  min-width: 0;
+  padding: 0 clamp(16px, 2.5vw, 28px) 0 20px;
+}
+
+@media (max-width: 900px) {
+  .shell-wide .home-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell-wide .home-nav {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    border-width: 0 0 1px;
+  }
+
+  .shell-wide .home-main {
+    padding: 16px clamp(16px, 2.5vw, 28px) 0;
+  }
+}
+
+.home-nav-home {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 760;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-nav-home:hover {
+  border-color: var(--brand-ink);
+}
+
+.home-nav-home.active,
+.home-nav-item.active {
+  background: var(--brand);
+  color: var(--white);
+}
+
+.home-nav-item.active:hover {
+  background: var(--brand-dark);
+  color: var(--white);
+}
+
+/* The pane scrolls under the index rather than dragging it along. */
+.home-nav {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .home-nav {
+    position: static;
+    max-height: none;
+  }
+}
+
+.student-home-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.student-home-row.loose {
+  align-items: start;
+}
+
+.student-home-row.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* The one number on the page that is a deadline. */
+.student-home-exam .student-home-countdown {
+  color: var(--accent-dark);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.01em;
+}
+
+.student-home-exam .student-home-countdown.overview-exam-soon {
+  color: var(--revise-ink);
+}
+
+.student-home-exam .student-home-countdown.overview-exam-past {
+  color: var(--muted);
+}
+
+/* Section titles on the student home sit at the size of the topic board's,
+   so the page reads as one set of panels rather than two weights of heading. */
+.student-home h2 {
+  font-size: 1.17em;
+}
+
+.student-home-plan {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.student-home-checkin {
+  display: grid;
+  gap: 10px;
+}
+
+.student-home-checkin > strong {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.student-home-checkin > strong.done {
+  color: var(--done-ink);
+}
+
+.student-home-checkin > strong small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-home-checkin-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-home-checkin-list li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.student-home-checkin-list .checked {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.btn.compact {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .student-home-row.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The progress table is six columns wide; in half a page it scrolls inside
+   its own box rather than pushing the row apart. */
+.student-home-row .progress-table {
+  overflow-x: auto;
+}
+
+.student-home-lesson,
+.student-home-exam {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.student-home-lesson strong,
+.student-home-exam strong {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.student-home-lesson span,
+.student-home-exam span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.student-home-more {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.student-home-more li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.student-nav-me {
+  display: grid;
+  gap: 2px;
+  padding: 0 2px 4px;
+}
+
+.student-nav-me strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.student-nav-me small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .student-home-row,
+  .student-home-row.three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.home-panels {
+  display: grid;
+  gap: 16px;
+}
+
+.home-lesson-day {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.home-lesson-date {
+  display: grid;
+  gap: 2px;
+  padding-top: 10px;
+}
+
+.home-lesson-date strong {
+  font-size: 14px;
+}
+
+.home-lesson-date small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.home-lesson-list {
+  display: grid;
+  gap: 8px;
+}
+
+.home-lesson {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 14px;
+}
+
+/* A lesson still waiting on the teacher reads as unfinished business. */
+.home-lesson.pending {
+  border-left-color: var(--pending);
+}
+
+.home-lesson-time {
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-lesson-student {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.home-lesson-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.home-feed {
+  display: grid;
+  gap: 2px;
+}
+
+.home-feed-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--sage-soft);
+}
+
+.home-feed-row:first-child {
+  border-top: 0;
+}
+
+.home-feed-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.home-feed-dot.submission {
+  background: var(--brand);
+}
+
+.home-feed-dot.booking_pending {
+  background: var(--pending);
+}
+
+.home-feed-dot.booking_confirmed {
+  background: var(--done);
+}
+
+.home-feed-dot.booking_cancelled {
+  background: var(--danger);
+}
+
+.home-feed-dot.student_joined {
+  background: var(--ok);
+}
+
+.home-feed-body {
+  display: grid;
+  gap: 2px;
+}
+
+.home-feed-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.home-feed-body small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Below this the sidebar has nowhere to go, so it becomes the first block. */
+@media (max-width: 900px) {
+  .home-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Four columns will not fit a phone, so the row folds: the length drops to a
+   second line under the name, and the time spans both. */
+@media (max-width: 620px) {
+  .home-lesson-day {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .home-lesson-date {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding-top: 0;
+  }
+
+  .home-lesson {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "time student status"
+      "time meta    meta";
+    row-gap: 2px;
+  }
+
+  .home-lesson-time {
+    grid-area: time;
+  }
+
+  .home-lesson-student {
+    grid-area: student;
+  }
+
+  .home-lesson-meta {
+    grid-area: meta;
+  }
+
+  .home-lesson .pill {
+    grid-area: status;
+  }
+}
+
 .area-tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -207,91 +876,8 @@ h3 {
 }
 
 .area-tab.active {
-  border-color: rgba(10, 41, 71, .5);
+  border-color: rgba(38, 51, 47, .5);
   background: var(--soft);
-}
-
-.homework-workspace-card {
-  align-content: start;
-}
-
-.homework-workspace-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.homework-subtab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--brand);
-  color: var(--white);
-  font-size: 14px;
-  font-weight: 820;
-  text-align: center;
-}
-
-.homework-subtab img {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-}
-
-.homework-area-tabs {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.homework-area-tab {
-  min-height: 58px;
-  padding: 12px 16px;
-  border-color: transparent;
-  background: var(--brand);
-  color: rgba(255, 255, 255, .82);
-  box-shadow: none;
-}
-
-.homework-area-tab strong {
-  color: var(--white);
-  font-size: 17px;
-}
-
-.homework-area-tab span {
-  color: rgba(255, 255, 255, .78);
-  font-size: 13px;
-}
-
-.homework-area-tab .workspace-title img {
-  width: 24px;
-  height: 24px;
-  flex-basis: 24px;
-  filter: brightness(0) invert(1);
-}
-
-.homework-area-tab.active {
-  border-color: transparent;
-  background: #071f38;
-}
-
-.student-notification-card {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding: 18px;
-  border: 1px solid rgba(10, 41, 71, .26);
-  border-radius: 8px;
-  background: var(--white);
-  box-shadow: var(--shadow);
 }
 
 .student-notification-summary {
@@ -327,8 +913,8 @@ h3 {
 }
 
 .student-notification-item.assigned {
-  border-color: rgba(139, 94, 60, .26);
-  background: #f6ebd6;
+  border-color: rgba(132, 169, 140, .26);
+  background: #dfe9e1;
 }
 
 .student-notification-item.reviewed {
@@ -342,7 +928,7 @@ h3 {
   padding: 7px 10px;
   border-radius: 999px;
   background: var(--soft);
-  color: var(--brand);
+  color: var(--brand-ink);
   font-size: 13px;
   font-weight: 760;
 }
@@ -366,14 +952,14 @@ h3 {
    at eighty percent the white text measured 3.7 against the 4.5 the rest of
    the platform holds. */
 .crumb-bar .btn.secondary {
-  border: 1px solid var(--done);
+  border: 1px solid var(--secondary);
   background: transparent;
-  color: var(--done-ink);
+  color: var(--ink);
 }
 
 .crumb-bar .btn.secondary:hover {
-  background: var(--done);
-  color: var(--white);
+  background: var(--secondary);
+  color: var(--on-secondary);
 }
 
 .account-box {
@@ -445,10 +1031,11 @@ h3 {
 }
 
 .btn.link {
+  justify-content: flex-start;
   padding: 0;
   border: none;
   background: none;
-  color: var(--brand);
+  color: var(--brand-ink);
   font-size: 14px;
   text-align: left;
   cursor: pointer;
@@ -476,11 +1063,11 @@ h3 {
 /* Scores and finished work: an achievement, not a system state. Filled,
    because 已提交 / 已批改 / 已发布 are what the reader is scanning for. */
 .pill.ok {
-  color: var(--white);
+  color: var(--ink);
   background: var(--done);
 }
 
-/* The usage meter escalates instead: quiet navy, then brown, then red. A
+/* The usage meter escalates instead: quiet cyan, then orange, then red. A
    percentage that is merely low is not something to congratulate. */
 .pill.score {
   color: var(--white);
@@ -488,24 +1075,26 @@ h3 {
 }
 
 .pill.usage-ok {
-  color: var(--brand);
-  background: rgba(10, 41, 71, .09);
+  border: 1px solid var(--brand);
+  color: var(--brand-ink);
+  background: var(--white);
 }
 
 .pill.usage-warn {
-  color: var(--warn);
-  background: #f2e2c4;
+  color: var(--pending-ink);
+  background: var(--pending-wash);
 }
 
 .pill.usage-danger {
-  color: var(--danger);
-  background: #f7dcd4;
+  color: var(--danger-deep);
+  background: #f8ddd8;
 }
 
+/* Waiting on someone: the student to submit, the teacher to mark, a booking
+   to be confirmed. Filled, like .pill.ok, so the two states read as a pair. */
 .pill.warn {
-  border: 1px solid rgba(122, 74, 34, .4);
-  color: var(--warn);
-  background: #f6e8cd;
+  color: var(--ink);
+  background: var(--pending);
 }
 
 .pill.danger {
@@ -536,12 +1125,194 @@ h3 {
 /* Filled brown rather than a pale tint: these sit in rows of three or four
    and a wash left them reading as disabled. */
 .btn.secondary {
-  background: var(--done);
-  color: var(--white);
+  background: var(--secondary);
+  color: var(--on-secondary);
 }
 
 .btn.secondary:hover {
-  background: var(--done-ink);
+  background: var(--secondary-dark);
+}
+
+/* The one colour with a budget. Five to ten percent of the page, on the
+   buttons that do the main thing — set the homework, generate the feedback,
+   publish it — and on the count of work waiting. Nowhere else. */
+.btn.accent {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.btn.accent:hover {
+  background: var(--accent-dark);
+}
+
+.pill.accent {
+  color: var(--ink);
+  background: var(--accent);
+}
+
+/* AI and recording are actions of a kind — the machine does something for
+   you — and get their own hues. Both fills are too light to carry a label
+   at button size, so the button is washed and outlined: the hue is exact on
+   the border, the label sits in the same hue taken down to ink. */
+.btn.ai,
+.btn.rec {
+  border: 1.5px solid var(--ai);
+  background: var(--ai-wash);
+  color: var(--ai-ink);
+}
+
+.btn.ai:hover {
+  background: var(--ai-ink);
+  color: var(--white);
+}
+
+.btn.rec {
+  border-color: var(--rec);
+  background: var(--rec-wash);
+  color: var(--rec-ink);
+}
+
+.btn.rec:hover {
+  background: var(--rec-ink);
+  color: var(--white);
+}
+
+.pill.ai {
+  border: 1px solid var(--ai);
+  color: var(--ai-ink);
+  background: var(--ai-wash);
+}
+
+
+/* Comparison aids: the palette toggle in the topbar and the two-up page.
+   Both go when a palette is chosen. */
+.topbar-tools {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lang-switch {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lang-switch:hover {
+  border-color: var(--brand);
+}
+
+.theme-switch {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.theme-switch:hover {
+  color: var(--ink);
+}
+
+.theme-switch-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--accent);
+}
+
+.compare {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100vh - var(--topbar-h));
+  background: var(--paper);
+}
+
+.compare-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--white);
+  font-size: 13px;
+}
+
+.compare-page {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.compare-page.active {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--white);
+}
+
+.compare-path {
+  width: 200px;
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.compare-scale {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.compare-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  min-height: 0;
+  background: var(--line);
+}
+
+.compare-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  background: var(--paper);
+}
+
+.compare-pane-head {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--white);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.compare-pane-body {
+  overflow: hidden;
+}
+
+.compare-pane-body iframe {
+  display: block;
+  border: 0;
 }
 
 /* Every destructive control lands here. Deeper than the --danger used for
@@ -552,13 +1323,13 @@ h3 {
 }
 
 .btn.danger:hover {
-  background: #782c1c;
+  background: #7f2016;
 }
 
 .btn.ghost {
   border: 1px solid var(--line);
   background: transparent;
-  color: var(--brand);
+  color: var(--brand-ink);
 }
 
 .btn.compact-button {
@@ -596,8 +1367,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: rgba(10, 41, 71, .6);
-  box-shadow: 0 0 0 3px rgba(10, 41, 71, .11);
+  border-color: rgba(38, 51, 47, .6);
+  box-shadow: 0 0 0 3px rgba(38, 51, 47, .11);
 }
 
 .question-card,
@@ -693,12 +1464,12 @@ textarea:focus {
 }
 
 .score-chart .grid-line {
-  stroke: rgba(102, 101, 91, .24);
+  stroke: rgba(85, 99, 95, .24);
   stroke-width: 1;
 }
 
 .score-chart circle {
-  fill: var(--brand);
+  fill: var(--brand-ink);
 }
 
 .score-chart text {
@@ -708,8 +1479,272 @@ textarea:focus {
 }
 
 .score-chart .point-label {
-  fill: var(--brand-dark);
+  fill: var(--brand-ink);
   text-anchor: middle;
+}
+
+/* Student overview
+   ---------------------------------------------------------------------------
+   A real table, because these five columns are read down as much as across:
+   the teacher scans the exam column for whoever is closest, then the level
+   column for whoever has slipped. The horizontal scroll lives on the wrapper
+   so the page itself never scrolls sideways. */
+.overview-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.overview-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.overview-table th {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font-weight: 760;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.overview-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--sage-soft);
+  color: var(--ink);
+  vertical-align: top;
+}
+
+.overview-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.overview-table tbody tr:hover td {
+  background: var(--paper);
+}
+
+.overview-name,
+.overview-stack {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.overview-name .btn.link,
+.overview-name strong {
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.overview-table small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.overview-table em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.overview-levels {
+  display: grid;
+  gap: 6px;
+}
+
+.overview-level {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.overview-level > span:first-child {
+  min-width: 32px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.overview-level strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inside a month the exam stops being a plan and starts being a deadline. */
+.overview-exam-soon {
+  color: var(--warn);
+}
+
+.overview-exam-past {
+  color: var(--muted);
+}
+
+/* Stopped students are still on the roster — they keep their history and can
+   be turned back on — so they are dimmed rather than hidden, and a rule marks
+   where the current students end. */
+.overview-table tr.inactive td {
+  color: var(--muted);
+  background: var(--paper);
+}
+
+.overview-table tr.inactive .btn.link,
+.overview-table tr.inactive strong {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.overview-table tr.inactive .pill {
+  opacity: .7;
+}
+
+.overview-table tr.first-inactive td {
+  border-top: 2px solid var(--line);
+}
+
+.overview-table tr.inactive:hover td {
+  background: var(--sage-soft);
+}
+
+.pill.stopped {
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.overview-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.overview-actions .btn.ghost {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.pill.plan {
+  border: 1px solid var(--line);
+  background: var(--sage-soft);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* One tint per family, so a glance down the column says who is on what. */
+.pill.plan.sprint-all {
+  border-color: rgba(38, 51, 47, .3);
+  background: #e3e7e5;
+  color: var(--ink);
+}
+
+.pill.plan.foundation {
+  border-color: rgba(91, 141, 239, .4);
+  background: var(--rec-wash);
+  color: var(--rec-ink);
+}
+
+.pill.plan.companion {
+  border-color: rgba(139, 126, 200, .45);
+  background: var(--ai-wash);
+  color: var(--ai-ink);
+}
+
+.pill.plan.sprint-one {
+  border-color: rgba(224, 122, 95, .45);
+  background: var(--revise-wash);
+  color: var(--revise-ink);
+}
+
+.pill.plan.boost-one {
+  border-color: rgba(107, 170, 117, .5);
+  background: var(--done-wash);
+  color: var(--done-ink);
+}
+
+/* Editing one student. A native dialog, so Escape and the backdrop are the
+   browser's job rather than three hooks that have to be kept right. */
+.student-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgba(38, 51, 47, .22);
+}
+
+.student-dialog::backdrop {
+  background: rgba(38, 51, 47, .34);
+}
+
+.student-dialog-body {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.student-dialog h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* Facts, not settings: shown so the teacher knows who they are editing. */
+.student-dialog-facts {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.student-dialog-facts > div {
+  display: grid;
+  gap: 4px;
+}
+
+.student-dialog-facts label,
+.student-dialog-field > label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-dialog-facts input[readonly] {
+  background: var(--white);
+  color: var(--muted);
+  cursor: default;
+}
+
+.student-dialog-field {
+  display: grid;
+  gap: 8px;
+}
+
+.check-row.plain {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.student-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.overview-month-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.overview-month-row .btn.ghost {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 .progress-table {
@@ -763,7 +1798,7 @@ textarea:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--white);
-  color: var(--brand);
+  color: var(--brand-ink);
   cursor: pointer;
   font-size: 14px;
   font-weight: 760;
@@ -801,7 +1836,7 @@ audio {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbf8f1;
+  background: #faf8f4;
 }
 
 .topic-history-list ul {
@@ -870,7 +1905,7 @@ audio {
 }
 
 .writing-review-editor-card {
-  background: #fbf8f2;
+  background: #faf8f4;
 }
 
 .writing-review-workspace,
@@ -917,15 +1952,15 @@ audio {
   display: grid;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid #e0cdb6;
+  border: 1px solid #d1d5cc;
   border-radius: 8px;
-  background: #f6ede2;
+  background: #f3f1eb;
 }
 
 .inline-comment-card blockquote {
   margin: 0;
   padding-left: 10px;
-  border-left: 3px solid #a97a4f;
+  border-left: 3px solid #a3bfa8;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
@@ -1011,8 +2046,8 @@ audio {
 
 .writing-review-editor {
   min-height: 420px;
-  border-color: #ddc8ae;
-  background: #fcf8ef;
+  border-color: #c9cec4;
+  background: #fbfaf6;
   font-size: 1rem;
   line-height: 1.75;
 }
@@ -1030,10 +2065,10 @@ audio {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #e0cdb6;
+  border: 1px solid #d1d5cc;
   border-radius: 8px;
-  background: #f6ede2;
-  box-shadow: 0 10px 22px rgba(10, 41, 71, .08);
+  background: #f3f1eb;
+  box-shadow: 0 10px 22px rgba(38, 51, 47, .08);
 }
 
 .writing-comment-bubble::before {
@@ -1042,12 +2077,12 @@ audio {
   left: -13px;
   width: 12px;
   height: 1px;
-  background: #8b5e3c;
+  background: #84a98c;
   content: "";
 }
 
 .comment-anchor {
-  color: #6e4526;
+  color: #3d5c4a;
   font-size: 12px;
   font-weight: 800;
 }
@@ -1055,7 +2090,7 @@ audio {
 .writing-comment-bubble blockquote {
   margin: 0;
   padding-left: 10px;
-  border-left: 3px solid #8b5e3c;
+  border-left: 3px solid #84a98c;
   color: var(--ink);
   font-size: 13px;
   line-height: 1.45;
@@ -1118,14 +2153,16 @@ audio {
 }
 
 .tracked-text ins {
-  background: #dcedd8;
-  color: var(--ok);
+  background: var(--done-wash);
+  color: var(--done-ink);
   text-decoration: none;
 }
 
+/* What the teacher struck out is what needs changing — the revise colour,
+   not the delete red: nothing is being destroyed. */
 .tracked-text del {
-  background: #f7dcd4;
-  color: var(--danger);
+  background: var(--revise-wash);
+  color: var(--revise-ink);
   text-decoration: line-through;
 }
 
@@ -1146,8 +2183,8 @@ audio {
 }
 
 .tracked-editor:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(10, 41, 71, .11);
+  border-color: var(--brand-ink);
+  box-shadow: 0 0 0 3px rgba(38, 51, 47, .11);
 }
 
 .tracked-editor:empty::before {
@@ -1156,7 +2193,7 @@ audio {
 }
 
 .tracked-editor ins {
-  background: #dcedd8;
+  background: #dfe9e1;
   border-radius: 4px;
   color: var(--ok);
   text-decoration: none;
@@ -1165,7 +2202,7 @@ audio {
 /* Deletions are marks, not text: contentEditable={false} in the component
    keeps the caret out of them. */
 .tracked-editor del {
-  background: #f7dcd4;
+  background: #f8ddd8;
   border-radius: 4px;
   color: var(--danger);
   text-decoration: line-through;
@@ -1173,7 +2210,7 @@ audio {
 }
 
 .timer {
-  color: var(--muted);
+  color: var(--rec-ink);
   font-variant-numeric: tabular-nums;
   font-weight: 760;
   text-align: right;
@@ -1190,7 +2227,7 @@ audio {
 }
 
 .submission-row.active {
-  border-color: rgba(10, 41, 71, .5);
+  border-color: rgba(38, 51, 47, .5);
   background: var(--soft);
 }
 
@@ -1266,7 +2303,7 @@ audio {
 }
 
 .compact-assignment-row.active {
-  border-color: rgba(10, 41, 71, .5);
+  border-color: rgba(38, 51, 47, .5);
   background: var(--soft);
 }
 
@@ -1296,9 +2333,9 @@ audio {
 .student-row {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
-  padding: 14px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--white);
@@ -1307,7 +2344,7 @@ audio {
 
 .student-profile-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -1353,10 +2390,10 @@ audio {
   align-items: start;
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid rgba(139, 94, 60, .3);
+  border: 1px solid rgba(132, 169, 140, .3);
   border-radius: 8px;
-  background: #f7efe5;
-  color: #6e4526;
+  background: #f4f2ec;
+  color: #3d5c4a;
   font-size: 12px;
   font-weight: 800;
   line-height: 1.25;
@@ -1364,12 +2401,35 @@ audio {
 }
 
 .topic-chip strong {
-  color: #5e3a20;
+  color: #324c3d;
   white-space: nowrap;
 }
 
+/* "marked / handed in", as a fraction: the only number that matters when
+   picking who to look at next. */
+.student-row-progress {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.student-row-progress em {
+  font-style: normal;
+  font-size: 11px;
+}
+
+.student-row .pill.score {
+  justify-self: start;
+  min-height: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
 .student-row.active {
-  border-color: rgba(10, 41, 71, .5);
+  border-color: rgba(38, 51, 47, .5);
   background: var(--soft);
 }
 
@@ -1390,8 +2450,8 @@ audio {
 
 .metric-card {
   display: grid;
-  gap: 6px;
-  padding: 12px;
+  gap: 4px;
+  padding: 10px 12px;
   border: 1px solid var(--brand-dark);
   border-radius: 8px;
   background: var(--brand);
@@ -1399,12 +2459,13 @@ audio {
 }
 
 .metric-card span {
-  color: rgba(255, 255, 255, .9);
+  color: var(--white);
+  font-size: 12px;
   font-weight: 700;
 }
 
 .metric-card strong {
-  font-size: 28px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -1435,12 +2496,12 @@ audio {
 .topic-progress-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 8px 10px;
-  border: 1px solid rgba(10, 41, 71, .26);
+  padding: 5px 8px;
+  border: 1px solid rgba(38, 51, 47, .26);
   border-radius: 8px;
-  background: rgba(10, 41, 71, .07);
+  background: rgba(38, 51, 47, .07);
   color: var(--ink);
 }
 
@@ -1453,7 +2514,7 @@ audio {
 }
 
 .topic-progress-button:hover:not(:disabled) {
-  background: rgba(10, 41, 71, .16);
+  background: rgba(38, 51, 47, .16);
   color: var(--ink);
 }
 
@@ -1464,25 +2525,27 @@ audio {
 
 .topic-progress-row span {
   overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 /* A washed navy rather than a filled one. Forty-odd rows of solid navy made
    the list read as a wall; the two states only need to differ from each
    other, not to shout. */
 .topic-progress-row.completed {
-  border-color: rgba(10, 41, 71, .45);
-  background: rgba(10, 41, 71, .18);
+  border-color: rgba(38, 51, 47, .45);
+  background: rgba(38, 51, 47, .18);
   color: var(--ink);
 }
 
 .topic-progress-row strong {
-  color: var(--brand);
-  font-size: 13px;
+  color: var(--brand-ink);
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .practice-panel {
-  border-color: rgba(10, 41, 71, .26);
+  border-color: rgba(38, 51, 47, .26);
 }
 
 .practice-review-grid {
@@ -1509,7 +2572,7 @@ audio {
   padding: 14px;
   cursor: pointer;
   list-style: none;
-  background: #f2eadb;
+  background: #efede7;
 }
 
 .practice-review-summary::-webkit-details-marker {
@@ -1534,7 +2597,7 @@ audio {
   min-height: 26px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #0a2947;
+  background: #52796f;
   color: #fff;
   font-size: 13px;
   font-weight: 900;
@@ -1563,16 +2626,16 @@ audio {
 
 .practice-inline-status {
   padding: 10px 12px;
-  border: 1px solid rgba(10, 41, 71, .22);
+  border: 1px solid rgba(38, 51, 47, .22);
   border-radius: 8px;
-  background: #f1e9d9;
-  color: var(--brand);
+  background: #eeece6;
+  color: var(--brand-ink);
   font-weight: 800;
 }
 
 .practice-inline-status.error {
-  border-color: rgba(168, 69, 46, .26);
-  background: #f7dcd4;
+  border-color: rgba(192, 57, 43, .26);
+  background: #f8ddd8;
   color: var(--danger);
 }
 
@@ -1582,9 +2645,9 @@ audio {
   gap: 12px;
   align-items: center;
   padding: 12px;
-  border: 1px solid rgba(10, 41, 71, .22);
+  border: 1px solid rgba(38, 51, 47, .22);
   border-radius: 8px;
-  background: #f9f4ea;
+  background: #f7f5f0;
 }
 
 .practice-save-actions {
@@ -1795,7 +2858,7 @@ audio {
 }
 
 .daily-student-card.active {
-  border-color: rgba(10, 41, 71, .5);
+  border-color: rgba(38, 51, 47, .5);
   background: var(--soft);
 }
 
@@ -1857,13 +2920,13 @@ audio {
 }
 
 .daily-calendar-day.partial {
-  border-color: rgba(139, 94, 60, .38);
-  background: rgba(139, 94, 60, .18);
+  border-color: rgba(132, 169, 140, .38);
+  background: rgba(132, 169, 140, .18);
 }
 
 .daily-calendar-day.missed {
-  border-color: rgba(168, 69, 46, .27);
-  background: rgba(168, 69, 46, .1);
+  border-color: rgba(192, 57, 43, .27);
+  background: rgba(192, 57, 43, .1);
 }
 
 .daily-calendar-day.empty {
@@ -1879,7 +2942,7 @@ audio {
   height: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #efe8da;
+  background: #edebe5;
 }
 
 .progress-track span {
@@ -1902,7 +2965,7 @@ audio {
    pushing the sidebar off screen. */
 .schedule-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 220px;
   gap: 18px;
   align-items: start;
 }
@@ -1951,12 +3014,12 @@ audio {
 }
 
 .schedule-card.active {
-  border-color: rgba(10, 41, 71, .5);
+  border-color: rgba(38, 51, 47, .5);
   background: var(--soft);
 }
 
 .schedule-card.booked {
-  background: #f6f2e9;
+  background: #f5f3ed;
 }
 
 .schedule-select {
@@ -1989,7 +3052,7 @@ audio {
 
 .calendar-shell {
   display: grid;
-  grid-template-columns: 64px repeat(7, minmax(126px, 1fr));
+  grid-template-columns: 48px repeat(7, minmax(0, 1fr));
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2001,50 +3064,51 @@ audio {
   position: sticky;
   top: 0;
   z-index: 4;
-  min-height: 58px;
-  padding: 10px;
+  min-height: 44px;
+  padding: 7px 6px;
   border-bottom: 1px solid var(--line);
-  background: #faf6ee;
+  background: #f8f6f1;
 }
 
 .calendar-day-head {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   text-align: center;
   border-left: 1px solid var(--line);
+  font-size: 12px;
 }
 
 .calendar-day-head span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .calendar-time-col {
   display: grid;
-  grid-template-rows: repeat(17, 56px);
+  grid-template-rows: repeat(17, 44px);
   border-right: 1px solid var(--line);
-  background: #fbf8f2;
+  background: #faf8f4;
 }
 
 .calendar-hour-label {
-  padding: 8px 8px 0 0;
+  padding: 4px 6px 0 0;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   text-align: right;
 }
 
 .calendar-day-col {
   position: relative;
   display: grid;
-  grid-template-rows: repeat(17, 56px);
-  min-width: 126px;
+  grid-template-rows: repeat(17, 44px);
+  min-width: 0;
   border-left: 1px solid var(--line);
 }
 
 .calendar-hour-cell {
   width: 100%;
-  min-height: 56px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -2053,26 +3117,26 @@ audio {
 }
 
 .calendar-hour-cell:hover {
-  background: #f7f1e4;
+  background: #f5f3ed;
 }
 
 .calendar-event {
   position: absolute;
-  left: 6px;
-  right: 6px;
+  left: 3px;
+  right: 3px;
   z-index: 2;
   display: grid;
-  gap: 2px;
+  gap: 1px;
   align-content: start;
-  min-height: 34px;
-  padding: 7px;
+  min-height: 28px;
+  padding: 4px 5px;
   overflow: hidden;
-  border: 1px solid rgba(10, 41, 71, .26);
+  border: 1px solid rgba(38, 51, 47, .26);
   border-radius: 8px;
-  background: rgba(10, 41, 71, .07);
+  background: rgba(38, 51, 47, .07);
   color: var(--ink);
   text-align: left;
-  box-shadow: 0 6px 16px rgba(10, 41, 71, .11);
+  box-shadow: 0 6px 16px rgba(38, 51, 47, .11);
   cursor: pointer;
 }
 
@@ -2084,20 +3148,20 @@ audio {
 .calendar-event.booked.upcoming {
   /* The deep end of the ramp: a taken hour should be unmistakable at a
      glance across a week of otherwise pale slots. */
-  border-color: var(--brand-dark);
+  border-color: var(--brand-ink);
   background: var(--brand);
   color: var(--white);
 }
 
 .calendar-event.booked.passed {
-  border-color: #c9cbb6;
-  background: #ede8dc;
+  border-color: #cdd1c8;
+  background: #ebe9e3;
   color: var(--muted);
 }
 
 .calendar-event.selected {
-  border-color: var(--brand);
-  background: rgba(10, 41, 71, .2);
+  border-color: var(--brand-ink);
+  background: rgba(38, 51, 47, .2);
 }
 
 .calendar-time-preview {
@@ -2109,7 +3173,7 @@ audio {
   height: 2px;
   overflow: visible;
   background: var(--brand);
-  color: var(--brand);
+  color: var(--brand-ink);
   font-size: 12px;
   font-weight: 900;
   line-height: 1;
@@ -2122,7 +3186,7 @@ audio {
 .calendar-event strong,
 .calendar-event span {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2159,7 +3223,7 @@ audio {
 }
 
 .calendar-event-link:hover:not(:disabled) {
-  background: #782c1c;
+  background: #7f2016;
 }
 
 .selected-lessons {
@@ -2202,8 +3266,8 @@ audio {
 
 .booking-admin-row.passed,
 .schedule-card.booked.passed {
-  border-color: #c9cbb6;
-  background: #f2eee3;
+  border-color: #cdd1c8;
+  background: #f0eee8;
   color: var(--muted);
 }
 
@@ -2248,7 +3312,7 @@ audio {
 }
 
 .student-select-toggle.open {
-  border-color: var(--brand);
+  border-color: var(--brand-ink);
 }
 
 .student-select-toggle em {
@@ -2306,7 +3370,7 @@ audio {
 }
 
 .overall-score strong {
-  color: var(--brand);
+  color: var(--brand-ink);
   font-size: 34px;
   line-height: 1;
 }
@@ -2387,6 +3451,10 @@ audio {
   .calendar-toolbar {
     grid-template-columns: 1fr 1fr;
   }
+
+  .schedule-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
@@ -2417,6 +3485,16 @@ audio {
 
   .daily-history-sidebar {
     position: static;
+  }
+
+  /* On a phone seven columns cannot both fit and stay readable, so the day
+     keeps a floor and the calendar scrolls inside its own box, not the page. */
+  .calendar-shell {
+    grid-template-columns: 48px repeat(7, minmax(96px, 1fr));
+  }
+
+  .calendar-day-col {
+    min-width: 96px;
   }
 
   .daily-task-editor {
@@ -2622,7 +3700,7 @@ audio {
 }
 
 .usage-meter-fill.warn {
-  background: var(--warn);
+  background: var(--pending);
 }
 
 .usage-meter-fill.danger {
@@ -2704,8 +3782,8 @@ PLACEHOLDER
 }
 
 .landing-lang:hover {
-  border-color: var(--brand);
-  color: var(--brand);
+  border-color: var(--brand-ink);
+  color: var(--brand-ink);
 }
 
 /* The line break is written into the markup, so no measure is imposed here:
@@ -2738,9 +3816,9 @@ PLACEHOLDER
   -webkit-backdrop-filter: blur(18px) saturate(120%);
   backdrop-filter: blur(18px) saturate(120%);
   box-shadow:
-    0 22px 50px -18px rgba(139, 94, 60, .38),
-    0 18px 44px rgba(10, 41, 71, .1),
-    0 2px 6px rgba(10, 41, 71, .05);
+    0 22px 50px -18px rgba(132, 169, 140, .38),
+    0 18px 44px rgba(38, 51, 47, .1),
+    0 2px 6px rgba(38, 51, 47, .05);
   overflow: hidden;
 }
 
@@ -2749,7 +3827,7 @@ PLACEHOLDER
 }
 
 .landing-sample > * + * {
-  border-top: 1px solid rgba(10, 41, 71, .09);
+  border-top: 1px solid rgba(38, 51, 47, .09);
 }
 
 .landing-sample-meta {
@@ -2780,7 +3858,7 @@ PLACEHOLDER
   height: 30px;
   padding-left: 2px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--rec);
   color: var(--white);
 }
 
@@ -2797,7 +3875,7 @@ PLACEHOLDER
   width: 32%;
   height: 100%;
   border-radius: 999px;
-  background: var(--brand);
+  background: var(--rec);
 }
 
 .landing-player-time {
@@ -2824,7 +3902,7 @@ PLACEHOLDER
   padding: 5px 11px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: #efe8da;
+  background: #edebe5;
   font-size: 12.5px;
 }
 
@@ -2851,7 +3929,7 @@ PLACEHOLDER
   padding: 1px 7px;
   border-radius: 4px;
   background: var(--soft);
-  color: var(--brand-dark);
+  color: var(--brand-ink);
   font-size: 12px;
   font-weight: 700;
 }
@@ -2943,9 +4021,9 @@ PLACEHOLDER
   align-items: center;
   gap: 7px;
   padding: 7px 12px;
-  border: 1px solid rgba(10, 41, 71, .26);
+  border: 1px solid rgba(38, 51, 47, .26);
   border-radius: 999px;
-  background: rgba(10, 41, 71, .06);
+  background: rgba(38, 51, 47, .06);
   color: var(--ink);
   font-size: 13px;
   line-height: 1.3;
@@ -2953,12 +4031,12 @@ PLACEHOLDER
 }
 
 .topic-picker-chip:hover {
-  border-color: rgba(10, 41, 71, .45);
-  background: rgba(10, 41, 71, .14);
+  border-color: rgba(38, 51, 47, .45);
+  background: rgba(38, 51, 47, .14);
 }
 
 .topic-picker-chip.selected {
-  border-color: var(--brand-dark);
+  border-color: var(--brand-ink);
   background: var(--brand);
   color: var(--white);
 }
@@ -3013,7 +4091,7 @@ PLACEHOLDER
 .segmented .btn:not(.secondary) {
   background: var(--white);
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(10, 41, 71, .14);
+  box-shadow: 0 1px 3px rgba(38, 51, 47, .14);
 }
 
 .segmented .btn.secondary:hover {
@@ -3087,26 +4165,33 @@ PLACEHOLDER
 
 .student-body {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 170px;
+  gap: 16px;
   align-items: start;
+}
+
+.student-body > .stack {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
 }
 
 .page-index {
   position: sticky;
-  /* Clears the sticky banner. */
-  top: 78px;
+  top: calc(var(--topbar-h) + 16px);
+  grid-column: 2;
+  grid-row: 1;
   display: grid;
-  gap: 1px;
-  padding: 14px 12px;
+  gap: 2px;
+  padding: 12px 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--white);
   box-shadow: var(--shadow);
 }
 
 .page-index > strong {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   padding: 0 8px;
   color: var(--muted);
   font-size: 12px;
@@ -3114,9 +4199,7 @@ PLACEHOLDER
 }
 
 .page-index-group {
-  padding: 7px 8px 3px;
-  font-size: 13.5px;
-  font-weight: 700;
+  display: none;
 }
 
 .page-index a {
@@ -3128,7 +4211,6 @@ PLACEHOLDER
 }
 
 .page-index a.sub {
-  padding-left: 18px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -3140,10 +4222,28 @@ PLACEHOLDER
 
 /* Jumping to a section must not tuck its heading under the sticky banner. */
 #hw-latest,
-#hw-progress,
-#hw-topics,
+#hw-practice,
 #hw-history {
   scroll-margin-top: 86px;
+}
+
+@media (max-width: 900px) {
+  .student-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked, the index comes first as a row of links, then the page. */
+  .student-body > .stack,
+  .page-index {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .page-index {
+    position: static;
+    grid-auto-flow: column;
+    justify-content: start;
+  }
 }
 
 @media (max-width: 900px) {
