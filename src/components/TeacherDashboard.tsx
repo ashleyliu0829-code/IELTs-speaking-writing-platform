@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Assignment, AssignmentType, Feedback, FeedbackDetail, LessonRecord, QuestionItem, Recording, SpeakingPracticeSubmission, StudentProfile, Submission, WritingResponse, WritingTask } from "@/lib/types";
 import { mergeFeedbackDetails, questionCommentDetails, scoreDetails } from "@/lib/feedback";
-import { p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
+import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { averageScore, defaultAssignment, defaultWritingAssignment, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TeacherSchedulePanel } from "@/components/LessonScheduler";
@@ -48,7 +48,6 @@ type StudentTopicHistory = {
 type TeacherLanguage = "zh" | "en";
 
 type TeacherSection =
-  | "students"
   | "studentOverview"
   | "studentInvite"
   | "assignments"
@@ -65,9 +64,12 @@ export function TeacherDashboard() {
   const [authName, setAuthName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [activeArea, setActiveArea] = useState<AssignmentType>("speaking");
-  const [teacherSection, setTeacherSection] = useState<TeacherSection>("students");
-  const [navLevel, setNavLevel] = useState<"root" | "area" | "section" | "detail">("root");
-  const [assignmentView, setAssignmentView] = useState<"history" | "new">("history");
+  const [teacherSection, setTeacherSection] = useState<TeacherSection>("assignments");
+  const [navLevel, setNavLevel] = useState<"root" | "detail">("root");
+  // Grading opens on the student list; a jump straight to a submission flips it.
+  const [gradingView, setGradingView] = useState<"students" | "submissions">("students");
+  const [assignmentView, setAssignmentView] = useState<"history" | "new">("new");
+  const [publishSearch, setPublishSearch] = useState("");
   const [gradingMode, setGradingMode] = useState<"assignment" | "student">("assignment");
   const [gradingStudentName, setGradingStudentName] = useState("");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -431,12 +433,14 @@ export function TeacherDashboard() {
 
   function openArea(area: AssignmentType) {
     switchArea(area);
-    setNavLevel("section");
+    setTeacherSection("assignments");
+    setNavLevel("detail");
   }
 
   function openGrading(area: AssignmentType) {
     switchArea(area);
     setTeacherSection("grading");
+    setGradingView("students");
     setNavLevel("detail");
   }
 
@@ -463,20 +467,13 @@ export function TeacherDashboard() {
     }
   }
 
-  function openSection(section: "students" | "assignments") {
-    setTeacherSection(section);
-    setNavLevel("detail");
-  }
-
   // Which index entry is lit. A homework section belongs to whichever area
   // is open, which is why speaking and writing cannot share one test.
   function atSection(section: TeacherSection) {
     return navLevel === "detail" && teacherSection === section;
   }
 
-  const isPublishingSection =
-    navLevel === "section" ||
-    (navLevel === "detail" && (teacherSection === "students" || teacherSection === "assignments"));
+  const isPublishingSection = navLevel === "detail" && teacherSection === "assignments";
   const isGradingSection = navLevel === "detail" && teacherSection === "grading";
 
   function openStudentInvite() {
@@ -493,7 +490,8 @@ export function TeacherDashboard() {
   // overview is workspace-wide; the panel it opens is per-area, so it lands on
   // whichever area the teacher last had open.
   function openStudentFromOverview(studentName: string) {
-    setTeacherSection("students");
+    setTeacherSection("grading");
+    setGradingView("students");
     setNavLevel("detail");
     void loadStudentProgress(studentName);
   }
@@ -718,6 +716,7 @@ export function TeacherDashboard() {
   function openStudentHomework(assignment: Assignment, submission?: Submission) {
     if (submission) {
       setTeacherSection("grading");
+      setGradingView("submissions");
       setNavLevel("detail");
       setGradingMode("student");
       setGradingStudentName(submission.student_name);
@@ -975,33 +974,10 @@ export function TeacherDashboard() {
           onOpenSchedule={openSchedule}
           onOpenGrading={() => {
             setTeacherSection("grading");
+            setGradingView("submissions");
             setNavLevel("detail");
           }}
         />
-      )}
-
-      {hasTeacherAccess && navLevel === "section" && (
-        <section className="single-column">
-          <div className="crumb-bar">
-            <span className="pill">{t("作业布置", "Homework")}</span>
-            <span className="pill ok">{activeArea === "writing" ? t("写作", "Writing") : t("口语", "Speaking")}</span>
-          </div>
-          <article className="card stack">
-            <div>
-              <h2>{activeArea === "writing" ? t("写作工作区", "Writing workspace") : t("口语工作区", "Speaking workspace")}</h2>
-            </div>
-            <div className="area-tabs">
-              <button className="area-tab" type="button" onClick={() => openSection("students")}>
-                <strong>{t("学生情况", "Student profiles")}</strong>
-                <span>{t("学生档案、完成情况和分数变化", "Student profiles, completion status, and score trends")}</span>
-              </button>
-              <button className="area-tab" type="button" onClick={() => openSection("assignments")}>
-                <strong>{t("作业布置", "Homework publishing")}</strong>
-                <span>{t("历史发布作业和发布新作业", "Published homework history and new homework")}</span>
-              </button>
-            </div>
-          </article>
-        </section>
       )}
 
       {hasTeacherAccess && navLevel === "detail" && (
@@ -1019,14 +995,11 @@ export function TeacherDashboard() {
             </>
           ) : (
             <>
-              <button className="btn secondary" type="button" onClick={() => setNavLevel("section")}>
-                {t("返回作业模块", "Back to homework modules")}
-              </button>
               <span className="pill">{t("作业布置", "Homework")}</span>
               <span className="pill ok">{activeArea === "writing" ? t("写作", "Writing") : t("口语", "Speaking")}</span>
             </>
           )}
-          {teacherSection !== "grading" && (
+          {teacherSection !== "grading" && teacherSection !== "assignments" && (
             <span className="pill">{sectionLabel(teacherSection, teacherLanguage)}</span>
           )}
         </div>
@@ -1061,8 +1034,17 @@ export function TeacherDashboard() {
         </section>
       )}
 
-      {hasTeacherAccess && navLevel === "detail" && teacherSection === "students" && (
+      {hasTeacherAccess && navLevel === "detail" && teacherSection === "grading" && (
         <section className="single-column">
+          <div className="segmented">
+            <button className={`btn ${gradingView === "students" ? "" : "secondary"}`} onClick={() => setGradingView("students")} type="button">
+              {t("学生情况", "Students")}
+            </button>
+            <button className={`btn ${gradingView === "submissions" ? "" : "secondary"}`} onClick={() => setGradingView("submissions")} type="button">
+              {t("批改作业", "Submissions")}
+            </button>
+          </div>
+          {gradingView === "students" && (
           <StudentPanel
             students={students}
             assignments={areaAssignments}
@@ -1080,6 +1062,7 @@ export function TeacherDashboard() {
             onAssignHomework={assignHomeworkToStudent}
             onOpenHomework={openStudentHomework}
           />
+          )}
         </section>
       )}
 
@@ -1148,7 +1131,20 @@ export function TeacherDashboard() {
               <div className="publish-homework-layout">
                 <aside className="publish-homework-list">
                   <label>{t("已发布作业", "Published homework")}</label>
-                  <AssignmentPicker value={selectedId} assignments={areaAssignments} onChange={editAssignment} compact />
+                  <input
+                    type="search"
+                    value={publishSearch}
+                    onChange={(event) => setPublishSearch(event.target.value)}
+                    placeholder={t("搜索作业名称", "Search by title")}
+                  />
+                  <div className="publish-homework-scroll">
+                    <AssignmentPicker
+                      value={selectedId}
+                      assignments={filterAssignmentsByTitle(areaAssignments, publishSearch)}
+                      onChange={editAssignment}
+                      compact
+                    />
+                  </div>
                 </aside>
                 <div className="publish-homework-editor">
                   <AssignmentEditor
@@ -1186,7 +1182,7 @@ export function TeacherDashboard() {
         </section>
       )}
 
-      {hasTeacherAccess && navLevel === "detail" && teacherSection === "grading" && (
+      {hasTeacherAccess && navLevel === "detail" && teacherSection === "grading" && gradingView === "submissions" && (
         <section className="single-column">
           {!isWritingGradingDetail && (
           <aside className="panel grading-finder-bar">
@@ -1637,8 +1633,7 @@ function hasPublishedFeedback(submission: Submission) {
 
 function sectionLabel(section: TeacherSection, language: TeacherLanguage = "zh") {
   const labels: Record<TeacherSection, { zh: string; en: string }> = {
-    students: { zh: "学生情况", en: "Student profiles" },
-    studentOverview: { zh: "总览", en: "Overview" },
+      studentOverview: { zh: "总览", en: "Overview" },
     studentInvite: { zh: "学生注册", en: "Student sign-up" },
     assignments: { zh: "作业布置", en: "Homework publishing" },
     grading: { zh: "作业批改", en: "Homework grading" },
@@ -1802,6 +1797,13 @@ function formatUsage(item: UsageItem) {
   return `${item.used} / ${item.limit}${tr(" 次", "")}`;
 }
 
+// Title only: that is what the teacher remembers a homework by.
+function filterAssignmentsByTitle(assignments: Assignment[], search: string) {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return assignments;
+  return assignments.filter((assignment) => assignment.title.toLowerCase().includes(needle));
+}
+
 function AssignmentPicker({
   value,
   assignments,
@@ -1861,14 +1863,14 @@ function AssignmentEditor({
   hasTeacherAccount: boolean;
   setMessage: (message: string) => void;
 }) {
-  const [selectedP1SetId, setSelectedP1SetId] = useState(p1QuestionBank[0]?.id || "");
-  const [selectedP2P3SetId, setSelectedP2P3SetId] = useState(p2P3QuestionBank[0]?.id || "");
+  const [selectedP1SetId, setSelectedP1SetId] = useState(currentP1Bank[0]?.id || "");
+  const [selectedP2P3SetId, setSelectedP2P3SetId] = useState(currentP2P3Bank[0]?.id || "");
   const suggestedSpeakingTitle = buildSpeakingHomeworkTitle(draft);
   const titleIsAutoGenerated =
     activeArea === "speaking" && (!draft.title.trim() || isAutoSpeakingHomeworkTitle(draft.title));
 
-  const selectedP1Set = p1QuestionBank.find((set) => set.id === selectedP1SetId) || p1QuestionBank[0];
-  const selectedP2P3Set = p2P3QuestionBank.find((set) => set.id === selectedP2P3SetId) || p2P3QuestionBank[0];
+  const selectedP1Set = p1QuestionBank.find((set) => set.id === selectedP1SetId) || currentP1Bank[0];
+  const selectedP2P3Set = p2P3QuestionBank.find((set) => set.id === selectedP2P3SetId) || currentP2P3Bank[0];
 
   function addP1Set() {
     if (!selectedP1Set) return;
@@ -2036,14 +2038,19 @@ function TopicPicker({
   onSelect
 }: {
   label: string;
-  topics: Array<{ id: string; topic: string }>;
+  topics: Array<{ id: string; topic: string; retired?: boolean }>;
   selectedId: string;
   assignedIds: Set<string>;
   onSelect: (id: string) => void;
 }) {
   const [filter, setFilter] = useState("");
+  // Retired topics are out of the way until asked for; a teacher revising an
+  // old topic with a student can still reach them.
+  const [showRetired, setShowRetired] = useState(false);
   const needle = filter.trim().toLowerCase();
-  const shown = needle ? topics.filter((set) => set.topic.toLowerCase().includes(needle)) : topics;
+  const pool = showRetired ? topics : topics.filter((set) => !set.retired);
+  const shown = needle ? pool.filter((set) => set.topic.toLowerCase().includes(needle)) : pool;
+  const retiredCount = topics.filter((set) => set.retired).length;
 
   return (
     <div className="topic-picker">
@@ -2065,13 +2072,22 @@ function TopicPicker({
             type="button"
           >
             <span>{set.topic}</span>
+            {set.retired && <em className="muted">{tr("往期", "Earlier")}</em>}
             {assignedIds.has(set.id) && <em>{tr("已布置过", "Set before")}</em>}
           </button>
         ))}
         {!shown.length && <p className="hint">{tr("没有匹配的话题。", "No matching topics.")}</p>}
       </div>
-      <p className="hint">
-        {needle ? tr(`匹配 ${shown.length} / ${topics.length} 个话题`, `${shown.length} of ${topics.length} topics match`) : tr(`共 ${topics.length} 个话题`, `${topics.length} topics`)}
+      <p className="hint topic-picker-foot">
+        <span>
+          {needle ? tr(`匹配 ${shown.length} / ${pool.length} 个话题`, `${shown.length} of ${pool.length} topics match`) : tr(`共 ${pool.length} 个话题`, `${pool.length} topics`)}
+        </span>
+        {retiredCount > 0 && (
+          <label className="check-row plain">
+            <input type="checkbox" checked={showRetired} onChange={(event) => setShowRetired(event.target.checked)} />
+            <span>{tr(`含往期话题（${retiredCount}）`, `Include earlier seasons (${retiredCount})`)}</span>
+          </label>
+        )}
       </p>
     </div>
   );

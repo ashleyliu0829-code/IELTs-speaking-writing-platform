@@ -26,6 +26,8 @@ type StudentEdit = {
   confirmed: boolean;
   coursePlan: string;
   isActive: boolean;
+  /** Null means "use the automatic total". */
+  taughtHours: number | null;
 };
 
 /** Marks the row that starts the stopped-students block, for the divider. */
@@ -89,7 +91,8 @@ export function StudentOverviewPanel({
                   exam_date: data.student?.exam_date ?? null,
                   exam_date_confirmed: Boolean(data.student?.exam_date_confirmed),
                   course_plan: data.student?.course_plan ?? "",
-                  is_active: data.student?.is_active !== false
+                  is_active: data.student?.is_active !== false,
+                  taught_hours_override: data.student?.taught_hours_override == null ? null : Number(data.student.taught_hours_override)
                 }
               : row
           )
@@ -145,6 +148,7 @@ export function StudentOverviewPanel({
               <tr>
                 <th>{t("学生", "Student")}</th>
                 <th>{t("学习时长", "Studying for")}</th>
+                <th>{t("已上课时", "Lessons taught")}</th>
                 <th>{t("当前水平", "Current level")}</th>
                 <th>{t("距离考试", "Exam in")}</th>
                 <th>{t("课程计划", "Course plan")}</th>
@@ -178,6 +182,12 @@ export function StudentOverviewPanel({
                         {row.registered_from_account ? t("注册于 ", "Signed up ") : t("首次记录 ", "First seen ")}
                         {formatDay(row.registered_at)}
                       </small>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="overview-stack">
+                      <strong>{formatHours(row.taught_hours_override ?? row.taught_hours_auto)}</strong>
+                      <small>{row.taught_hours_override == null ? t("按课程表统计", "From the schedule") : t("手动填写", "Entered by hand")}</small>
                     </div>
                   </td>
                   <td>
@@ -282,6 +292,7 @@ function StudentEditDialog({
   const [confirmed, setConfirmed] = useState(student.exam_date_confirmed);
   const [coursePlan, setCoursePlan] = useState(student.course_plan || "");
   const [isActive, setIsActive] = useState(student.is_active);
+  const [taughtHours, setTaughtHours] = useState(student.taught_hours_override == null ? "" : String(student.taught_hours_override));
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -294,7 +305,8 @@ function StudentEditDialog({
       examDate: examDate ? examDate : null,
       confirmed: examDate ? confirmed : false,
       coursePlan,
-      isActive
+      isActive,
+      taughtHours: taughtHours.trim() === "" ? null : Math.max(0, Number(taughtHours))
     });
   }
 
@@ -372,6 +384,29 @@ function StudentEditDialog({
         </div>
 
         <div className="student-dialog-field">
+          <label>{t("已上课时", "Lessons taught")}</label>
+          <div className="overview-hours-row">
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              value={taughtHours}
+              onChange={(event) => setTaughtHours(event.target.value)}
+              placeholder={String(student.taught_hours_auto)}
+            />
+            <span>{t("课时", "lessons")}</span>
+            {taughtHours !== "" && (
+              <button className="btn ghost" type="button" onClick={() => setTaughtHours("")}>
+                {t("改回自动", "Use automatic")}
+              </button>
+            )}
+          </div>
+          <p className="hint">
+            {t(`留空则按课程表自动统计（已确认且已过去的课，目前 ${student.taught_hours_auto} 课时）；填了数字就以填的为准。`, `Leave blank to total confirmed past lessons from the schedule (currently ${student.taught_hours_auto} lessons); a number here overrides it.`)}
+          </p>
+        </div>
+
+        <div className="student-dialog-field">
           <label>{t("上课状态", "Status")}</label>
           <div className="segmented">
             <button
@@ -417,6 +452,11 @@ function StudentEditDialog({
       </form>
     </dialog>
   );
+}
+
+function formatHours(hours: number) {
+  const rounded = Math.round(hours * 10) / 10;
+  return tr(`${rounded} 课时`, `${rounded} lessons`);
 }
 
 function NextLessonCell({ lesson, today }: { lesson: StudentOverviewLesson | null; today: Date }) {

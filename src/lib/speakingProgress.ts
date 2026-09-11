@@ -1,4 +1,4 @@
-import { p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
+import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import type { Assignment, Submission, SubmissionAssignment } from "@/lib/types";
 
 export type SpeakingTopicProgress = {
@@ -42,8 +42,10 @@ export function getSpeakingTopicProgress(submissions: Submission[]): SpeakingTop
   return {
     p1Completed,
     p2Completed,
-    p1Total: p1QuestionBank.length,
-    p2Total: p2P3QuestionBank.length
+    // Totals count the current season only; a retired topic the student did
+    // still sits in the completed sets and is shown separately.
+    p1Total: currentP1Bank.length,
+    p2Total: currentP2P3Bank.length
   };
 }
 
@@ -74,7 +76,12 @@ function findP1TopicByQuestion(questionText: string) {
 
 function findP2TopicByPrompt(prompt: string) {
   const normalized = normalizeP2Title(prompt);
-  return p2P3QuestionBank.find((set) => normalizeP2Title(set.p2Prompt) === normalized || normalizeP2Title(set.topic) === normalized);
+  return p2P3QuestionBank.find(
+    (set) =>
+      normalizeP2Title(set.p2Prompt) === normalized ||
+      normalizeP2Title(set.topic) === normalized ||
+      (set.aliases || []).some((alias) => normalizeP2Title(alias) === normalized)
+  );
 }
 
 function normalizeP2Title(value: string) {

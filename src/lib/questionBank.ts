@@ -2,6 +2,8 @@ export type P1QuestionSet = {
   id: string;
   topic: string;
   questions: string[];
+  /** No longer in the current season's bank; kept so past work still resolves. */
+  retired?: boolean;
 };
 
 export type P2P3QuestionSet = {
@@ -9,79 +11,216 @@ export type P2P3QuestionSet = {
   topic: string;
   p2Prompt: string;
   p3Questions: string[];
+  /** Earlier wordings of the cue-card title, so older assignments still match this topic. */
+  aliases?: string[];
+  retired?: boolean;
 };
 
-function cueCard(title: string, bullets: string[]) {
-  return `${title}.\n\nYou should say:\n${bullets.map((bullet) => `- ${cleanCueBullet(bullet)}`).join("\n")}`;
-}
+/**
+ * The bank is the current season's list (2026 年 9–12 月), in the order the
+ * source gives it, followed by the retired topics from the season before.
+ *
+ * Retired topics stay in the file rather than being deleted: a student's
+ * practised-topic status is worked out by matching the question text in their
+ * submissions against the bank, and their self-practice rows carry topic ids.
+ * Removing a topic would silently un-tick everything they did on it. Carried-
+ * over topics keep their id and every question they ever had, for the same
+ * reason. The pickers and the totals use currentP1Bank / currentP2P3Bank.
+ */
 
-function cleanCueBullet(value: string) {
-  return value
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/What/g, "What ")
-    .replace(/When/g, "When ")
-    .replace(/Where/g, "Where ")
-    .replace(/Who/g, "Who ")
-    .replace(/Why/g, "Why ")
-    .replace(/How/g, "How ")
-    .replace(/And/g, "And ")
-    .replace(/you/g, " you")
-    .replace(/your/g, " your")
-    .replace(/he\/she/g, " he/she")
-    .replace(/him\/her/g, " him/her")
-    .replace(/it/g, " it")
-    .replace(/the/g, " the")
-    .replace(/was/g, " was")
-    .replace(/is/g, " is")
-    .replace(/are/g, " are")
-    .replace(/about/g, " about")
-    .replace(/with/g, " with")
-    .replace(/felt/g, " felt")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^./, (letter) => letter.toUpperCase());
+function cueCard(title: string, bullets: string[]) {
+  return `${title}.\n\nYou should say:\n${bullets.map((bullet) => `- ${bullet}`).join("\n")}`;
 }
 
 export const p1QuestionBank: P1QuestionSet[] = [
   {
-    id: "headphones",
-    topic: "Headphones",
+    id: "work-studies",
+    topic: "Work/Studies",
     questions: [
-      "Do you use headphones?",
-      "What type of headphones do you use?",
-      "When would you use headphones?",
-      "In what conditions would you not use headphones?",
-      "Is wearing headphones comfortable?"
+      "Do you work or study? / What’s your job/major?",
+      "Why did you choose this major/ job?",
+      "Is this a popular job/major in your country?",
+      "What’s your favourite part of your job/major?",
+      "Do you plan to change your job in the future?"
     ]
   },
   {
-    id: "jokes-comedies",
-    topic: "Jokes & comedies",
+    id: "hometown",
+    topic: "Hometown",
     questions: [
-      "Are you good at telling jokes?",
-      "Do your friends like to tell jokes?",
-      "Do you like to watch comedies?",
-      "Have you ever watched a live show?",
-      "Are comedy shows popular in your country?"
+      "Where’s your hometown?",
+      "Do you like your hometown?",
+      "Is your hometown suitable for young people?",
+      "Has your hometown changed in recent years?",
+      "What is one of the best things about living there?",
+      "Do you think you'll continue living there for a long time?"
     ]
   },
   {
-    id: "clothing",
-    topic: "Clothing",
+    id: "accommodation",
+    topic: "Accommodation",
     questions: [
-      "What kind of clothes do you like to wear?",
-      "Do you prefer casual clothes or smart clothes?",
-      "Do you like wearing T-shirts?",
-      "Do you spend a lot of time choosing clothes?",
-      "What colour clothes do you like?",
-      "Do you prefer to wear comfortable and casual clothes or smart clothes?",
-      "Do you wear different styles of clothes on weekdays and weekends?"
+      "What kind of accommodation do you live in?",
+      "Do you like your accommodation? How long have you lived there?",
+      "What would you change about your accommodation?",
+      "Do you plan to live there for a long time?"
+    ]
+  },
+  {
+    id: "the-area-you-live-in",
+    topic: "The area you live in",
+    questions: [
+      "Do you like the area you live in?",
+      "What’s around your area?",
+      "Are there any recent changes in the area that you live in?",
+      "Do you know any of your neighbours?",
+      "Would you like to change anything about your area? Why/Why not?"
+    ]
+  },
+  {
+    id: "glasses",
+    topic: "Glasses",
+    questions: [
+      "Do you wear glasses?",
+      "Do you like wearing glasses?",
+      "Would you consider wearing contact lenses?",
+      "Do you know many people who wear glasses?",
+      "Is it expensive to buy glasses in your country?",
+      "Do you think people look more attractive with or without glasses?",
+      "What would you do if you lost or broke your glasses?"
+    ]
+  },
+  {
+    id: "street-market",
+    topic: "Street market",
+    questions: [
+      "Are there many street markets in China?",
+      "When was the last time you went to a street market?",
+      "Do you prefer to go shopping in the shopping mall or on the street market?",
+      "What do people usually buy on the street market?"
+    ]
+  },
+  {
+    id: "name",
+    topic: "Name",
+    questions: [
+      "Is it easy for you to remember people's names?",
+      "How do you remember people's names?",
+      "How do you feel when people can't remember your name?",
+      "Do you often forget people's names?"
+    ]
+  },
+  {
+    id: "paper-letters",
+    topic: "Paper Letters",
+    questions: [
+      "Do you ever write paper letters?",
+      "Did you receive any handwritten letters when you were a child?",
+      "Do you prefer handwritten letters or instant messaging or texting?",
+      "Do you prefer writing letters or sending emails?"
+    ]
+  },
+  {
+    id: "rubbish-and-recycling",
+    topic: "Rubbish and recycling",
+    questions: [
+      "Is waste sorting common in your country?",
+      "Did you recycle when you were a kid?",
+      "What do you do when you see rubbish on the street?",
+      "How do you recycle things like paper and plastic?"
+    ]
+  },
+  {
+    id: "paper",
+    topic: "Paper",
+    questions: [
+      "Have you made any crafts with paper?",
+      "Do you still write physical letters?",
+      "Do people still keep handwritten letters today?",
+      "Do you carry paper and pens with you when you go out?",
+      "What did you like to do with paper as a child?"
+    ]
+  },
+  {
+    id: "advertisement",
+    topic: "Advertisement",
+    questions: [
+      "Do you like advertisements?",
+      "What kind of advertising do you like?",
+      "Do you often see advertisements when you are on your phone or computer?",
+      "Is there an advertisement that made an impression on you when you were a child?",
+      "Have you ever bought something because of an advertisement?"
+    ]
+  },
+  {
+    id: "tiredness",
+    topic: "Tiredness",
+    questions: [
+      "Do you often feel tired?",
+      "When would you feel tired?",
+      "What do you do when you feel tired?",
+      "When you feel tired, do you still go out with your friends?"
+    ]
+  },
+  {
+    id: "politeness",
+    topic: "Politeness",
+    questions: [
+      "How did you learn to be polite as a child?",
+      "Do you think being polite is very important?",
+      "On what occasions should we be polite?",
+      "What did you do to show your politeness as a child?"
+    ]
+  },
+  {
+    id: "secondary-school",
+    topic: "Secondary school",
+    questions: [
+      "Do you remember your first day at secondary school?",
+      "Were there any subjects that you found difficult at secondary school?",
+      "What was your favourite subject at secondary school?",
+      "Is there anything you miss about your secondary school?"
+    ]
+  },
+  {
+    id: "shoes",
+    topic: "Shoes",
+    questions: [
+      "Do you like buying shoes? How often?",
+      "Have you ever bought shoes online?",
+      "How much money do you usually spend on shoes?",
+      "Which do you prefer, fashionable shoes or comfortable shoes?"
+    ]
+  },
+  {
+    id: "fruit-and-vegetables",
+    topic: "Fruit and vegetables",
+    questions: [
+      "Do you like eating vegetables?",
+      "How often do you eat fruit and vegetables?",
+      "Did you like eating vegetables when you were a child?",
+      "Were there any kind of fruits and vegetables you disliked as a child?",
+      "Do people often grow vegetables by themselves?",
+      "Where do you usually buy fruit and vegetables?"
+    ]
+  },
+  {
+    id: "travelling",
+    topic: "Travelling",
+    questions: [
+      "Do you prefer sitting by the window when you travel?",
+      "Did you ever go on a long journey with your family when you were a child?"
     ]
   },
   {
     id: "singing",
     topic: "Singing",
     questions: [
+      "Do you like singing?",
+      "Do you like listening to other people sing?",
+      "Did you learn to sing when you were at school?",
+      "Do you enjoy singing in the car?",
+      "Did you like singing when you were a kid?",
       "Do you like singing? Why?",
       "Have you ever learnt how to sing?",
       "Who do you want to sing for?",
@@ -91,13 +230,123 @@ export const p1QuestionBank: P1QuestionSet[] = [
     ]
   },
   {
-    id: "outer-space-stars",
-    topic: "Outer space and stars",
+    id: "watch",
+    topic: "Watch",
     questions: [
+      "Do you wear a watch in your daily life?",
+      "Has anyone ever given you a watch as a gift?",
+      "What kind of watch do the people around you like to wear?",
+      "Why do some people wear expensive watch?",
+      "Do you think it is important to wear a watch? Why?",
+      "Do you wear a watch?",
+      "Have you ever got a watch as a gift?",
+      "Why do some people wear expensive watches?"
+    ]
+  },
+  {
+    id: "feeling-bored",
+    topic: "Feeling Bored",
+    questions: [
+      "Do you often feel bored?",
+      "Did you ever find school boring when you were a child?",
+      "What sort of things do you find most boring now?",
+      "What do you do to stop yourself feeling bored?",
+      "When would you feel bored?",
+      "What do you do when you feel bored?",
+      "Do you think childhood is boring or adulthood is boring?"
+    ]
+  },
+  {
+    id: "public-gardens-parks",
+    topic: "Parks",
+    questions: [
+      "Did you like going to parks as a child?",
+      "Do you still like going to parks now?",
+      "Would you like to see more parks in your city?",
+      "Are there any parks you want to go to in the future?",
+      "Would you prefer to play in a personal garden or public garden?",
+      "How are the parks today different from those you visited as a kid?",
+      "What do you like to do when visiting a park?",
+      "Would you like to play in a public garden or park?"
+    ]
+  },
+  {
+    id: "tidiness",
+    topic: "Tidiness",
+    questions: [
+      "Do you like to keep things tidy?",
+      "Did you use to keep your room tidy as a child?",
+      "Are you a tidy person now?",
+      "How do you keep your work or study space tidy?",
+      "Do you think that it is necessary to be tidy?",
+      "What do you think of those who don't care about tidiness?",
+      "What do you think of those who are overly concerned about tidiness?"
+    ]
+  },
+  {
+    id: "headphones",
+    topic: "Headphones",
+    questions: [
+      "Do you use headphones?",
+      "How often do you wear headphones?",
+      "Do you think headphones are useful?",
+      "Are headphones popular in your country?",
+      "In what situations should people not wear headphones?",
+      "What type of headphones do you use?",
+      "When would you use headphones?",
+      "In what conditions would you not use headphones?",
+      "Is wearing headphones comfortable?"
+    ]
+  },
+  {
+    id: "outer-space-stars",
+    topic: "Space",
+    questions: [
+      "Have you ever learnt anything about space and the stars when you were at school?",
+      "Would you like to know more about space and the stars?",
+      "Do you like science-fiction movies set in space?",
+      "Do you want to go into outer space in the future?",
       "Have you ever learnt about outer space and stars?",
       "Do you like science fiction movies? Why?",
-      "Do you want to know more about outer space?",
-      "Do you want to go into outer space in the future?"
+      "Do you want to know more about outer space?"
+    ]
+  },
+  {
+    id: "clothing",
+    topic: "Clothing",
+    questions: [
+      "What kind of clothes do you like to wear?",
+      "Do you prefer to wear comfortable and casual clothes or formal clothes?",
+      "Do you like wearing T-shirts?",
+      "Do you spend a lot of time choosing clothes?",
+      "Do you wear clothes of different styles on weekdays and weekends?",
+      "What colour clothing do you like?",
+      "Do you prefer casual clothes or smart clothes?",
+      "What colour clothes do you like?",
+      "Do you prefer to wear comfortable and casual clothes or smart clothes?",
+      "Do you wear different styles of clothes on weekdays and weekends?"
+    ]
+  },
+  {
+    id: "jokes-comedies",
+    topic: "Telling jokes",
+    questions: [
+      "Are you good at telling jokes?",
+      "Do your friends like to tell jokes?",
+      "Do you like to watch comedies?",
+      "Have you ever watched a live show?",
+      "Are comedy shows popular in your country?"
+    ]
+  },
+  {
+    id: "mirrors",
+    topic: "Mirrors",
+    questions: [
+      "Do you like looking at yourself in the mirror? How often?",
+      "Have you ever bought mirrors?",
+      "Do you usually take a mirror with you?",
+      "Would you use mirrors to decorate your room?",
+      "Do you like looking at yourself in the mirror?"
     ]
   },
   {
@@ -107,23 +356,9 @@ export const p1QuestionBank: P1QuestionSet[] = [
       "Do you like science?",
       "When did you start to learn about science?",
       "Which science subject is interesting to you?",
+      "What kinds of interesting things have you done with science?",
       "Do you like watching science TV programs?",
-      "Do Chinese people often visit science museums?",
-      "What kinds of interesting things have you done with science?"
-    ]
-  },
-  {
-    id: "public-gardens-parks",
-    topic: "Public gardens and parks",
-    questions: [
-      "Did you like going to parks as a child?",
-      "Do you still like going to parks now?",
-      "Would you like to see more parks in your city?",
-      "Are there any parks you want to go to in the future?",
-      "Would you like to play in a public garden or park?",
-      "What do you like to do when visiting a park?",
-      "Would you prefer to play in a personal garden or public garden?",
-      "How are the parks today different from those you visited as a kid?"
+      "Do Chinese people often visit science museums?"
     ]
   },
   {
@@ -133,7 +368,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
       "Did you enjoy traveling by car when you were a kid?",
       "What types of cars do you like?",
       "Do you prefer to be a driver or a passenger?",
-      "What do you usually do when there is a traffic jam?",
+      "What do you usually do when there is a traffic Jam?",
       "Do you think car colours are important?",
       "Will you buy an expensive car in the future?"
     ]
@@ -145,17 +380,10 @@ export const p1QuestionBank: P1QuestionSet[] = [
       "Do you like shopping?",
       "How often do you go shopping?",
       "Do you prefer online shopping or in-store shopping?",
+      "Do you compare prices when you shop? Why?",
+      "Is it difficult for you to make choices when you shop?",
+      "Do you think expensive products are always better than cheaper ones?",
       "Have you ever returned anything you bought online?"
-    ]
-  },
-  {
-    id: "watch",
-    topic: "Watch",
-    questions: [
-      "Do you wear a watch?",
-      "Have you ever got a watch as a gift?",
-      "Why do some people wear expensive watches?",
-      "Do you think it is important to wear a watch? Why?"
     ]
   },
   {
@@ -166,37 +394,18 @@ export const p1QuestionBank: P1QuestionSet[] = [
       "What is your favourite website?",
       "Are there any changes to the websites you often visit?",
       "What kinds of websites are popular in your country?",
+      "Do you prefer getting information from websites or books?",
       "Would you like to have your own website?",
       "How can websites help your life or studies?",
-      "Do you prefer getting information from websites or books?",
       "What have you learned from websites that help with your life or studies?"
-    ]
-  },
-  {
-    id: "tidiness",
-    topic: "Tidiness",
-    questions: [
-      "Do you like to keep things tidy?",
-      "Did you use to keep your room tidy as a child?",
-      "How do you keep your work or study space tidy?",
-      "Do you think that it is necessary to be tidy?"
-    ]
-  },
-  {
-    id: "mirrors",
-    topic: "Mirrors",
-    questions: [
-      "Do you like looking at yourself in the mirror?",
-      "Have you ever bought mirrors?",
-      "Do you usually take a mirror with you?",
-      "Would you use mirrors to decorate your room?",
-      "Do you like looking at yourself in the mirror? How often?"
     ]
   },
   {
     id: "music",
     topic: "Music",
     questions: [
+      "Do you like music?",
+      "What kinds of music do you listen to?",
       "Do you prefer sad or happy music?",
       "Does happy music make you feel more excited?",
       "Have you taken any music classes?",
@@ -204,22 +413,8 @@ export const p1QuestionBank: P1QuestionSet[] = [
     ]
   },
   {
-    id: "teachers",
-    topic: "Teachers",
-    questions: [
-      "Do you have a favorite teacher?",
-      "Do you want to be a teacher in the future?",
-      "What kind of teacher do you remember best?",
-      "In what way has your favourite teacher helped you?",
-      "Do you still keep in touch with your high school teachers?",
-      "Do you have a teacher from your past that you still remember?",
-      "Are you still in touch with your primary school teachers?",
-      "Do you like your primary school teachers more than your high school teachers?"
-    ]
-  },
-  {
     id: "social-media",
-    topic: "Social media",
+    topic: "Social Media",
     questions: [
       "Have you ever posted anything on social media?",
       "When did you start using social media?",
@@ -229,7 +424,35 @@ export const p1QuestionBank: P1QuestionSet[] = [
     ]
   },
   {
+    id: "teachers",
+    topic: "Teachers",
+    questions: [
+      "Do you have a favorite teacher?",
+      "Do you want to be a teacher in the future?",
+      "Do you have a teacher from your past that you still remember?",
+      "Are you still in touch with your primary school teachers?",
+      "In what way has your favourite teacher helped you?",
+      "Do you like your primary school teachers more than your high school teachers?",
+      "What kind of teacher do you remember best?",
+      "Do you still keep in touch with your high school teachers?"
+    ]
+  },
+  {
+    id: "the-city-you-live-in",
+    topic: "The city you live in",
+    questions: [
+      "What city do you live in?",
+      "Do you like this city? Why?",
+      "How long have you lived in this city?",
+      "Are there big changes in this city?",
+      "Is this city your permanent residence?",
+      "Are there people of different ages living in this city?"
+    ]
+  },
+  // ---- Retired (2026 年 5–8 月) ----
+  {
     id: "art",
+    retired: true,
     topic: "Art",
     questions: [
       "Do you like art?",
@@ -240,6 +463,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "sports-programs",
+    retired: true,
     topic: "Sports programs",
     questions: [
       "Do you like watching sports programs on TV?",
@@ -253,6 +477,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "morning-routines",
+    retired: true,
     topic: "Morning routines",
     questions: [
       "What do you do right after getting up in the morning?",
@@ -263,6 +488,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "evening-time",
+    retired: true,
     topic: "Evening time",
     questions: [
       "Do you like the morning or evening?",
@@ -277,6 +503,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "old-buildings",
+    retired: true,
     topic: "Old buildings",
     questions: [
       "Have you ever seen old buildings in the city?",
@@ -287,6 +514,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "films-cinemas",
+    retired: true,
     topic: "Films / cinemas",
     questions: [
       "What films do you like?",
@@ -300,6 +528,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "history",
+    retired: true,
     topic: "History",
     questions: [
       "Have you ever been to historical museums?",
@@ -310,6 +539,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "dream-ambition",
+    retired: true,
     topic: "Dream and ambition",
     questions: [
       "What was your childhood dream?",
@@ -322,6 +552,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "views",
+    retired: true,
     topic: "Views",
     questions: [
       "Do you like taking pictures of different views?",
@@ -332,6 +563,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "childhood-activities",
+    retired: true,
     topic: "Childhood activities",
     questions: [
       "What are your favourite activities?",
@@ -341,6 +573,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "building",
+    retired: true,
     topic: "Building",
     questions: [
       "Are there tall buildings near your home?",
@@ -351,6 +584,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "scenery",
+    retired: true,
     topic: "Scenery",
     questions: [
       "Do you look out the window at the scenery when travelling by bus or car?",
@@ -361,6 +595,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "reading",
+    retired: true,
     topic: "Reading",
     questions: [
       "Do you like reading?",
@@ -371,6 +606,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "sports-team",
+    retired: true,
     topic: "Sports team",
     questions: [
       "Have you ever been part of a sports team?",
@@ -381,6 +617,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "walking",
+    retired: true,
     topic: "Walking",
     questions: [
       "Do you walk a lot?",
@@ -392,6 +629,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "typing",
+    retired: true,
     topic: "Typing",
     questions: [
       "Do you prefer typing or handwriting?",
@@ -402,6 +640,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "food",
+    retired: true,
     topic: "Food",
     questions: [
       "What is your favourite food?",
@@ -413,6 +652,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "spare-time",
+    retired: true,
     topic: "Spare time",
     questions: [
       "Do you often have free time?",
@@ -423,6 +663,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "hobby",
+    retired: true,
     topic: "Hobby",
     questions: [
       "Do you have any hobbies?",
@@ -433,6 +674,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "life-stages",
+    retired: true,
     topic: "Life stages",
     questions: [
       "What did you often do with your friends in your childhood?",
@@ -445,6 +687,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "memory",
+    retired: true,
     topic: "Memory",
     questions: [
       "Are you good at memorising things?",
@@ -457,6 +700,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "crowded-place",
+    retired: true,
     topic: "Crowded place",
     questions: [
       "Is the city where you live crowded?",
@@ -468,6 +712,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "gifts",
+    retired: true,
     topic: "Gifts",
     questions: [
       "Have you ever sent handmade gifts to others?",
@@ -479,6 +724,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "morning-time",
+    retired: true,
     topic: "Morning time",
     questions: [
       "Do you like getting up early in the morning?",
@@ -490,6 +736,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "pets-and-animals",
+    retired: true,
     topic: "Pets and animals",
     questions: [
       "Are there many people keeping pets in your country?",
@@ -505,6 +752,7 @@ export const p1QuestionBank: P1QuestionSet[] = [
   },
   {
     id: "taking-photos",
+    retired: true,
     topic: "Taking photos",
     questions: [
       "Do you like taking photos?",
@@ -521,6 +769,238 @@ export const p1QuestionBank: P1QuestionSet[] = [
 
 export const p2P3QuestionBank: P2P3QuestionSet[] = [
   {
+    id: "a-successful-sportsperson-you-admire",
+    topic: "a successful sportsperson you admire",
+    p2Prompt: cueCard("Describe a successful sportsperson you admire", [
+      "Who he/she is",
+      "What you know about him/her",
+      "What he/she is like in real life",
+      "What achievement he/she has made",
+      "And explain why you admire him/her"
+    ]),
+    p3Questions: [
+      "Should students have physical education and do sports at school?",
+      "What qualities should an athlete have?",
+      "Is talent important in sports?",
+      "Is it easy to identify children's talents?",
+      "What is the most popular sport in your country?",
+      "Why are there so few top athletes?"
+    ]
+  },
+  {
+    id: "a-popular-person",
+    topic: "a popular person",
+    p2Prompt: cueCard("Describe a popular person", [
+      "Who this person is",
+      "What kind of person he or she is",
+      "When you see him/her normally",
+      "And explain why you think this person is popular"
+    ]),
+    p3Questions: [
+      "Why are some students popular in school?",
+      "Is it important for a teacher to be popular?",
+      "Do you think good teachers are always popular among students?",
+      "What are the qualities of being a good teacher?",
+      "Is it easier to become popular nowadays?",
+      "Why do people want to be popular?"
+    ]
+  },
+  {
+    id: "a-sportsperson-who-did-well-in-an-event",
+    topic: "a sportsperson who did well in an event",
+    p2Prompt: cueCard("Describe a sportsperson who did well in an event", [
+      "Who the sportsperson is",
+      "What event he/she took part in",
+      "How he/she performed in the event",
+      "And explain why you think he/she performed well"
+    ]),
+    p3Questions: [
+      "What sports are popular in your country?",
+      "Do you think children should learn different kinds of sports?",
+      "What can children learn from doing sports?",
+      "What qualities does a successful sportsperson need？",
+      "How is technology used in sports?",
+      "How do athletes use technology to improve their performance?"
+    ]
+  },
+  {
+    id: "a-person-who-taught-you-a-new-skill",
+    topic: "a person who taught you a new skill",
+    p2Prompt: cueCard("Describe a person who taught you a new skill", [
+      "Who this person was",
+      "What the skill was",
+      "How this person taught you",
+      "And explain how you felt about learning this skill"
+    ]),
+    p3Questions: [
+      "Why should children learn new skills?",
+      "Where can children learn new skills?",
+      "How can parents and teachers teach children new skills?",
+      "How do adults learn a new skill?",
+      "What are the differences between learning from a teacher and learning by oneself?",
+      "Why is self-discipline important when learning a new skill?"
+    ]
+  },
+  {
+    id: "someone-you-know-who-enjoys-learning-about-history",
+    topic: "someone you know who enjoys learning about history",
+    p2Prompt: cueCard("Describe someone you know who enjoys learning about history", [
+      "Who this person is",
+      "How he/she learns history",
+      "Why he/she loves history",
+      "And explain how you feel about him/her"
+    ]),
+    p3Questions: [
+      "Do you think children should begin learning history from an early age?",
+      "At what age do you think people should begin to learn history?",
+      "How do children learn history before they attend school?",
+      "Is it important to learn how people in the past lived their lives?",
+      "Do you think people should learn ancient history before learning modern history?",
+      "Besides big historical events, what else is important when learning history?"
+    ]
+  },
+  {
+    id: "a-person-you-know-who-really-likes-taking-photos",
+    topic: "a person you know who really likes taking photos",
+    p2Prompt: cueCard("Describe a person you know who really likes taking photos", [
+      "Who the person is",
+      "When and how you got to know him/her",
+      "Where he/she takes photos",
+      "And explain how you feel about him/her"
+    ]),
+    p3Questions: [
+      "Why are some people keen on taking photos?",
+      "What kind of photos do people often take?",
+      "Do you think it's ok to take photos everywhere?",
+      "Why do tourists like taking photos while they are travelling?",
+      "Some people don't mind others walking into their shot when they're taking photos. What do you think?",
+      "When do people like taking photos?"
+    ]
+  },
+  {
+    id: "someone-who-is-older-than-you-that-you-admire",
+    topic: "someone who is older than you that you admire",
+    p2Prompt: cueCard("Describe someone who is older than you that you admire", [
+      "Who this person is",
+      "How you knew this person",
+      "What kinds of things you like to do together",
+      "and explain how you feel about this person"
+    ]),
+    p3Questions: [
+      "What can young and old people learn from each other?",
+      "Has the quality of life for old people improved compared to the past?",
+      "Why is there a generation gap between the young and the old?",
+      "What do old people usually do in their daily life?"
+    ]
+  },
+  {
+    id: "a-well-organized-person-you-know",
+    topic: "a well-organized person you know",
+    p2Prompt: cueCard("Describe a well-organized person you know", [
+      "Who this person is",
+      "What this person usually does to stay organized",
+      "In what situations you have noticed this quality",
+      "And explain why you think being organized is important to him/her"
+    ]),
+    p3Questions: [
+      "Why is it important for people to be organized？",
+      "Do you think children should learn to be organized from a young age？",
+      "Should parents teach their children to be well-organized?",
+      "Are organized people more likely to be successful at work or in their studies?",
+      "Do you think it is important for managers to be well-organized?",
+      "What can people do to become more organized?"
+    ]
+  },
+  {
+    id: "a-person-who-likes-to-make-things-by-hand-e-g-toys-furniture",
+    topic: "a person who likes to make things by hand (e.g. toys, furniture)",
+    p2Prompt: cueCard("Describe a person who likes to make things by hand (e.g. toys, furniture)", [
+      "Who this person is",
+      "What kinds of things this person makes",
+      "How you know this person is good at making things",
+      "And explain why you admire this person's skills"
+    ]),
+    p3Questions: [
+      "What are the benefits for students to learn to make things by hand?",
+      "Why do many children enjoy making things by hand?",
+      "Do you think art classes are important for children?",
+      "Do children nowadays still like doing arts and crafts?",
+      "Is it good to have creative people in a team?",
+      "Does art, like music or theater, have an impact on society?",
+      "What impact can artistic buildings have on society?"
+    ]
+  },
+  {
+    id: "a-happy-person-you-know",
+    topic: "a happy person you know",
+    p2Prompt: cueCard("Describe a happy person you know", [
+      "Who this person is",
+      "What he/she is like",
+      "How he/she shows happiness",
+      "And explain why you think he/she is a happy person"
+    ]),
+    p3Questions: [
+      "Should teachers know what children are doing all the time?",
+      "Do you think teachers are able to spot the unhappy children?",
+      "How can the arts spread positive emotions in society?",
+      "When do you think people are happiest？",
+      "What would make a student happy at school?",
+      "Do you think doing a job that you like is more important than other things?"
+    ]
+  },
+  {
+    id: "a-person-you-know-who-did-something-difficult-and-was-succes",
+    topic: "a person you know who did something difficult and was successful",
+    p2Prompt: cueCard("Describe a person you know who did something difficult and was successful", [
+      "Who this person is",
+      "What difficult thing this person did",
+      "Why this person was successful",
+      "And explain how you feel about this person"
+    ]),
+    p3Questions: [
+      "Is it difficult to run a business in today’s world?",
+      "Is it easy to start up a company?",
+      "How can companies help protect the environment?",
+      "Other than making money, what is more important for a company?",
+      "In which sectors are companies more likely to succeed in China?",
+      "Does having money necessarily mean being successful?"
+    ]
+  },
+  {
+    id: "a-person-who-met-difficulties-but-succeeded",
+    topic: "a person who met difficulties but succeeded",
+    p2Prompt: cueCard("Describe a person who met difficulties but succeeded", [
+      "Who this person is",
+      "What difficulties he met",
+      "How he overcame the difficulties",
+      "And explain how you feel about him"
+    ]),
+    p3Questions: [
+      "In your country, what industry is it easier to be successful in?",
+      "What's the difference between ordinary people and successful people?",
+      "What are the factors leading to people's success?"
+    ]
+  },
+  {
+    id: "a-time-when-you-sent-a-message-or-an-email-to-someone-bu",
+    topic: "a time when you sent a message or an email to someone but received no reply for a long time",
+    p2Prompt: cueCard("Describe a time when you sent a message or an email to someone but received no reply for a long time", [
+      "Who you sent it to",
+      "What the message/email was about",
+      "Whether you finally received the reply",
+      "And explain how you felt about the experience"
+    ]),
+    p3Questions: [
+      "In what situations do people spend a long time responding to others' messages？",
+      "In what situations do people not respond to messages right away?",
+      "What would you do if you haven't received a reply after sending out a message?",
+      "Why do some people prefer sending a message instead of making a call?",
+      "Are you more polite when sending a message to a stranger than to a friend？",
+      "Why do some people feel angry when others don't reply to their message?",
+      "How do you show your respect in your message?"
+    ]
+  },
+  {
     id: "languages-person",
     topic: "A person good at learning languages",
     p2Prompt: cueCard("Describe a person who is good at learning and speaking new languages", [
@@ -530,48 +1010,243 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
       "And explain how you feel about him/her"
     ]),
     p3Questions: [
+      "Are there many people who can speak foreign languages in your country?",
       "Does speaking other languages help at work?",
       "Do people learn any languages other than English?",
-      "How do people learn new things?",
-      "Are there many people who can speak foreign languages in your country?",
       "Why is it easier for children to learn new things than for adults?",
+      "How do people learn new things？",
       "What is the most important thing for learning a language well?"
     ]
   },
   {
-    id: "technological-problem",
-    topic: "A challenging technological problem",
-    p2Prompt: cueCard("Describe a challenging technological problem you faced", [
-      "What the problem was",
-      "When and where you faced it",
-      "How challenging it was",
-      "And explain how you solved it"
+    id: "successful-business-person",
+    topic: "A person with a successful business",
+    p2Prompt: cueCard("Describe a person you know who has a successful business", [
+      "Who this person is",
+      "How you got to know him/her",
+      "Why and how he/she started the business",
+      "What business he/she does",
+      "And explain why you think the business is successful"
     ]),
     p3Questions: [
-      "What are the advantages and disadvantages of AI?",
-      "Should children learn to use AI?",
-      "How can AI help in our lives?",
-      "Do you think students are overly reliant on AI?",
-      "Do you think people today should learn about AI technology?",
-      "What can teachers do to stop students relying too much on AI?"
+      "Why do some people start their own business?",
+      "Should governments provide financial support to start-ups?",
+      "Do most people prefer shopping at big stores or small stores?",
+      "What makes a business successful?",
+      "What makes a business fail?",
+      "Is it easy to set up a new business in your country?"
     ]
   },
   {
-    id: "interesting-video",
-    topic: "An interesting video",
-    p2Prompt: cueCard("Describe an interesting video", [
-      "When and where you watched it",
-      "What it is about",
-      "Why you watched it",
-      "And explain how you feel about it"
+    id: "a-person-you-know-who-would-like-to-choose-a-career-in-t",
+    topic: "a person you know who would like to choose a career in the medical field",
+    aliases: ["Describe a person you know who would like to choose a career in the medical field"],
+    p2Prompt: cueCard("Describe a person you know who would like to choose a career in the medical field (e.g. a doctor, a nurse)", [
+      "When you knew him/her",
+      "When he/she started to think about that",
+      "What he/she would like to do",
+      "And explain why he/she would like to choose this career"
     ]),
     p3Questions: [
-      "What skills can people learn from watching videos?",
-      "What makes a video go viral online?",
-      "What kind of videos do people in your country like to watch?",
-      "Which is more helpful, watching videos or reading books?",
-      "Are there any differences between the videos that young people and old people like to watch?",
-      "Are there any differences between the videos that young men and young women like to watch?"
+      "Do you think being a doctor is easy or difficult?",
+      "Do you think learning biology is interesting for children?",
+      "Why do some children want to become doctors?",
+      "Do you think governments should put a large amount of money into medical research?",
+      "Why do some doctors get paid more than others?",
+      "Do you think doctors should be paid more?",
+      "Why is some doctors' pay high and others' low?"
+    ]
+  },
+  {
+    id: "plant-lover",
+    topic: "A person who loves growing plants",
+    aliases: ["Describe a person who loves to grow plants at home or in the garden"],
+    p2Prompt: cueCard("Describe a person who loves to grow plants (e.g. vegetables, flowers) at home or in the garden", [
+      "Who this person is",
+      "What plants he/she grows",
+      "How he/she grows the plants",
+      "And explain why he/she loves growing plants"
+    ]),
+    p3Questions: [
+      "What are the advantages of growing vegetables or flowers at home?",
+      "Do many people grow vegetables or flowers at home in your country?",
+      "Is it easy to grow plants at home?",
+      "Why do some people like to grow plants?",
+      "Why do some people prefer to grow their own fruits and vegetables instead of buying them from the market?",
+      "Do you think students should learn to grow plants?",
+      "Why do people like to grow plants?",
+      "Do you think students should learn to grow plant?"
+    ]
+  },
+  {
+    id: "childhood-friend",
+    topic: "A childhood friend",
+    p2Prompt: cueCard("Describe a friend from your childhood", [
+      "Who he/she is",
+      "Where and how you met each other",
+      "What you often did together",
+      "And explain what made you like him/her"
+    ]),
+    p3Questions: [
+      "Do you still keep in touch with your friends from childhood? Why or why not?",
+      "How important is childhood friendship to children?",
+      "What do you think of communicating with others through social media?",
+      "Do you think online communication through social media will replace face-to-face communication?",
+      "What's the difference between talking to friends and family?",
+      "Has technology changed people's friendships? How?",
+      "What do you think of communicating via social media?",
+      "What's the difference between having younger friends and older friends?"
+    ]
+  },
+  {
+    id: "a-person-whose-health-and-fitness-you-have-helped-to-improve",
+    topic: "a person whose health and fitness you have helped to improve",
+    p2Prompt: cueCard("Describe a person whose health and fitness you have helped to improve", [
+      "Who this person was",
+      "Why you helped him/her",
+      "How you helped him/her",
+      "And explain whether it was easy or difficult"
+    ]),
+    p3Questions: [
+      "Which group pays more attention to health, young people or old people?",
+      "What effect does stress have on health?"
+    ]
+  },
+  {
+    id: "a-party-for-a-special-event-that-impressed-you-a-lot",
+    topic: "a party for a special event that impressed you a lot",
+    p2Prompt: cueCard("Describe a party for a special event that impressed you a lot", [
+      "When and where it was held",
+      "What the party was held for",
+      "How many people attended it",
+      "And explain why it impressed you a lot"
+    ]),
+    p3Questions: [
+      "When do people like to hold a party?",
+      "Do most people prefer to hold a party in a public place or a private place?",
+      "Do most people prefer to hold a party in a restaurant or in a pub?",
+      "What special events are celebrated in your country?"
+    ]
+  },
+  {
+    id: "a-short-trip-you-often-take-but-do-not-enjoy",
+    topic: "a short trip you often take but do not enjoy",
+    p2Prompt: cueCard("Describe a short trip you often take but do not enjoy", [
+      "Where you go",
+      "When you go there",
+      "Why you go there",
+      "And explain why you do not enjoy the trip"
+    ]),
+    p3Questions: [
+      "Do Chinese people like travelling abroad?",
+      "Who prefers travelling abroad, younger people or older people?",
+      "How much time do you think people should spend on a trip abroad?",
+      "Which is a better way to learn about a country: travelling there or reading books about it?"
+    ]
+  },
+  {
+    id: "a-time-when-someone-talked-about-something-you-were-not-inte",
+    topic: "a time when someone talked about something you were not interested in, but you continued listening",
+    p2Prompt: cueCard("Describe a time when someone talked about something you were not interested in, but you continued listening", [
+      "Who the person was",
+      "What they talked about",
+      "Why you continued listening",
+      "How you felt about the experience"
+    ]),
+    p3Questions: [
+      "What kinds of topics do young people like to talk about nowadays？",
+      "What might happen if someone does not listen carefully during a conversation?",
+      "How can we tell whether someone is listening attentively?"
+    ]
+  },
+  {
+    id: "an-enjoyable-evening-with-your-friends",
+    topic: "an enjoyable evening with your friends",
+    p2Prompt: cueCard("Describe an enjoyable evening with your friends", [
+      "When and where it was",
+      "Who you spent the evening with",
+      "What you did",
+      "And explain why you think it was an enjoyable evening"
+    ]),
+    p3Questions: [
+      "Is it important to communicate with your family?",
+      "What do you usually do with your friends in the evening",
+      "What are the differences between what old people and young people do in the evening?",
+      "How can members of a large family maintain good relationships with one another?"
+    ]
+  },
+  {
+    id: "a-time-when-you-saved-money-to-buy-something-special",
+    topic: "a time when you saved money to buy something special",
+    p2Prompt: cueCard("Describe a time when you saved money to buy something special", [
+      "What the special item was",
+      "Why you wanted to buy it",
+      "How you saved money for it",
+      "And explain how you felt after buying it."
+    ]),
+    p3Questions: [
+      "Should schools teach children how to manage money?",
+      "Should parents encourage their children to spend money freely or to be careful with it?",
+      "Is it easier to teach teenagers how to manage money when they are 16 or 17 years old?",
+      "Which one do you think is easier, saving money or spending money?",
+      "What kind of things do people usually save money for？",
+      "Should people give their time to charity, or just money?"
+    ]
+  },
+  {
+    id: "a-new-skill-you-learned-when-you-were-a-child",
+    topic: "a new skill you learned when you were a child",
+    p2Prompt: cueCard("Describe a new skill you learned when you were a child", [
+      "What the skill was",
+      "Who taught you this skill",
+      "How you learned it",
+      "And explain how you felt about learning the skill"
+    ]),
+    p3Questions: [
+      "What skills should children learn before they go to school?",
+      "What are the differences between learning in a group and learning by yourself?",
+      "Do you think it is easier for children to learn new skills than for adults?",
+      "What are the differences between children learning skills and adults learning skills?",
+      "Can a child learn skills from another child?",
+      "Is it important for everyone to have a specialized skill?"
+    ]
+  },
+  {
+    id: "a-time-you-watched-a-famous-person-being-interviewed",
+    topic: "a time you watched a famous person being interviewed",
+    p2Prompt: cueCard("Describe a time you watched a famous person being interviewed", [
+      "Who the famous person was",
+      "What the interview was about",
+      "When and where you watched the interview",
+      "And explain how you felt about the interview"
+    ]),
+    p3Questions: [
+      "What kinds of people are frequently interviewed?",
+      "Why do some people dislike being interviewed?",
+      "Why do some people think interviews are a waste of time?",
+      "What kinds of things do famous people often say in an interview?",
+      "What can we do to get a job interview?",
+      "What should people do to prepare for a job interview?",
+      "Why do we need to attend interviews when applying for jobs?",
+      "What should people wear to a job interview?"
+    ]
+  },
+  {
+    id: "a-time-when-you-made-an-important-decision-and-were-happy-wi",
+    topic: "a time when you made an important decision and were happy with the result",
+    p2Prompt: cueCard("Describe a time when you made an important decision and were happy with the result", [
+      "What the decision was",
+      "Why you made that decision",
+      "How easy or difficult it was to make",
+      "Why you were happy with the result"
+    ]),
+    p3Questions: [
+      "How can we tell whether a decision is important or simply routine?",
+      "Do you think it is a good idea to make small decisions for yourself every day?",
+      "What kinds of small decisions do people make every day?",
+      "What should people do when members of a group have different opinions about a decision?",
+      "Do you think most of the important decisions in people’s lives are made in their twenties?",
+      "Is it better to make a decision quickly or to take time to think it through?"
     ]
   },
   {
@@ -586,84 +1261,45 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     p3Questions: [
       "Do you think it is good to change one's daily routine?",
       "Do you think it is good to change jobs?",
-      "Is it good for people to get a job promotion?",
+      "Is it good for people to get a job promotion？",
       "Do people often make plans around their regular routines?",
+      "Who tends to change their daily routine more, young people or old people?",
       "Who tend to change their daily routine more, young people or old people?"
     ]
   },
   {
-    id: "worked-in-group",
-    topic: "Working in a group",
-    p2Prompt: cueCard("Describe a time when you worked in a group", [
-      "What you did",
-      "Who you worked with",
-      "What problems you faced",
-      "And explain why you worked in the group"
+    id: "a-time-when-you-changed-an-important-opinion-of-yours",
+    topic: "a time when you changed an important opinion of yours",
+    p2Prompt: cueCard("Describe a time when you changed an important opinion of yours", [
+      "When you changed your opinion",
+      "What the original opinion was",
+      "Why you changed it",
+      "And explain how you felt about the experience"
     ]),
     p3Questions: [
-      "Why do some people prefer to work by themselves?",
-      "Should students learn to do group work?",
-      "What group tasks are there in schools?",
-      "How can you tell if a person is a good leader?",
-      "What should a leader do to make team members want to follow him or her?",
-      "What advantages are there for students experiencing teamwork at school?"
+      "When do most children begin to have their own opinions?",
+      "Whose opinions are more important to children, their parents' or teachers'?",
+      "Do children communicate more with teachers or with parents?",
+      "Who do young people like to share opinions with?"
     ]
   },
   {
-    id: "tall-building",
-    topic: "A tall building",
-    p2Prompt: cueCard("Describe a tall building you like or dislike", [
-      "What it is used for",
-      "Where it is",
-      "What it looks like",
-      "And explain why you like/dislike it"
+    id: "important-decision",
+    topic: "An important decision",
+    p2Prompt: cueCard("Describe an important decision that you made", [
+      "What the decision was",
+      "How you made your decision",
+      "What the results of the decision were",
+      "And explain why it was important"
     ]),
     p3Questions: [
-      "Are there many tall buildings in your country?",
-      "What are the advantages of living in tall buildings?",
-      "What kind of interior design style do most people like?",
-      "What are the differences between those tall buildings in your country?",
-      "Why are different places laid out and designed differently?",
-      "Why do some people like to remodel and decorate their homes themselves?"
-    ]
-  },
-  {
-    id: "boring-place",
-    topic: "A boring place",
-    p2Prompt: cueCard("Describe a boring place", [
-      "Where it is",
-      "Who you went there with",
-      "What you did there",
-      "And explain why you think it is a boring place"
-    ]),
-    p3Questions: [
-      "Do most people think news about celebrities is boring?",
-      "Why do most children think education is boring?",
-      "What can people do when they feel bored?",
-      "Why are some teachers' classes boring?",
-      "Why aren't young people willing to listen to the experiences of older people?",
-      "Why are some teachers' classes boring? Are there any solutions?",
-      "Why do some young people feel bored when talking with old people?"
-    ]
-  },
-  {
-    id: "got-up-early",
-    topic: "Getting up early",
-    p2Prompt: cueCard("Describe a time when you got up early", [
-      "When it was",
-      "What you did",
-      "Why you got up early",
-      "And how you felt about it"
-    ]),
-    p3Questions: [
-      "Do you know anyone who likes to get up early?",
-      "Why do people get up early?",
-      "What kinds of occasions need people to arrive early?",
-      "Why do some people like to stay up late?",
-      "Is it good to arrive early in any situation?",
-      "What kind of people like getting up early?",
-      "What kind of plans do people often make?",
-      "Do you think people like the process of making plans more, or the moment of carrying them out?"
+      "Do you think children sometimes have to make important decisions?",
+      "What important decisions do teenagers need to make after graduation?",
+      "Who can children turn to for help when making a decision?",
+      "Do you think advertisements can influence our decisions when shopping?",
+      "Do you think the influence of advertising is good?",
+      "How do people usually make important decision?",
+      "How do people usually make important decisions?"
     ]
   },
   {
@@ -678,10 +1314,243 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     p3Questions: [
       "Do people often change their plans?",
       "Would you tell others if you change your plan?",
+      "Why do you think parents still make plans for their children nowadays?",
       "How does technology help people make plans?",
       "What kind of plans do people often make?",
-      "Why do you think parents still make plans for their children nowadays?",
+      "Do you think people like the process of making plans more, or the moment of carrying them out?",
+      "How would you tell your friends when you must change plans?",
+      "What are the common reasons when people need to change plans?",
+      "What kind of plans are practical?"
+    ]
+  },
+  {
+    id: "a-time-when-a-person-did-something-to-help-you-solve-a-p",
+    topic: "a time when a person did something to help you solve a problem",
+    p2Prompt: cueCard("Describe a time when a person did something to help you solve a problem", [
+      "Who the person is",
+      "What the problem was",
+      "How he/she helped you",
+      "And explain how you felt about the experience"
+    ]),
+    p3Questions: [
+      "How important is it for schools to help children become smarter?"
+    ]
+  },
+  {
+    id: "technological-problem",
+    topic: "A challenging technological problem",
+    p2Prompt: cueCard("Describe a challenging technological problem you faced", [
+      "What the problem was",
+      "When and where you faced it",
+      "How challenging it was",
+      "And explain how you solved it"
+    ]),
+    p3Questions: [
+      "What are the advantages and disadvantages of AI?",
+      "Do you think people today should learn about AI technology?",
+      "Should children learn to use AI?",
+      "How can AI help in our lives?",
+      "Do you think students are overly reliant on AI?",
+      "What can teachers do to stop students relying too much on AI?"
+    ]
+  },
+  {
+    id: "local-news",
+    topic: "A piece of local news",
+    p2Prompt: cueCard("Describe a piece of local news that people are interested in", [
+      "What it was about",
+      "Where you saw/heard it",
+      "Who was involved",
+      "And explain why people were interested in it"
+    ]),
+    p3Questions: [
+      "Are there a lot of people talking about local news?",
+      "Do young people or the elderly care more about local news?",
+      "Do people in your country prefer following local news or national news?",
+      "Why do some people want to be very involved in their community?",
+      "Do you think local communities were stronger in the past than they are today?",
+      "Do you think it is important to have a national identity?",
+      "How can people develop their national identity?",
+      "Do people read the newspaper where you live?",
+      "Do people prefer local or international news?",
+      "Do you think it's important to have a national identity?"
+    ]
+  },
+  {
+    id: "live-sports-event",
+    topic: "A live sports event",
+    aliases: ["Describe a live sports event you watched and liked"],
+    p2Prompt: cueCard("Describe a live sport match you have ever watched", [
+      "What it was",
+      "When you watched",
+      "What it was like",
+      "And explain how you felt about it"
+    ]),
+    p3Questions: [
+      "Why do some people like to watch sports events?",
+      "Where do people normally watch sports events?",
+      "What are the advantages of watching sports events online?",
+      "What are the main differences between watching a sports event live in a stadium and watching it on TV?",
+      "What kinds of sports events are most popular to watch in your country?",
+      "What types of sports matches are suitable for children to watch?",
+      "What types of sports matches are suitable for children to attend?",
+      "Why do some people spend a lot going to other countries to watch sports events?",
+      "What sports games are popular in your country?",
+      "What sports matches are suitable for children to attend?"
+    ]
+  },
+  {
+    id: "worked-in-group",
+    topic: "Working in a group",
+    p2Prompt: cueCard("Describe a time when you worked in a group", [
+      "What you did",
+      "Who you worked with",
+      "What problems you faced",
+      "And explain why you worked in the group"
+    ]),
+    p3Questions: [
+      "Why do some people prefer to work by themselves?",
+      "What should a leader do to make team members want to follow him or her?",
+      "Should students learn to do group work?",
+      "What group tasks are there in schools?",
+      "What advantages are there for students experiencing teamwork at school?",
+      "How can you tell if a person is a good leader?"
+    ]
+  },
+  {
+    id: "got-up-early",
+    topic: "Getting up early",
+    p2Prompt: cueCard("Describe a time when you got up early", [
+      "When it was",
+      "What you did",
+      "Why you got up early",
+      "And how you felt about it"
+    ]),
+    p3Questions: [
+      "Do you know anyone who likes to get up early?",
+      "Why do people get up early？",
+      "What kinds of occasions need people to arrive early?",
+      "Why do some people like to stay up late?",
+      "Is it good to arrive early in any situation?",
+      "What kind of people like getting up early?",
+      "Is the early morning the best part of the day?",
+      "Why do some people think it’s important to be on time and others don’t?",
+      "What kind of plans do people often make?",
       "Do you think people like the process of making plans more, or the moment of carrying them out?"
+    ]
+  },
+  {
+    id: "long-term-goal",
+    topic: "A long-term goal or ambition",
+    p2Prompt: cueCard("Describe a long-term goal/ambition you would like to achieve", [
+      "How long you have had this goal/ambition",
+      "What it is",
+      "How you will achieve it",
+      "And explain why you set it"
+    ]),
+    p3Questions: [
+      "What kinds of ambitions do people have?",
+      "Why should parents encourage children to have ambitions？",
+      "Should parents interfere with their children's ambitions?",
+      "Is there any difference between children's ambitions and those of grown-ups?",
+      "What goals do young people usually have?",
+      "Why are young people ambitious for higher positions?",
+      "What should people do to achieve their goals?",
+      "Why should children have ambitions?",
+      "What do you think of people going after high positions?",
+      "Is it good for a person to be ambitious?",
+      "Why are some young people keen on being fans of superstars?",
+      "Do you think it is necessary to be ambitious when working in a team in a company?",
+      "Should parents support their children in pursuing their ambitions?",
+      "What goals should a society have?",
+      "Do people need to have goals?",
+      "What goals do people at your age have?",
+      "Is it necessary to give advice to children?"
+    ]
+  },
+  {
+    id: "a-building-you-enjoy-visiting-e-g-a-library-a-shopping-mall",
+    topic: "a building you enjoy visiting (e.g. a library, a shopping mall, etc.)",
+    p2Prompt: cueCard("Describe a building you enjoy visiting (e.g. a library, a shopping mall, etc.)", [
+      "Where it is",
+      "How you knew it",
+      "What it looks like",
+      "And explain why you enjoy visiting it"
+    ]),
+    p3Questions: [
+      "Do you think old buildings are valuable?",
+      "Do you think all old buildings should be demolished?"
+    ]
+  },
+  {
+    id: "a-crowded-place-you-went-to",
+    topic: "a crowded place you went to",
+    p2Prompt: cueCard("Describe a crowded place you went to", [
+      "Where it was",
+      "When you went there",
+      "Who you went there with",
+      "What you did there",
+      "And how you felt about it"
+    ]),
+    p3Questions: [
+      "Which cities in your country are particularly overcrowded?",
+      "Do you think cities will have more or less green space in the future?",
+      "Do you think people will use bicycles more or less frequently in cities in the future?",
+      "Why do people go to crowded places?",
+      "Why do some people enjoy being in crowded places?",
+      "Do you think the continued growth of large cities is a positive trend?"
+    ]
+  },
+  {
+    id: "a-natural-place-in-your-city-that-you-enjoy-visiting",
+    topic: "a natural place in your city that you enjoy visiting",
+    p2Prompt: cueCard("Describe a natural place in your city that you enjoy visiting", [
+      "Where it is",
+      "What it is like",
+      "How often you go there",
+      "Who you often go there with",
+      "And explain why you enjoy visiting there"
+    ]),
+    p3Questions: [
+      "Do you think there should be many natural places in cities?",
+      "Do you think staying in a natural place would help change people's mood?",
+      "Which is more important, protecting the environment or developing the economy?"
+    ]
+  },
+  {
+    id: "a-noisy-place-you-have-been-to",
+    topic: "a noisy place you have been to",
+    p2Prompt: cueCard("Describe a noisy place you have been to", [
+      "Where it is",
+      "When you went there",
+      "What you did there",
+      "And explain why you feel it's a noisy place"
+    ]),
+    p3Questions: [
+      "Do you think it is good for children to make noise?",
+      "Should children not be allowed to make noise under any circumstances?",
+      "What kinds of noises are there in our life?",
+      "Which area is exposed to noise more, the city or the countryside?",
+      "How would people usually respond to noises in your country？",
+      "How can people consider others' feelings when chatting in public?"
+    ]
+  },
+  {
+    id: "home-to-visit",
+    topic: "A home you like to visit",
+    p2Prompt: cueCard("Describe a home that you like to visit but do not want to live in", [
+      "Where it is",
+      "What it is like",
+      "Why you like to visit it",
+      "And explain why you would not like to live there"
+    ]),
+    p3Questions: [
+      "Do Chinese people like to visit others’ homes？",
+      "What do Chinese people do when they visit others?",
+      "What kind of place do people in your country like to live in?",
+      "What’s the difference between homes in cities and those in the countryside?",
+      "What kind of gifts do people usually bring when they visit others?",
+      "How often do you visit your relatives or friends?"
     ]
   },
   {
@@ -695,12 +1564,160 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     ]),
     p3Questions: [
       "Where do people in your country often go for holidays?",
+      "Where do young people in your country often go for holidays?",
       "What is the ideal length for a holiday?",
       "How do people usually plan holidays?",
       "Is it important to plan a holiday ahead?",
       "Why do many countries try to attract people to visit?",
-      "How do people decide when to travel?",
-      "Where do young people in your country often go for holidays?"
+      "How do people decide when to travel？",
+      "What are the benefits for cities of having lots of tourists?",
+      "What are the disadvantages for people living in popular tourist cities?"
+    ]
+  },
+  {
+    id: "boring-place",
+    topic: "A boring place",
+    p2Prompt: cueCard("Describe a boring place", [
+      "Where it is",
+      "Who you went there with",
+      "What you did there",
+      "And explain why you think it is a boring place"
+    ]),
+    p3Questions: [
+      "Why do most children think education is boring?",
+      "Why aren't young people willing to listen to the experiences of older people?",
+      "What can people do when they feel bored?",
+      "Why are some teachers' classes boring? Are there any solutions?",
+      "Why do some young people feel bored when talking with old people?",
+      "Do most people think news about celebrities is boring?",
+      "Why are some teachers' classes boring?"
+    ]
+  },
+  {
+    id: "tall-building",
+    topic: "A tall building",
+    p2Prompt: cueCard("Describe a tall building you like or dislike", [
+      "What it is used for",
+      "Where it is",
+      "What it looks like",
+      "And explain why you like/dislike it"
+    ]),
+    p3Questions: [
+      "Are there many tall buildings in your country?",
+      "What are the differences between those tall buildings in your country?",
+      "Why are different places laid out and designed differently?",
+      "What are the advantages of living in tall buildings?",
+      "Why do some people like to remodel and decorate their homes themselves?",
+      "What kind of interior design style do most people like?"
+    ]
+  },
+  {
+    id: "a-way-change-that-helps-you-save-a-lot-of-time",
+    topic: "a way/change that helps you save a lot of time",
+    p2Prompt: cueCard("Describe a way/change that helps you save a lot of time", [
+      "What it is",
+      "How you implement it",
+      "How difficult it is",
+      "And explain how you feel about the way/change"
+    ]),
+    p3Questions: [
+      "Is it necessary for children to learn time management?",
+      "What can schools do to help students learn time management?",
+      "What can people do to save time?",
+      "Does technology help people save time? How and why?",
+      "Do you think parents should be responsible for teaching children to save time?",
+      "Do people who can manage time well become successful more easily?"
+    ]
+  },
+  {
+    id: "your-least-favourite-movie",
+    topic: "your least favourite movie",
+    p2Prompt: cueCard("Describe your least favourite movie", [
+      "When you watched it",
+      "Where you watched it",
+      "What it was about",
+      "And explain why it’s your least favourite movie"
+    ]),
+    p3Questions: [
+      "What kinds of movies are the most popular in China?",
+      "What are the differences between watching movies at home and in a cinema?",
+      "Are movies more likely to help people become more creative than books?",
+      "Can movies help people better understand the cultural background of a country?"
+    ]
+  },
+  {
+    id: "an-activity-you-do-regularly-that-you-think-is-a-waste-of-ti",
+    topic: "an activity you do regularly that you think is a waste of time",
+    p2Prompt: cueCard("Describe an activity you do regularly that you think is a waste of time", [
+      "What it is",
+      "When you usually do it",
+      "Why you do it",
+      "And explain why you think it is a waste your time"
+    ]),
+    p3Questions: [
+      "How do you balance life and work?",
+      "Will you continue doing something when you are aware that it's a waste of time?",
+      "What kinds of things make people feel pressured?",
+      "Why do some people refuse to abide by rules?",
+      "Do you think stress is important in people's lives?",
+      "Is it good to have a daily routine?"
+    ]
+  },
+  {
+    id: "an-exciting-book-that-you-enjoyed-reading",
+    topic: "an exciting book that you enjoyed reading",
+    p2Prompt: cueCard("Describe an exciting book that you enjoyed reading", [
+      "What kind of book it was",
+      "Why you decided to read it",
+      "What the book was about",
+      "Why you found it exciting"
+    ]),
+    p3Questions: [
+      "What kinds of books do people in your country enjoy reading?",
+      "What kinds of books do young and older people enjoy?",
+      "Do boys and girls tend to enjoy different kinds of books?",
+      "Do you think it is important to read a book before watching its film adaptation?",
+      "Why are films based on books sometimes disappointing?",
+      "Can films based on novels encourage people to read more?"
+    ]
+  },
+  {
+    id: "a-time-when-you-received-good-service-from-a-staff-member-in",
+    topic: "a time when you received good service from a staff member in a shop",
+    p2Prompt: cueCard("Describe a time when you received good service from a staff member in a shop", [
+      "Where the shop is",
+      "When you went to the shop",
+      "What service you received from the staff",
+      "And explain how you felt about the service"
+    ]),
+    p3Questions: [
+      "Why are shopping malls so popular in China?",
+      "What are the advantages and disadvantages of shopping in small shops?",
+      "Why do some people not like shopping in small shops?",
+      "What are the differences between online shopping and in-store shopping?",
+      "What are the advantages and disadvantages of shopping online?",
+      "Can consumption drive economic growth?",
+      "Why is customer service not good in some shops?",
+      "Do you think good service is important?",
+      "Do the most expensive shops have the best service?",
+      "Why should companies react quickly when customers have difficulties?"
+    ]
+  },
+  {
+    id: "an-environmental-law-you-would-like-your-country-to-intr",
+    topic: "an environmental law you would like your country to introduce",
+    p2Prompt: cueCard("Describe an environmental law you would like your country to introduce", [
+      "What law it should be",
+      "Why people should follow the law",
+      "Whether the law will be popular",
+      "And explain how you feel about this law"
+    ]),
+    p3Questions: [
+      "What kind of rules do schools in China have?",
+      "How does technology affect the law?",
+      "Will there be a law that is universally accepted?",
+      "What environmental laws does your country already have?",
+      "What kinds of rules do schools in China have?"
     ]
   },
   {
@@ -714,16 +1731,99 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     ]),
     p3Questions: [
       "Should schools teach children about animals?",
-      "What do you think about keeping animals as pets?",
-      "Do many people keep pets in your country?",
-      "What are the advantages of keeping a pet?",
       "Some people think pets should not be kept in cities. What do you think?",
       "Many people regard pets as members of their family. What do you think?",
+      "Do many people keep pets in your country?",
+      "What are the advantages of keeping a pet?",
+      "Why do people allows tell children stories with animals?",
+      "What do you think about keeping animals as pets?",
       "Why do people always tell children stories with animals?"
     ]
   },
   {
+    id: "celebrity-advertisement",
+    topic: "An advertisement with a famous person",
+    p2Prompt: cueCard("Describe an advertisement with a famous person in it", [
+      "Who the person is",
+      "Where you can see it",
+      "What the advertisement is about",
+      "And explain how you feel about the advertisement"
+    ]),
+    p3Questions: [
+      "What are the advantages and disadvantages of advertisements?",
+      "Why are many advertisements endorsed by celebrities? How useful are they?",
+      "What is the most important factor in an advertisement?",
+      "Why are some advertisements boring?",
+      "Is advertising important for a company? Why?",
+      "Which is more effective, online advertising or offline advertising?",
+      "Why are many advertisements endorsed by celebrities?",
+      "How useful are they?"
+    ]
+  },
+  {
+    id: "a-food-that-people-eat-on-special-occasions-events",
+    topic: "a food that people eat on special occasions/events",
+    aliases: ["Describe a food that people eat on special occasions/events"],
+    p2Prompt: cueCard("Describe a kind of food that you ate at special occasions", [
+      "What it is",
+      "What occasion it was",
+      "Why you would like to eat it",
+      "And explain how you feel about it"
+    ]),
+    p3Questions: [
+      "Why do people eat special food on special occasions or festivals?",
+      "What are the differences between everyday food and festival food?",
+      "Are there any differences between the food people eat today and the food people ate in the past?",
+      "Do people today prefer eating at home or in a restaurant?",
+      "What kinds of food are popular in your country?",
+      "Do people in your country like eating foreign food?",
+      "Why are there special foods on special occasions or events?"
+    ]
+  },
+  {
+    id: "new-law",
+    topic: "A new law",
+    p2Prompt: cueCard("Describe a new law you would like to introduce in your country", [
+      "What law it is",
+      "What changes this law has",
+      "Whether this new law will be popular",
+      "How you came up with the new law",
+      "And explain how you feel about this new law"
+    ]),
+    p3Questions: [
+      "What rules should students follow at school?",
+      "Do people in your country usually obey the law?",
+      "What kinds of behavior are considered as good behavior?",
+      "Do you think children can learn about the law outside of school?",
+      "What are the benefits for people if they obey the rules?",
+      "How can parents teach children to obey rules?",
+      "What kinds of behavior are considered good behavior?",
+      "What are the benefits for people to obey rules?"
+    ]
+  },
+  {
+    id: "interesting-video",
+    topic: "An interesting video",
+    p2Prompt: cueCard("Describe an interesting video", [
+      "When and where you watched it",
+      "What it is about",
+      "Why you watched it",
+      "And explain how you feel about it"
+    ]),
+    p3Questions: [
+      "What kind of videos do people in your country like to watch?",
+      "Which is more helpful, watching videos or reading books?",
+      "What skills can people learn from watching videos?",
+      "What are the advantages of online learning?",
+      "Are there any differences between the videos that young people and old people like to watch?",
+      "Are there any differences between the videos that young men and young women like to watch?",
+      "What makes a video go viral online?"
+    ]
+  },
+  // ---- Retired (2026 年 5–8 月) ----
+  {
     id: "environmental-law",
+    retired: true,
     topic: "An environmental protection law",
     p2Prompt: cueCard("Describe a law on environmental protection", [
       "What it is",
@@ -741,198 +1841,8 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     ]
   },
   {
-    id: "home-to-visit",
-    topic: "A home you like to visit",
-    p2Prompt: cueCard("Describe a home that you like to visit but do not want to live in", [
-      "Where it is",
-      "What it is like",
-      "Why you like to visit it",
-      "And explain why you would not like to live there"
-    ]),
-    p3Questions: [
-      "Do Chinese people like to visit others' homes?",
-      "What do Chinese people do when they visit others?",
-      "How often do you visit your relatives or friends?",
-      "Do Chinese people like to visit others’ homes?",
-      "What kind of place do people in your country like to live in?",
-      "What's the difference between homes in cities and those in the countryside?",
-      "What kind of gifts do people usually bring when they visit others?"
-    ]
-  },
-  {
-    id: "new-law",
-    topic: "A new law",
-    p2Prompt: cueCard("Describe a new law you would like to introduce in your country", [
-      "What law it is",
-      "What changes this law brings",
-      "Whether this new law will be popular",
-      "How you came up with the new law",
-      "And explain how you feel about this new law"
-    ]),
-    p3Questions: [
-      "What rules should students follow at school?",
-      "Do people in your country usually obey the law?",
-      "What kinds of behavior are considered good behavior?",
-      "What are the benefits for people to obey rules?",
-      "How can parents teach children to obey rules?",
-      "What kinds of behavior are considered as good behavior?",
-      "Do you think children can learn about the law outside of school?"
-    ]
-  },
-  {
-    id: "local-news",
-    topic: "A piece of local news",
-    p2Prompt: cueCard("Describe a piece of local news that people are interested in", [
-      "What it was about",
-      "Where you saw/heard it",
-      "Who was involved",
-      "And explain why people were interested in it"
-    ]),
-    p3Questions: [
-      "Do people read the newspaper where you live?",
-      "Do people prefer local or international news?",
-      "Do you think it's important to have a national identity?",
-      "How can people develop their national identity?"
-    ]
-  },
-  {
-    id: "successful-business-person",
-    topic: "A person with a successful business",
-    p2Prompt: cueCard("Describe a person you know who has a successful business", [
-      "Who this person is",
-      "How you got to know him/her",
-      "Why and how he/she started the business",
-      "What business he/she does",
-      "And explain why you think the business is successful"
-    ]),
-    p3Questions: [
-      "Why do some people start their own business?",
-      "What makes a business successful?",
-      "What makes a business fail?",
-      "Is it easy to set up a new business in your country?",
-      "Should governments provide financial support to start-ups?",
-      "Do most people prefer shopping at big stores or small stores?"
-    ]
-  },
-  {
-    id: "plant-lover",
-    topic: "A person who loves growing plants",
-    p2Prompt: cueCard("Describe a person who loves to grow plants at home or in the garden", [
-      "Who this person is",
-      "What plants he/she grows",
-      "How he/she grows the plants",
-      "And explain why he/she loves growing plants"
-    ]),
-    p3Questions: [
-      "Is it easy to grow plants at home?",
-      "Why do people like to grow plants?",
-      "Do you think students should learn to grow plants?",
-      "What are the advantages of growing vegetables or flowers at home?",
-      "Do many people grow vegetables or flowers at home in your country?",
-      "Why do some people prefer to grow their own fruits and vegetables instead of buying them from the market?",
-      "Do you think students should learn to grow plant?"
-    ]
-  },
-  {
-    id: "childhood-friend",
-    topic: "A childhood friend",
-    p2Prompt: cueCard("Describe a friend from your childhood", [
-      "Who he/she is",
-      "Where and how you met each other",
-      "What you often did together",
-      "And explain what made you like him/her"
-    ]),
-    p3Questions: [
-      "How important is childhood friendship to children?",
-      "What do you think of communicating via social media?",
-      "Has technology changed people's friendships? How?",
-      "Do you still keep in touch with your friends from childhood? Why or why not?",
-      "Do you think online communication through social media will replace face-to-face communication?",
-      "What's the difference between having younger friends and older friends?"
-    ]
-  },
-  {
-    id: "live-sports-event",
-    topic: "A live sports event",
-    p2Prompt: cueCard("Describe a live sports event you watched and liked", [
-      "What it was",
-      "When and where you watched it",
-      "Who you watched it with",
-      "And explain why you liked it"
-    ]),
-    p3Questions: [
-      "Why do some people like to watch sports events?",
-      "Where do people normally watch sports events?",
-      "What sports games are popular in your country?",
-      "What are the advantages of watching sports events online?",
-      "What sports matches are suitable for children to attend?",
-      "Why do some people spend a lot going to other countries to watch sports events?"
-    ]
-  },
-  {
-    id: "important-decision",
-    topic: "An important decision",
-    p2Prompt: cueCard("Describe an important decision that you made", [
-      "What the decision was",
-      "How you made your decision",
-      "What the results of the decision were",
-      "And explain why it was important"
-    ]),
-    p3Questions: [
-      "How do people usually make important decisions?",
-      "Do you think the influence of advertising is good?",
-      "Do you think children sometimes have to make important decisions?",
-      "What important decisions do teenagers need to make after graduation?",
-      "Who can children turn to for help when making a decision?",
-      "Do you think advertisements can influence our decisions when shopping?"
-    ]
-  },
-  {
-    id: "celebrity-advertisement",
-    topic: "An advertisement with a famous person",
-    p2Prompt: cueCard("Describe an advertisement with a famous person in it", [
-      "Who the person is",
-      "Where you can see it",
-      "What the advertisement is about",
-      "And explain how you feel about the advertisement"
-    ]),
-    p3Questions: [
-      "Why are many advertisements endorsed by celebrities?",
-      "How useful are they?",
-      "What is the most important factor in an advertisement?",
-      "Why are some advertisements boring?",
-      "Is advertising important for a company? Why?",
-      "What are the advantages and disadvantages of advertisements?",
-      "Why are many advertisements endorsed by celebrities? How useful are they?",
-      "Which is more effective, online advertising or offline advertising?"
-    ]
-  },
-  {
-    id: "long-term-goal",
-    topic: "A long-term goal or ambition",
-    p2Prompt: cueCard("Describe a long-term goal/ambition you would like to achieve", [
-      "How long you have had this goal/ambition",
-      "What it is",
-      "How you will achieve it",
-      "And explain why you set it"
-    ]),
-    p3Questions: [
-      "Why should children have ambitions?",
-      "What do you think of people going after high positions?",
-      "Is it good for a person to be ambitious?",
-      "Why are some young people keen on being fans of superstars?",
-      "Do you think it is necessary to be ambitious when working in a team in a company?",
-      "Should parents support their children in pursuing their ambitions?",
-      "What goals should a society have?",
-      "Do people need to have goals?",
-      "What goals do people at your age have?",
-      "Is it necessary to give advice to children?",
-      "What goals do young people usually have?",
-      "What should people do to achieve their goals?"
-    ]
-  },
-  {
     id: "language-learning-activity",
+    retired: true,
     topic: "Something you did to learn another language",
     p2Prompt: cueCard("Describe a thing you did to learn another language", [
       "What language you learned",
@@ -953,6 +1863,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "organized-happy-event",
+    retired: true,
     topic: "Organizing a happy event",
     p2Prompt: cueCard("Describe a time when you organized a happy event successfully", [
       "What the event was",
@@ -970,6 +1881,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "important-river-lake",
+    retired: true,
     topic: "An important river or lake",
     p2Prompt: cueCard("Describe an important river/lake in your country", [
       "Where it is located",
@@ -988,6 +1900,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "traffic-jam",
+    retired: true,
     topic: "A long traffic jam",
     p2Prompt: cueCard("Describe a time when you were stuck in a traffic jam for a very long time", [
       "When it happened",
@@ -1007,12 +1920,13 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "cheap-day-out",
+    retired: true,
     topic: "A special day out that cost little money",
     p2Prompt: cueCard("Describe a special day out that cost you little money or did not cost you much", [
-      "Whenthedaywas",
-      "Whereyouwent",
-      "Howmuchyouspent",
-      "Andexplainhowyoufeelabouttheday"
+      "When the day was",
+      "Where you went",
+      "How much you spent",
+      "And explain how you feel about the day"
     ]),
     p3Questions: [
       "How do people spend their leisure time in your country?",
@@ -1022,6 +1936,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-special-cake-you-received-from-others",
+    retired: true,
     topic: "a special cake you received from others",
     p2Prompt: cueCard("Describe a special cake you received from others", [
       "When it happened",
@@ -1039,41 +1954,8 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     ]
   },
   {
-    id: "a-time-when-you-changed-an-important-opinion-of-yours",
-    topic: "a time when you changed an important opinion of yours",
-    p2Prompt: cueCard("Describe a time when you changed an important opinion of yours", [
-      "When you changed your opinion",
-      "What the original opinion was",
-      "Why you changed it",
-      "And explain how you felt about the experience"
-    ]),
-    p3Questions: [
-      "When do most children begin to have their own opinions?",
-      "Whose opinions are more important to children, their parents' or teachers'?",
-      "Do children communicate more with teachers or with parents?",
-      "Who do young people like to share opinions with?"
-    ]
-  },
-  {
-    id: "a-time-when-you-sent-a-message-or-an-email-to-someone-bu",
-    topic: "a time when you sent a message or an email to someone but received no reply for a long time",
-    p2Prompt: cueCard("Describe a time when you sent a message or an email to someone but received no reply for a long time", [
-      "Who you sent it to",
-      "What the message/email was about",
-      "Whether you finally received the reply",
-      "And explain how you felt about the experience"
-    ]),
-    p3Questions: [
-      "In what situations do people spend a long time responding to others' messages?",
-      "In what situations do people not respond to messages right away?",
-      "What would you do if you haven't received a reply after sending out a message?",
-      "Why do some people prefer sending a message instead of making a call?",
-      "How do you show your respect in your message?",
-      "Why do some people feel angry when others don't reply to their message?"
-    ]
-  },
-  {
     id: "a-person-who-works-in-a-successful-company",
+    retired: true,
     topic: "a person who works in a successful company",
     p2Prompt: cueCard("Describe a person who works in a successful company", [
       "Who he/she is",
@@ -1089,6 +1971,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-place-you-would-like-to-visit-in-your-free-time",
+    retired: true,
     topic: "a place you would like to visit in your free time",
     p2Prompt: cueCard("Describe a place you would like to visit in your free time", [
       "Where it is",
@@ -1102,41 +1985,8 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     ]
   },
   {
-    id: "a-food-that-people-eat-on-special-occasions-events",
-    topic: "a food that people eat on special occasions/events",
-    p2Prompt: cueCard("Describe a food that people eat on special occasions/events", [
-      "What it is",
-      "What the special event/occasion is",
-      "How it is cooked/made",
-      "And explain why people eat it on that special occasion/event"
-    ]),
-    p3Questions: [
-      "Why are there special foods on special occasions or events?",
-      "What are the differences between everyday food and festival food?",
-      "Are there any differences between the food people eat today and the food people ate in the past?",
-      "Do people today prefer eating at home or in a restaurant?"
-    ]
-  },
-  {
-    id: "a-person-you-know-who-would-like-to-choose-a-career-in-t",
-    topic: "a person you know who would like to choose a career in the medical field",
-    p2Prompt: cueCard("Describe a person you know who would like to choose a career in the medical field", [
-      "When you knew him/her",
-      "When he/she started to think about that",
-      "What he/she would like to do",
-      "And explain why he/she would like to choose this career"
-    ]),
-    p3Questions: [
-      "Do you think being a doctor is easy or difficult?",
-      "Do you think learning biology is interesting for children?",
-      "Why do some children want to become doctors?",
-      "Do you think governments should put a large amount of money into medical research?",
-      "Why is some doctors' pay high and others' low?",
-      "Do you think doctors should be paid more?"
-    ]
-  },
-  {
     id: "a-special-day-out-that-cost-you-little-money-didn-t-cost",
+    retired: true,
     topic: "a special day out that cost you little money/didn't cost you much",
     p2Prompt: cueCard("Describe a special day out that cost you little money/didn't cost you much", [
       "When the day was",
@@ -1154,51 +2004,8 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
     ]
   },
   {
-    id: "an-environmental-law-you-would-like-your-country-to-intr",
-    topic: "an environmental law you would like your country to introduce",
-    p2Prompt: cueCard("Describe an environmental law you would like your country to introduce", [
-      "What law it should be",
-      "Why people should follow the law",
-      "Whether the law will be popular",
-      "And explain how you feel about this law"
-    ]),
-    p3Questions: [
-      "How does technology affect the law?",
-      "What kinds of rules do schools in China have?",
-      "Will there be a law that is universally accepted?",
-      "What environmental laws does your country already have?"
-    ]
-  },
-  {
-    id: "a-person-who-met-difficulties-but-succeeded",
-    topic: "a person who met difficulties but succeeded",
-    p2Prompt: cueCard("Describe a person who met difficulties but succeeded", [
-      "Who this person is",
-      "What difficulties he met",
-      "How he overcame the difficulties",
-      "And explain how you feel about him"
-    ]),
-    p3Questions: [
-      "In your country, what industry is it easier to be successful in?",
-      "What's the difference between ordinary people and successful people?",
-      "What are the factors leading to people's success?"
-    ]
-  },
-  {
-    id: "a-time-when-a-person-did-something-to-help-you-solve-a-p",
-    topic: "a time when a person did something to help you solve a problem",
-    p2Prompt: cueCard("Describe a time when a person did something to help you solve a problem", [
-      "Who the person is",
-      "What the problem was",
-      "How he/she helped you",
-      "And explain how you felt about the experience"
-    ]),
-    p3Questions: [
-      "How important is it for schools to help children become smarter?"
-    ]
-  },
-  {
     id: "a-time-when-you-had-a-problem-with-using-an-electronic-d",
+    retired: true,
     topic: "a time when you had a problem with using an electronic device",
     p2Prompt: cueCard("Describe a time when you had a problem with using an electronic device", [
       "When it happened",
@@ -1213,6 +2020,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-tv-show-online-program-you-have-watched-recently",
+    retired: true,
     topic: "a TV show/online program you have watched recently",
     p2Prompt: cueCard("Describe a TV show/online program you have watched recently", [
       "What it is",
@@ -1228,6 +2036,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "your-favorite-city-that-you-have-visited",
+    retired: true,
     topic: "your favorite city that you have visited",
     p2Prompt: cueCard("Describe your favorite city that you have visited", [
       "Where it is",
@@ -1244,6 +2053,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-city-you-enjoyed-visiting",
+    retired: true,
     topic: "a city you enjoyed visiting",
     p2Prompt: cueCard("Describe a city you enjoyed visiting", [
       "Where it is",
@@ -1261,6 +2071,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-person-who-likes-to-look-after-the-natural-world",
+    retired: true,
     topic: "a person who likes to look after the natural world",
     p2Prompt: cueCard("Describe a person who likes to look after the natural world", [
       "Who this person is",
@@ -1280,6 +2091,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-short-term-job-you-want-to-have-in-a-foreign-country",
+    retired: true,
     topic: "a short-term job you want to have in a foreign country",
     p2Prompt: cueCard("Describe a short-term job you want to have in a foreign country", [
       "Where it is",
@@ -1298,6 +2110,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-time-when-you-gave-advice-to-others",
+    retired: true,
     topic: "a time when you gave advice to others",
     p2Prompt: cueCard("Describe a time when you gave advice to others", [
       "When it was",
@@ -1316,6 +2129,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-person-who-often-helps-others",
+    retired: true,
     topic: "a person who often helps others",
     p2Prompt: cueCard("Describe a person who often helps others", [
       "Who this person is",
@@ -1334,6 +2148,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "an-event-you-attended-in-which-you-didn-t-enjoy-the-musi",
+    retired: true,
     topic: "an event you attended in which you didn't enjoy the music played",
     p2Prompt: cueCard("Describe an event you attended in which you didn't enjoy the music played", [
       "What it was",
@@ -1352,6 +2167,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "one-of-your-friends-who-learned-something-without-a-teac",
+    retired: true,
     topic: "one of your friends who learned something without a teacher",
     p2Prompt: cueCard("Describe one of your friends who learned something without a teacher", [
       "Who he/she is",
@@ -1370,6 +2186,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-piece-of-technology-that-you-would-like-to-own",
+    retired: true,
     topic: "a piece of technology that you would like to own",
     p2Prompt: cueCard("Describe a piece of technology that you would like to own", [
       "What it is",
@@ -1388,6 +2205,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-perfect-job-you-would-like-to-have-in-the-future",
+    retired: true,
     topic: "a perfect job you would like to have in the future",
     p2Prompt: cueCard("Describe a perfect job you would like to have in the future", [
       "What it is",
@@ -1406,6 +2224,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-child-you-know-who-likes-drawing-very-much",
+    retired: true,
     topic: "a child you know who likes drawing very much",
     p2Prompt: cueCard("Describe a child you know who likes drawing very much", [
       "How you knew him/her",
@@ -1424,6 +2243,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-program-or-app-on-your-computer-or-phone",
+    retired: true,
     topic: "a program or app on your computer or phone",
     p2Prompt: cueCard("Describe a program or app on your computer or phone", [
       "What it is",
@@ -1443,6 +2263,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-person-who-makes-plans-a-lot-and-is-good-at-planning",
+    retired: true,
     topic: "a person who makes plans a lot and is good at planning",
     p2Prompt: cueCard("Describe a person who makes plans a lot and is good at planning", [
       "Who he/she is",
@@ -1461,6 +2282,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-shop-store-you-enjoy-visiting",
+    retired: true,
     topic: "a shop/store you enjoy visiting",
     p2Prompt: cueCard("Describe a shop/store you enjoy visiting", [
       "What the shop's name is",
@@ -1479,6 +2301,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-famous-person-you-would-like-to-meet",
+    retired: true,
     topic: "a famous person you would like to meet",
     p2Prompt: cueCard("Describe a famous person you would like to meet", [
       "Who he/she is",
@@ -1497,6 +2320,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "an-interesting-building",
+    retired: true,
     topic: "an interesting building",
     p2Prompt: cueCard("Describe an interesting building", [
       "Where it is",
@@ -1515,6 +2339,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-movie-you-watched-and-enjoyed-recently",
+    retired: true,
     topic: "a movie you watched and enjoyed recently",
     p2Prompt: cueCard("Describe a movie you watched and enjoyed recently", [
       "When and where you watched it",
@@ -1533,6 +2358,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-tv-or-online-program-you-like-to-watch",
+    retired: true,
     topic: "a TV or online program you like to watch",
     p2Prompt: cueCard("Describe a TV or online program you like to watch", [
       "What it is",
@@ -1551,6 +2377,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-quiet-place-you-like-to-go",
+    retired: true,
     topic: "a quiet place you like to go",
     p2Prompt: cueCard("Describe a quiet place you like to go", [
       "Where it is",
@@ -1570,6 +2397,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "an-item-on-which-you-spent-more-than-expected",
+    retired: true,
     topic: "an item on which you spent more than expected",
     p2Prompt: cueCard("Describe an item on which you spent more than expected", [
       "What it is",
@@ -1588,6 +2416,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-time-when-you-felt-proud-of-a-family-member",
+    retired: true,
     topic: "a time when you felt proud of a family member",
     p2Prompt: cueCard("Describe a time when you felt proud of a family member", [
       "When it happened",
@@ -1605,6 +2434,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-bicycle-motorcycle-car-trip-you-would-like-to-go",
+    retired: true,
     topic: "a bicycle/motorcycle/car trip you would like to go",
     p2Prompt: cueCard("Describe a bicycle/motorcycle/car trip you would like to go", [
       "Who you would like to go with",
@@ -1623,6 +2453,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-person-who-solved-a-problem-in-a-smart-way",
+    retired: true,
     topic: "a person who solved a problem in a smart way",
     p2Prompt: cueCard("Describe a person who solved a problem in a smart way", [
       "Who this person is",
@@ -1641,6 +2472,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "an-occasion-when-many-people-were-smiling",
+    retired: true,
     topic: "an occasion when many people were smiling",
     p2Prompt: cueCard("Describe an occasion when many people were smiling", [
       "When it happened",
@@ -1659,6 +2491,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "an-occasion-when-you-were-not-allowed-to-use-your-mobile",
+    retired: true,
     topic: "an occasion when you were not allowed to use your mobile phone",
     p2Prompt: cueCard("Describe an occasion when you were not allowed to use your mobile phone", [
       "When it was",
@@ -1677,6 +2510,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-time-when-you-encouraged-someone-to-do-something-that",
+    retired: true,
     topic: "a time when you encouraged someone to do something that he/she didn't want to do",
     p2Prompt: cueCard("Describe a time when you encouraged someone to do something that he/she didn't want to do", [
       "Who he or she is",
@@ -1695,6 +2529,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "something-important-that-has-been-kept-in-your-family-fo",
+    retired: true,
     topic: "something important that has been kept in your family for a long time",
     p2Prompt: cueCard("Describe something important that has been kept in your family for a long time", [
       "What it is",
@@ -1713,6 +2548,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-time-you-needed-to-use-your-imagination",
+    retired: true,
     topic: "a time you needed to use your imagination",
     p2Prompt: cueCard("Describe a time you needed to use your imagination", [
       "When it was",
@@ -1731,6 +2567,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-place-where-you-enjoy-shopping",
+    retired: true,
     topic: "a place where you enjoy shopping",
     p2Prompt: cueCard("Describe a place where you enjoy shopping", [
       "What its name is",
@@ -1748,6 +2585,7 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
   },
   {
     id: "a-city-that-you-have-been-to-and-would-like-to-visit-aga",
+    retired: true,
     topic: "a city that you have been to and would like to visit again",
     p2Prompt: cueCard("Describe a city that you have been to and would like to visit again", [
       "When you visited it",
@@ -1763,24 +2601,8 @@ export const p2P3QuestionBank: P2P3QuestionSet[] = [
       "Are there any changes in your city?",
       "What should the government do to improve citizens's safety?"
     ]
-  },
-  {
-    id: "a-successful-sportsperson-you-admire",
-    topic: "a successful sportsperson you admire",
-    p2Prompt: cueCard("Describe a successful sportsperson you admire", [
-      "Who he/she is",
-      "What you know about him/her",
-      "What he/she is like in real life",
-      "What achievement he/she has made",
-      "And explain why you admire him/her"
-    ]),
-    p3Questions: [
-      "Should students have physical education and do sports at school?",
-      "What qualities should an athlete have?",
-      "Is talent important in sports?",
-      "Is it easy to identify children's talents?",
-      "What is the most popular sport in your country?",
-      "Why are there so few top athletes?"
-    ]
   }
 ];
+
+export const currentP1Bank = p1QuestionBank.filter((set) => !set.retired);
+export const currentP2P3Bank = p2P3QuestionBank.filter((set) => !set.retired);

@@ -69,6 +69,10 @@ export type StudentOverviewRow = {
   course_plan: string;
   /** False once the student has stopped taking lessons. */
   is_active: boolean;
+  /** Hours from confirmed bookings that have already happened. */
+  taught_hours_auto: number;
+  /** The teacher's own figure, when they have set one; null means use the automatic total. */
+  taught_hours_override: number | null;
   speaking: StudentOverviewScore | null;
   writing: StudentOverviewScore | null;
   next_lesson: StudentOverviewLesson | null;

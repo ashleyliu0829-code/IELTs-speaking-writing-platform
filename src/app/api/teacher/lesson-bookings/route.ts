@@ -137,3 +137,35 @@ async function findConflict(
   const clash = data?.[0] as { student_name?: string } | undefined;
   return clash ? clash.student_name || "已有预约" : null;
 }
+
+/**
+ * Removing a lesson outright, as opposed to cancelling it. Cancelling is the
+ * student-facing flow with its four-hour rule and a suggested new time; this
+ * is for tidying the record — a past lesson that never happened, or one added
+ * by hand in error. The row goes, so the taught-hours total drops with it.
+ */
+export async function DELETE(request: NextRequest) {
+  const account = await getCurrentAccount();
+  if (account?.role !== "teacher" && account?.role !== "assistant") {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const bookingId = request.nextUrl.searchParams.get("bookingId") || "";
+  if (!z.string().uuid().safeParse(bookingId).success) {
+    return Response.json({ error: "Missing bookingId." }, { status: 400 });
+  }
+
+  const supabase = getSupabaseForAccount(account);
+  const { data: booking, error: lookupError } = await supabase
+    .from("lesson_bookings")
+    .select("id, slots:lesson_slots!inner(teacher_id)")
+    .eq("id", bookingId)
+    .eq("slots.teacher_id", account.id)
+    .maybeSingle();
+  if (lookupError) return Response.json({ error: lookupError.message }, { status: 500 });
+  if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
+
+  const { error } = await supabase.from("lesson_bookings").delete().eq("id", bookingId);
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+  return Response.json({ ok: true });
+}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { TeacherHomeActivity, TeacherHomeLesson } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
 import { TeacherTodoPanel } from "@/components/TeacherTodos";
+import { activeAnnouncements } from "@/lib/announcements";
 
 /**
  * The teacher's home page once the workspaces moved into the sidebar: what is
@@ -51,6 +52,7 @@ export function TeacherHomePanels({
   }, []);
 
   const days = useMemo(() => groupByDay(lessons), [lessons]);
+  const notices = useMemo(() => activeAnnouncements(now), [now]);
 
   return (
     <div className="home-panels">
@@ -110,10 +112,21 @@ export function TeacherHomePanels({
           )}
         </div>
 
-        {loading && !activity.length && <p className="hint">{t("正在加载...", "Loading...")}</p>}
-        {!loading && !activity.length && !status && <p className="hint">{t("最近 30 天没有新动态。", "Nothing in the last 30 days.")}</p>}
+        {loading && !activity.length && !notices.length && <p className="hint">{t("正在加载...", "Loading...")}</p>}
+        {!loading && !activity.length && !notices.length && !status && <p className="hint">{t("最近 30 天没有新动态。", "Nothing in the last 30 days.")}</p>}
 
         <div className="home-feed">
+          {notices.map((notice) => (
+            <div className="home-feed-row" key={notice.id}>
+              <span className="home-feed-dot notice" aria-hidden="true" />
+              <div className="home-feed-body">
+                <p>
+                  <strong>{t("平台公告", "Notice")}</strong> · {t(notice.zh, notice.en)}
+                </p>
+                <small>{relativeTime(notice.at, now)}</small>
+              </div>
+            </div>
+          ))}
           {activity.map((item) => (
             <div className="home-feed-row" key={item.id}>
               <span className={`home-feed-dot ${item.kind}`} aria-hidden="true" />

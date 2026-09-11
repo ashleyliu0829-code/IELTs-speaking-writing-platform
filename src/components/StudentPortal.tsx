@@ -7,6 +7,7 @@ import { StudentDailyTasksPanel } from "@/components/DailyTasks";
 import { StudentHomePanels } from "@/components/StudentHome";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
 import { tr, useLanguage } from "@/lib/i18n";
+import { activeAnnouncements } from "@/lib/announcements";
 import homeworkIcon from "../../public/icons/workspace-homework.png";
 import lessonSchedulingIcon from "../../public/icons/workspace-lesson-scheduling.png";
 
@@ -40,7 +41,7 @@ type StudentNotification = {
   title: string;
   message: string;
   href: string;
-  tone: "assigned" | "reviewed";
+  tone: "assigned" | "reviewed" | "notice";
 };
 
 type LocalPracticeRecording = {
@@ -458,7 +459,7 @@ export function StudentPortal() {
 
   const homeworkRows = getStudentHomeworkRows(assignments, historySubmissions);
   const notificationRows = getStudentHomeworkRows(allAssignments, historySubmissions);
-  const notifications = getStudentNotifications(notificationRows);
+  const notifications = [...announcementNotices(), ...getStudentNotifications(notificationRows)];
   const { latestHomework, historyHomework } = splitStudentHomeworkRows(homeworkRows);
   const practiceCompletedIds = getCompletedPracticeTopicIds(speakingPractices);
   const assignedSpeakingTopicIds = getSpeakingTopicIdsFromAssignments(
@@ -825,6 +826,17 @@ function splitStudentHomeworkRows(assignments: StudentHomeworkRow[]) {
     latestHomework,
     historyHomework: sorted.filter((assignment) => !latestIds.has(assignment.id))
   };
+}
+
+// Platform notices go first: they are the rarest thing in the list.
+function announcementNotices(): StudentNotification[] {
+  return activeAnnouncements().map((notice) => ({
+    id: `notice-${notice.id}`,
+    title: tr("平台公告", "Notice"),
+    message: tr(notice.zh, notice.en),
+    href: "#",
+    tone: "notice"
+  }));
 }
 
 function getStudentNotifications(assignments: StudentHomeworkRow[]): StudentNotification[] {

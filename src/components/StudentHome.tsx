@@ -26,7 +26,7 @@ export type StudentNotice = {
   title: string;
   message: string;
   href: string;
-  tone: "assigned" | "reviewed";
+  tone: "assigned" | "reviewed" | "notice";
 };
 
 type HomeLesson = {
@@ -225,10 +225,17 @@ export function StudentHomePanels({
             </div>
             <div className="student-notification-list">
               {notifications.map((notice) => (
+                notice.tone === "notice" ? (
+                  <div className="student-notification-item notice" key={notice.id}>
+                    <strong>{notice.title}</strong>
+                    <span>{notice.message}</span>
+                  </div>
+                ) : (
                 <a className={`student-notification-item ${notice.tone}`} href={notice.href} key={notice.id}>
                   <strong>{notice.title}</strong>
                   <span>{notice.message}</span>
                 </a>
+                )
               ))}
             </div>
           </>

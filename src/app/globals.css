@@ -837,6 +837,10 @@ h3 {
   background: var(--muted);
 }
 
+.home-feed-dot.notice {
+  background: var(--accent);
+}
+
 .home-feed-dot.submission {
   background: var(--brand);
 }
@@ -920,31 +924,6 @@ h3 {
   }
 }
 
-.area-tabs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.area-tab {
-  display: grid;
-  gap: 6px;
-  min-height: 88px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--white);
-  color: var(--muted);
-  box-shadow: var(--shadow);
-  text-align: left;
-}
-
-.area-tab strong {
-  color: var(--ink);
-  font-size: 20px;
-}
-
 .workspace-title {
   display: inline-flex;
   align-items: center;
@@ -956,11 +935,6 @@ h3 {
   height: 30px;
   flex: 0 0 30px;
   object-fit: contain;
-}
-
-.area-tab.active {
-  border-color: rgba(38, 51, 47, .5);
-  background: var(--soft);
 }
 
 .student-notification-summary {
@@ -993,6 +967,11 @@ h3 {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.student-notification-item.notice {
+  border-color: rgba(242, 140, 112, .45);
+  background: #fbeee8;
 }
 
 .student-notification-item.assigned {
@@ -1722,6 +1701,16 @@ textarea:focus {
   gap: 10px;
 }
 
+.overview-hours-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.overview-hours-row input {
+  width: 110px;
+}
+
 .overview-month-row {
   display: flex;
   flex-wrap: wrap;
@@ -2278,6 +2267,26 @@ audio {
   min-width: 0;
 }
 
+/* The list keeps to the viewport and scrolls on its own, so a long back
+   catalogue never pushes the editor off the page; it also stays put while
+   the editor scrolls. */
+.publish-homework-list {
+  position: sticky;
+  top: 16px;
+  align-content: start;
+}
+
+.publish-homework-list input[type="search"] {
+  font-size: 13px;
+  padding: 7px 10px;
+}
+
+.publish-homework-scroll {
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .compact-assignment-row {
   display: grid;
   gap: 6px;
@@ -2471,6 +2480,32 @@ audio {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--white);
+}
+
+.topic-list-divider {
+  margin-top: 6px;
+  padding: 6px 2px 2px;
+  border-top: 1px dashed var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.topic-picker-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.topic-picker-foot .check-row {
+  margin: 0;
+  font-size: 12px;
+}
+
+.topic-picker-chip em.muted {
+  background: var(--soft);
+  color: var(--muted);
 }
 
 .topic-list {
@@ -3245,6 +3280,12 @@ audio {
   background: var(--white);
 }
 
+/* A past lesson only has a delete control, so the row is two columns. */
+.booking-admin-row.passed {
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+}
+
 .booking-admin-row.upcoming,
 .schedule-card.booked.upcoming {
   border-color: var(--done-line);
@@ -3448,7 +3489,6 @@ audio {
   .topbar,
   .hero,
   .grid,
-  .area-tabs,
   .two {
     grid-template-columns: 1fr;
   }

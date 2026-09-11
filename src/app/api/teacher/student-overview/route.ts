@@ -38,10 +38,10 @@ export async function GET() {
   const { account, supabase } = auth;
 
   const now = new Date().toISOString();
-  const [students, accounts, submissions, bookings] = await Promise.all([
+  const [students, accounts, submissions, bookings, pastBookings] = await Promise.all([
     supabase
       .from("students")
-      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, is_active")
+      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, is_active, taught_hours_override")
       .order("name", { ascending: true }),
     supabase.from("accounts").select("id, created_at, phone").eq("role", "student"),
     supabase
@@ -54,10 +54,17 @@ export async function GET() {
       .eq("lesson_slots.teacher_id", account.id)
       .in("status", ["pending", "confirmed"])
       .gte("start_at", now)
-      .order("start_at", { ascending: true })
+      .order("start_at", { ascending: true }),
+    // Lessons already taught: confirmed bookings whose start has passed.
+    supabase
+      .from("lesson_bookings")
+      .select("student_name, student_account_id, course_minutes, lesson_slots!inner(teacher_id)")
+      .eq("lesson_slots.teacher_id", account.id)
+      .eq("status", "confirmed")
+      .lt("start_at", now)
   ]);
 
-  const failure = [students, accounts, submissions, bookings].find((result) => result.error);
+  const failure = [students, accounts, submissions, bookings, pastBookings].find((result) => result.error);
   if (failure?.error) return Response.json({ error: failure.error.message }, { status: 500 });
 
   const registeredAt = new Map<string, string>();
@@ -98,6 +105,20 @@ export async function GET() {
     }
   });
 
+  // Minutes taught, keyed both ways like the next lesson: by account when the
+  // booking carries one, by name for the ones that predate accounts.
+  const taughtByName = new Map<string, number>();
+  const taughtByAccount = new Map<string, number>();
+  ((pastBookings.data || []) as unknown as Pick<BookingRow, "student_name" | "student_account_id" | "course_minutes">[]).forEach((row) => {
+    const minutes = Number(row.course_minutes || 0);
+    if (row.student_account_id) {
+      taughtByAccount.set(row.student_account_id, (taughtByAccount.get(row.student_account_id) || 0) + minutes);
+    } else {
+      const nameKey = normalize(row.student_name);
+      taughtByName.set(nameKey, (taughtByName.get(nameKey) || 0) + minutes);
+    }
+  });
+
   const rows: StudentOverviewRow[] = (students.data || []).map((student) => {
     const accountId = (student.account_id as string | null) || null;
     const fromAccount = accountId ? registeredAt.get(accountId) : undefined;
@@ -115,6 +136,8 @@ export async function GET() {
       exam_date_confirmed: Boolean(student.exam_date_confirmed),
       course_plan: (student.course_plan as string | null) || "",
       is_active: student.is_active !== false,
+      taught_hours_auto: Math.round((((accountId ? taughtByAccount.get(accountId) : 0) || 0) + (taughtByName.get(key) || 0)) / 6) / 10,
+      taught_hours_override: student.taught_hours_override == null ? null : Number(student.taught_hours_override),
       speaking: latestScores.get(`${key}::speaking`) || null,
       writing: latestScores.get(`${key}::writing`) || null,
       next_lesson:
@@ -140,7 +163,9 @@ const editSchema = z.object({
   confirmed: z.boolean(),
   // Empty string means no plan chosen.
   coursePlan: z.string().default(""),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
+  // Null clears the manual figure so the automatic total shows again.
+  taughtHours: z.number().min(0).max(9999).nullable().default(null)
 });
 
 export async function PATCH(request: Request) {
@@ -150,7 +175,7 @@ export async function PATCH(request: Request) {
 
   const parsed = editSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "考试日期格式不正确。" }, { status: 400 });
-  const { studentId, examDate, confirmed, coursePlan, isActive } = parsed.data;
+  const { studentId, examDate, confirmed, coursePlan, isActive, taughtHours } = parsed.data;
 
   // The picker offers a fixed list, so anything else arrived from somewhere
   // that is not the picker, and is not written.
@@ -166,10 +191,11 @@ export async function PATCH(request: Request) {
       exam_date: examDate,
       exam_date_confirmed: examDate ? confirmed : false,
       course_plan: coursePlan,
-      is_active: isActive
+      is_active: isActive,
+      taught_hours_override: taughtHours
     })
     .eq("id", studentId)
-    .select("id, exam_date, exam_date_confirmed, course_plan, is_active")
+    .select("id, exam_date, exam_date_confirmed, course_plan, is_active, taught_hours_override")
     .maybeSingle();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

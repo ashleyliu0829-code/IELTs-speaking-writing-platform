@@ -37,6 +37,9 @@ export function TeacherDailyTasksPanel({ students, api, mode = "both", language 
   const [endDate, setEndDate] = useState(todayString());
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  // Which half is on screen. A fixed mode pins it; "both" starts on assigning
+  // and the switch above the card flips it.
+  const [view, setView] = useState<"assign" | "progress">(mode === "progress" ? "progress" : "assign");
   const selectedStudent = selectedStudentName || students[0]?.name || "";
   const { t } = useLanguage();
 
@@ -115,19 +118,25 @@ export function TeacherDailyTasksPanel({ students, api, mode = "both", language 
   }
 
   return (
+    <>
+    {mode === "both" && (
+      <div className="segmented">
+        <button className={`btn ${view === "assign" ? "" : "secondary"}`} onClick={() => setView("assign")} type="button">
+          {t("任务布置", "Set tasks")}
+        </button>
+        <button className={`btn ${view === "progress" ? "" : "secondary"}`} onClick={() => setView("progress")} type="button">
+          {t("完成情况", "Progress")}
+        </button>
+      </div>
+    )}
     <article className="card stack">
       <div className="section-head">
         <div>
-          <h2>{t("每日学习任务", "Daily study tasks")}</h2>
+          <h2>{view === "assign" ? t("任务布置", "Set daily tasks") : t("完成情况", "Daily task progress")}</h2>
           <div className="hint">
-            {mode === "assign"
+            {view === "assign"
               ? t("为学生设置一段时间内每天需要完成的任务。", "Set daily tasks for students over a date range.")
-              : mode === "progress"
-                ? t("查看学生每日任务完成情况和打卡进度。", "Review student daily task completion and check-in progress.")
-                : t(
-                    "设置每天要完成的任务，并查看学生的打卡情况。",
-                    "Set the daily tasks, and see how students are checking in."
-                  )}
+              : t("查看学生每日任务完成情况和打卡进度。", "Review student daily task completion and check-in progress.")}
           </div>
         </div>
         <button className="btn secondary" type="button" onClick={() => void loadTasks()} disabled={loading}>
@@ -135,7 +144,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "both", language 
         </button>
       </div>
 
-      {mode !== "progress" && (
+      {view === "assign" && (
         <section className="daily-task-editor">
           <div>
             <label>{t("任务标题", "Task title")}</label>
@@ -186,7 +195,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "both", language 
 
       {message && <p className={message.includes("Could not") || message.includes("Please") ? "error" : "hint"}>{message}</p>}
 
-      {mode !== "assign" && (
+      {view === "progress" && (
         <StudentDailyTaskHistory
           students={students}
           tasks={tasks}
@@ -242,6 +251,7 @@ export function TeacherDailyTasksPanel({ students, api, mode = "both", language 
         {selectedStudent ? <StudentCheckinCalendar studentName={selectedStudent} tasks={tasks} /> : null}
       </section>
     </article>
+    </>
   );
 }
 

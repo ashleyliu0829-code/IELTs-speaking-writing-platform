@@ -198,9 +198,28 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
       setLessonStudent("");
       setLessonStart("");
       await loadSlots();
-      setMessage(t("课程已加入课表，该时间段对其他学生显示为已占用。", "Lesson added. That time now shows as taken to other students."));
+      setMessage(
+        new Date(localDateTimeToUtc(lessonStart, timezone)).getTime() < Date.now()
+          ? t("已补录这节课，会计入该学生的已上课时。", "Past lesson recorded; it counts towards the student's lessons taught.")
+          : t("课程已加入课表，该时间段对其他学生显示为已占用。", "Lesson added. That time now shows as taken to other students.")
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t("无法新增课程。", "Could not add the lesson."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteBooking(bookingId: string) {
+    if (!window.confirm(t("确定删除这节课的记录吗？删除后不再计入已上课时。", "Delete this lesson record? It will no longer count towards lessons taught."))) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      await api(`/api/teacher/lesson-bookings?lessonType=${lessonType}&bookingId=${bookingId}`, { method: "DELETE" });
+      await loadSlots();
+      setMessage(t("课程记录已删除。", "Lesson record deleted."));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t("无法删除课程记录。", "Could not delete the lesson record."));
     } finally {
       setLoading(false);
     }
@@ -289,8 +308,8 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         <label>{t("直接新增课程", "Add a lesson directly")}</label>
         <div className="hint">
           {t(
-            "为某个学生排一节课，不需要等他发起预约。加入后这个时间对其他学生显示为已占用。",
-            "Schedule a lesson for a student without waiting for a request. The time then shows as taken to everyone else."
+            "为某个学生排一节课，不需要等他发起预约。也可以填过去的时间，补录已经上过的课。",
+            "Schedule a lesson for a student without waiting for a request. A past time records a lesson already taught."
           )}
         </div>
           <div>
@@ -344,6 +363,7 @@ export function TeacherSchedulePanel({ token, lessonType = "regular", language =
         loading={loading}
         setSuggestions={setSuggestions}
         onUpdate={updateBooking}
+        onDelete={deleteBooking}
       />
     </article>
   );
@@ -705,7 +725,8 @@ function TeacherBookingList({
   suggestions,
   loading,
   setSuggestions,
-  onUpdate
+  onUpdate,
+  onDelete
 }: {
   bookings: LessonBooking[];
   timezone: string;
@@ -714,6 +735,7 @@ function TeacherBookingList({
   loading: boolean;
   setSuggestions: (suggestions: Record<string, string>) => void;
   onUpdate: (bookingId: string, action: "confirm" | "cancel") => void;
+  onDelete: (bookingId: string) => void;
 }) {
   const t = (zh: string, en: string) => (language === "zh" ? zh : en);
   const visibleBookings = bookings
@@ -739,6 +761,7 @@ function TeacherBookingList({
             tone="upcoming"
             setSuggestions={setSuggestions}
             onUpdate={onUpdate}
+            onDelete={onDelete}
           />
           <TeacherBookingGroup
             title={t("已结束课程", "Past lessons")}
@@ -750,6 +773,7 @@ function TeacherBookingList({
             tone="passed"
             setSuggestions={setSuggestions}
             onUpdate={onUpdate}
+            onDelete={onDelete}
           />
         </div>
       ) : (
@@ -768,7 +792,8 @@ function TeacherBookingGroup({
   loading,
   tone,
   setSuggestions,
-  onUpdate
+  onUpdate,
+  onDelete
 }: {
   title: string;
   bookings: LessonBooking[];
@@ -779,6 +804,7 @@ function TeacherBookingGroup({
   tone: "upcoming" | "passed";
   setSuggestions: (suggestions: Record<string, string>) => void;
   onUpdate: (bookingId: string, action: "confirm" | "cancel") => void;
+  onDelete: (bookingId: string) => void;
 }) {
   const t = (zh: string, en: string) => (language === "zh" ? zh : en);
   return (
@@ -796,9 +822,15 @@ function TeacherBookingGroup({
                 <span className="hint">{formatRange(booking.start_at, booking.end_at, timezone)}</span>
                 <span className={`pill ${isConfirmedBooking(booking) ? "ok" : "warn"}`}>{bookingStatusLabel(booking, language)}</span>
               </div>
+              {tone === "passed" ? (
+                <button className="btn secondary" disabled={loading} onClick={() => onDelete(booking.id)} type="button">
+                  {t("删除", "Delete")}
+                </button>
+              ) : (
+              <>
               <button
                 className="btn"
-                disabled={loading || tone === "passed" || isConfirmedBooking(booking)}
+                disabled={loading || isConfirmedBooking(booking)}
                 onClick={() => onUpdate(booking.id, "confirm")}
                 type="button"
               >
@@ -809,18 +841,19 @@ function TeacherBookingGroup({
                 <input
                   type="datetime-local"
                   value={suggestions[booking.id] || ""}
-                  disabled={tone === "passed"}
                   onChange={(event) => setSuggestions({ ...suggestions, [booking.id]: event.target.value })}
                 />
               </div>
               <button
                 className="btn secondary"
-                disabled={loading || tone === "passed" || !canCancelBeforeFourHours(booking.start_at)}
+                disabled={loading || !canCancelBeforeFourHours(booking.start_at)}
                 onClick={() => onUpdate(booking.id, "cancel")}
                 type="button"
               >
                 {t("取消", "Cancel")}
               </button>
+              </>
+              )}
             </div>
           ))}
         </div>
