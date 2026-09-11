@@ -43,6 +43,10 @@ export function StudentOverviewPanel({
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<StudentOverviewRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  // Filtered by name only; inactive students keep their place at the bottom.
+  const needle = search.trim().toLowerCase();
+  const shown = needle ? rows.filter((row) => row.name.toLowerCase().includes(needle)) : rows;
   // Computed once. A countdown measured in days does not need to tick.
   const today = useMemo(() => startOfDay(new Date()), []);
   const { t } = useLanguage();
@@ -113,18 +117,28 @@ export function StudentOverviewPanel({
       <div className="section-head compact">
         <div>
           <h2>{t("学生档案", "Student archive")}</h2>
-          <div className="hint">{t("全部学生的总览：学习时长、当前水平、考试倒计时、课程计划和下次上课时间。", "Every student at a glance: time studying, current level, exam countdown, course plan and next lesson.")}</div>
         </div>
-        <button className="btn secondary" type="button" onClick={load} disabled={loading}>
-          {loading ? t("加载中...", "Loading...") : t("刷新", "Refresh")}
-        </button>
+        <div className="overview-tools">
+          <input
+            className="overview-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("搜索学生姓名", "Search by name")}
+            type="search"
+          />
+          <button className="btn secondary" type="button" onClick={load} disabled={loading}>
+            {loading ? t("加载中...", "Loading...") : t("刷新", "Refresh")}
+          </button>
+        </div>
       </div>
 
       {status && <p className="error">{status}</p>}
 
       {!loading && !rows.length && <p className="hint">{t("还没有学生档案。学生注册或填写姓名后会出现在这里。", "No students yet. They appear here once they sign up or are added.")}</p>}
 
-      {rows.length > 0 && (
+      {rows.length > 0 && !shown.length && <p className="hint">{t("没有匹配的学生。", "No matching students.")}</p>}
+
+      {shown.length > 0 && (
         <div className="overview-scroll">
           <table className="overview-table">
             <thead>
@@ -139,9 +153,9 @@ export function StudentOverviewPanel({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
+              {shown.map((row, index) => (
                 <tr
-                  className={`${row.is_active ? "" : "inactive"} ${isFirstInactive(rows, index) ? "first-inactive" : ""}`}
+                  className={`${row.is_active ? "" : "inactive"} ${isFirstInactive(shown, index) ? "first-inactive" : ""}`}
                   key={row.id}
                 >
                   <td>

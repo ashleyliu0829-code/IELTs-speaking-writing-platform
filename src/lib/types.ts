@@ -90,6 +90,15 @@ export type TeacherHomeLesson = {
   course_minutes: number;
 };
 
+/** One item on the teacher's own to-do list. */
+export type TeacherTodo = {
+  id: string;
+  title: string;
+  due_at: string | null;
+  done: boolean;
+  created_at: string;
+};
+
 /** One line in the home page's activity feed. */
 export type TeacherHomeActivity = {
   id: string;

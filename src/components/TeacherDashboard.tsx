@@ -989,9 +989,6 @@ export function TeacherDashboard() {
           <article className="card stack">
             <div>
               <h2>{activeArea === "writing" ? t("写作工作区", "Writing workspace") : t("口语工作区", "Speaking workspace")}</h2>
-              <p className="hint">
-                {t("请选择一个模块继续。批改在左侧「作业批改」里。", "Choose a module to continue. Marking lives under Grading in the index.")}
-              </p>
             </div>
             <div className="area-tabs">
               <button className="area-tab" type="button" onClick={() => openSection("students")}>

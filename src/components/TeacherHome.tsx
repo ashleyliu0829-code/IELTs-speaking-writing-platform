@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TeacherHomeActivity, TeacherHomeLesson } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
+import { TeacherTodoPanel } from "@/components/TeacherTodos";
 
 /**
  * The teacher's home page once the workspaces moved into the sidebar: what is
  * being taught next, and what the students have been up to.
  *
- * Both panels are read-only on purpose. Everything here has a place it can be
- * acted on — the scheduling page, the grading page — and duplicating those
- * controls would mean two versions of the same interaction to keep in step.
+ * The lessons and activity panels are read-only on purpose. Everything there
+ * has a place it can be acted on — the scheduling page, the grading page — and
+ * duplicating those controls would mean two versions of the same interaction
+ * to keep in step. The to-do list is the exception: it lives only here.
  */
 
 export function TeacherHomePanels({
@@ -52,11 +54,11 @@ export function TeacherHomePanels({
 
   return (
     <div className="home-panels">
+      <div className="home-row">
       <article className="card stack">
         <div className="section-head compact">
           <div>
-            <h2>{t("课程表", "Timetable")}</h2>
-            <div className="hint">{t("接下来要上的课。空闲时段不在这里，去排课页面安排。", "Upcoming lessons. Open slots live on the scheduling page.")}</div>
+            <h2>{t("课程安排", "Lessons")}</h2>
           </div>
           {onOpenSchedule && (
             <button className="btn secondary" type="button" onClick={onOpenSchedule}>
@@ -93,12 +95,13 @@ export function TeacherHomePanels({
           </div>
         ))}
       </article>
+      <TeacherTodoPanel />
+      </div>
 
       <article className="card stack">
         <div className="section-head compact">
           <div>
-            <h2>{t("最新通知", "Latest activity")}</h2>
-            <div className="hint">{t("学生最近的动态：交作业、约课、取消和新注册。", "What students did lately: submissions, bookings, cancellations, sign-ups.")}</div>
+            <h2>{t("最新动态", "Latest activity")}</h2>
           </div>
           {onOpenGrading && (
             <button className="btn secondary" type="button" onClick={onOpenGrading}>

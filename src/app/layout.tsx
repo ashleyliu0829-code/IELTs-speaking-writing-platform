@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { BrandTitle, LanguageProvider, LanguageSwitch } from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -13,12 +12,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <body>
         <LanguageProvider>
-          {/* Just the wordmark, and the two switches every page shares. */}
+          {/* Just the wordmark and the language switch every page shares. */}
           <header className="topbar">
             <BrandTitle />
             <div className="topbar-tools">
               <LanguageSwitch />
-              <ThemeSwitch />
             </div>
           </header>
           {children}

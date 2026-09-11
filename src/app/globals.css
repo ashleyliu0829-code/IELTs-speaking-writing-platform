@@ -48,31 +48,6 @@
   --topbar-h: 54px;
 }
 
-/* A second palette, for comparing: navy primary, slate secondary, coral
-   accent, cool neutrals. Switched by data-theme on <html>; see ThemeSwitch.
-   The five state colours are semantic and stay the same in both.
-   The slate is dark enough for white type (5.3:1), which is why --on-secondary
-   exists — in the default palette the secondary is light and takes the ink. */
-:root[data-theme="navy"] {
-  --white: #ffffff;
-  --paper: #f6f7f9;
-  --sage-soft: #eef0f3;
-  --line: #e3e6ea;
-  --soft: #e4e8ef;
-  --ink: #20242c;
-  /* The slate, taken down a step for small type on the tinted surfaces. */
-  --muted: #4f5b72;
-  --brand: #24324a;
-  --brand-dark: #1a2537;
-  --brand-ink: #24324a;
-  --secondary: #5e6b85;
-  --secondary-dark: #4d5a72;
-  --on-secondary: #ffffff;
-  --accent: #f26b5b;
-  --accent-dark: #e85a49;
-  --shadow: 0 12px 32px rgba(32, 36, 44, .10);
-}
-
 /* The page index jumps rather than teleports, so a reader keeps their place.
    Respects a reduced-motion preference. */
 @media (prefers-reduced-motion: no-preference) {
@@ -668,6 +643,114 @@ h3 {
   gap: 16px;
 }
 
+/* Lessons on the left, the to-do list on the right; stacked when narrow. */
+.home-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .home-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.todo-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.todo-add input {
+  font-size: 13px;
+  padding: 7px 10px;
+}
+
+.todo-list {
+  display: grid;
+  gap: 6px;
+}
+
+.todo-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+}
+
+.todo-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--brand);
+}
+
+.todo-row.editing {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.todo-row.editing .todo-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.todo-row.editing input {
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.todo-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.todo-title {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.todo-row.done .todo-title {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.todo-due {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.todo-due.overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.todo-actions .btn.link {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.todo-actions .btn.link.danger {
+  color: var(--danger);
+}
+
 .home-lesson-day {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
@@ -1207,114 +1290,6 @@ h3 {
   border-color: var(--brand);
 }
 
-.theme-switch {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--white);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.theme-switch:hover {
-  color: var(--ink);
-}
-
-.theme-switch-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--brand);
-  box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--accent);
-}
-
-.compare {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: calc(100vh - var(--topbar-h));
-  background: var(--paper);
-}
-
-.compare-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--white);
-  font-size: 13px;
-}
-
-.compare-page {
-  padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--white);
-  color: var(--ink);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.compare-page.active {
-  border-color: var(--brand);
-  background: var(--brand);
-  color: var(--white);
-}
-
-.compare-path {
-  width: 200px;
-  min-height: 30px;
-  padding: 0 8px;
-  font-size: 13px;
-}
-
-.compare-scale {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  margin-left: auto;
-  color: var(--muted);
-}
-
-.compare-panes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  min-height: 0;
-  background: var(--line);
-}
-
-.compare-pane {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-width: 0;
-  background: var(--paper);
-}
-
-.compare-pane-head {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  background: var(--white);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.compare-pane-body {
-  overflow: hidden;
-}
-
-.compare-pane-body iframe {
-  display: block;
-  border: 0;
-}
-
 /* Every destructive control lands here. Deeper than the --danger used for
    error text and deletions in tracked changes, because this one is a
    surface rather than type on the page. */
@@ -1489,6 +1464,18 @@ textarea:focus {
    the teacher scans the exam column for whoever is closest, then the level
    column for whoever has slipped. The horizontal scroll lives on the wrapper
    so the page itself never scrolls sideways. */
+.overview-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.overview-search {
+  width: 200px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
 .overview-scroll {
   overflow-x: auto;
   border: 1px solid var(--line);
