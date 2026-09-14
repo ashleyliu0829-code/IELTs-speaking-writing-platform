@@ -1,0 +1,442 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Graderley 使用手册</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --paper: #f7f5f0;
+    --card: #ffffff;
+    --ink: #26332f;
+    --muted: #55635f;
+    --line: #e6e4de;
+    --sage: #52796f;
+    --sage-deep: #3f5f57;
+    --sage-soft: #e3ebe6;
+    --coral: #f28c70;
+    --coral-ink: #b8543a;
+    --done: #6baa75;
+    --pending: #e9b44c;
+    --revise: #e07a5f;
+    --ai: #8b7ec8;
+    --rec: #5b8def;
+    --code: #eef0ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1b201e;
+      --card: #242b28;
+      --ink: #e8ebe6;
+      --muted: #a9b3ad;
+      --line: #36403b;
+      --sage: #8fb8aa;
+      --sage-deep: #b5d3c8;
+      --sage-soft: #2c3934;
+      --coral: #f3a58f;
+      --coral-ink: #f3a58f;
+      --code: #2c3430;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #1b201e;
+    --card: #242b28;
+    --ink: #e8ebe6;
+    --muted: #a9b3ad;
+    --line: #36403b;
+    --sage: #8fb8aa;
+    --sage-deep: #b5d3c8;
+    --sage-soft: #2c3934;
+    --coral: #f3a58f;
+    --coral-ink: #f3a58f;
+    --code: #2c3430;
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  .page {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 48px;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+  @media (max-width: 820px) {
+    .page { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+    nav.toc { position: static; }
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    font-size: 13px;
+  }
+  nav.toc .brand {
+    font-family: "Noto Serif SC", "Songti SC", serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--sage-deep);
+    margin: 0 0 4px;
+  }
+  nav.toc .version { color: var(--muted); font-size: 12px; margin: 0 0 18px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  nav.toc li.group { margin-top: 10px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  nav.toc a {
+    display: block;
+    padding: 4px 10px;
+    border-left: 2px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { border-left-color: var(--coral); background: var(--sage-soft); outline: none; }
+
+  main { max-width: 720px; }
+  h1 {
+    font-family: "Noto Serif SC", "Songti SC", serif;
+    font-size: 34px;
+    line-height: 1.25;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  .lede { color: var(--muted); font-size: 16px; margin: 0 0 32px; }
+  h2 {
+    font-family: "Noto Serif SC", "Songti SC", serif;
+    font-size: 24px;
+    margin: 56px 0 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h2:first-of-type { margin-top: 24px; border-top: 0; padding-top: 0; }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 30px 0 8px;
+    color: var(--sage-deep);
+  }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 3px 0; }
+  li::marker { color: var(--sage); }
+
+  /* Names as they appear on screen — the reader looks for the same words on the page. */
+  .ui {
+    display: inline-block;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+  .pill {
+    display: inline-block;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.7;
+    font-weight: 700;
+    color: #fff;
+    vertical-align: 1px;
+  }
+  .pill.done { background: var(--done); }
+  .pill.pending { background: var(--pending); color: #2b2b2b; }
+  .pill.revise { background: var(--revise); }
+  .pill.ai { background: var(--ai); }
+  .pill.rec { background: var(--rec); }
+
+  .path {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .path .ui { color: var(--ink); }
+
+  .note {
+    margin: 14px 0;
+    padding: 12px 16px;
+    border-left: 3px solid var(--coral);
+    background: var(--card);
+    border-radius: 0 8px 8px 0;
+  }
+  .note strong { color: var(--coral-ink); }
+  .note p:last-child { margin-bottom: 0; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; display: grid; gap: 8px; }
+  .steps li {
+    position: relative;
+    padding-left: 34px;
+  }
+  .steps li::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--sage);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 22px;
+    text-align: center;
+  }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 0 0 14px; }
+  .tile {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+  }
+  .tile strong { display: block; margin-bottom: 4px; }
+  .tile p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .rail {
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    font-size: 14px;
+    display: grid;
+    gap: 6px;
+  }
+  .rail .g { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; }
+  .rail .g b { color: var(--sage-deep); }
+  .rail .g span { color: var(--muted); }
+
+  .tablewrap { overflow-x: auto; margin: 0 0 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-weight: 700; font-size: 13px; }
+  td:first-child { white-space: nowrap; }
+
+  code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  footer { margin-top: 56px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+  /* Print: one column, the contents list at the top as a plain list, no sticky. */
+  @media print {
+    :root { --paper: #ffffff; --card: #ffffff; }
+    body { font-size: 11.5pt; line-height: 1.6; }
+    .page { display: block; max-width: none; padding: 0; }
+    nav.toc { position: static; margin-bottom: 18pt; padding-bottom: 12pt; border-bottom: 1px solid var(--line); }
+    nav.toc ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 14px; }
+    nav.toc li.group { grid-column: 1 / -1; }
+    nav.toc a { border-left: 0; padding: 1px 0; }
+    main { max-width: none; }
+    h2 { break-after: avoid; margin-top: 28pt; }
+    h3 { break-after: avoid; }
+    .tile, .note, .rail, table, .steps li { break-inside: avoid; }
+    .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    a { color: inherit; text-decoration: none; }
+    footer { margin-top: 24pt; }
+  }
+</style></head><body>
+
+<div class="page">
+  <nav class="toc" aria-label="目录">
+    <p class="brand">Graderley</p>
+    <p class="version">使用手册 · 2026 年 9 月版</p>
+    <ol>
+      <li><a href="#start">开始使用</a></li>
+      <li class="group">老师端</li>
+      <li><a href="#home">工作台首页</a></li>
+      <li><a href="#publish">作业布置</a></li>
+      <li><a href="#daily">每日任务</a></li>
+      <li><a href="#grading">作业批改</a></li>
+      <li><a href="#schedule">排课</a></li>
+      <li><a href="#progress">课程进度</a></li>
+      <li><a href="#students">学生档案</a></li>
+      <li><a href="#usage">用量与语言</a></li>
+      <li class="group">学生端</li>
+      <li><a href="#s-home">学生主页</a></li>
+      <li><a href="#s-homework">完成作业</a></li>
+      <li><a href="#s-booking">预约上课</a></li>
+      <li class="group">附录</li>
+      <li><a href="#faq">常见问题</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <h1>Graderley 使用手册</h1>
+    <p class="lede">网址 <strong>graderley.com</strong>。一个网页，老师布置作业、批改录音和作文、排课、记录课程进度；学生在手机或电脑上完成作业、看反馈、约课、打卡。不用装 App，Chrome、Edge、Safari 都能用。</p>
+
+    <h2 id="start">开始使用</h2>
+    <h3>老师登录</h3>
+    <ol class="steps">
+      <li>打开 <code>graderley.com</code>，进入 <span class="ui">老师登录</span>，用手机号注册（带国家码，如 <code>+86</code> 开头）。</li>
+      <li>新账号显示「待激活」，向管理员索取激活码，输入后即可使用。激活码与注册手机号绑定，只能激活这一个账号。</li>
+      <li>以后用同一个手机号 + 密码登录。登录时手机号格式要和注册时一致。</li>
+    </ol>
+    <h3>把学生加进来</h3>
+    <p>在 <span class="ui">学生档案</span> → <span class="ui">学生注册</span> 复制你的专属注册链接发给学生。学生打开链接，用手机号注册，注册完直接进入你的班级，不用手动添加。学生账号免费。</p>
+    <div class="note"><strong>时区</strong><p>平台按每个人所在时区显示时间：你看到的是你的本地时间，学生看到的是学生的本地时间。排课和课程进度里会在必要处标注对方时区。</p></div>
+
+    <h2 id="home">工作台首页</h2>
+    <p>登录后左侧是固定边栏，右侧是内容区。边栏结构：</p>
+    <div class="rail">
+      <div class="g"><b>工作台</b><span>首页：本周课程安排、待办事项、最新动态</span></div>
+      <div class="g"><b>作业布置</b><span>口语 · 写作 · 每日任务</span></div>
+      <div class="g"><b>作业批改</b><span>口语 · 写作（各含「学生情况」和「批改作业」）</span></div>
+      <div class="g"><b>排课管理</b><span>排课 · 课程进度</span></div>
+      <div class="g"><b>学生档案</b><span>总览 · 学生注册</span></div>
+      <div class="g"><b>底部</b><span>本月用量、退出登录</span></div>
+    </div>
+    <div class="grid2">
+      <div class="tile"><strong>课程安排</strong><p>接下来要上的课，按天分组。已在课程进度里填了板块的课，会带上口语/听力等标签。点「去排课」进入排课页。</p></div>
+      <div class="tile"><strong>待办事项</strong><p>你自己的工作清单。输入内容、可选时间，添加；勾选完成、编辑、删除。过期未完成的时间显示为红色。</p></div>
+      <div class="tile"><strong>最新动态</strong><p>近 30 天学生的动态：交作业、约课、取消、新注册。平台公告也显示在这里的最上方。点「去批改」直接进入批改页。</p></div>
+    </div>
+
+    <h2 id="publish">作业布置</h2>
+    <p class="path"><span class="ui">作业布置</span> → <span class="ui">口语</span> 或 <span class="ui">写作</span></p>
+    <p>进入后默认是 <span class="ui">发布新作业</span>；顶部可切换到 <span class="ui">历史发布作业</span>。</p>
+    <h3>发布新作业（口语）</h3>
+    <ol class="steps">
+      <li>左侧「已发布作业」列表可按名称搜索、滚动；点一条即载入编辑，或点 <span class="ui">新建空白作业</span>。</li>
+      <li>填写作业标题（口语作业会根据所选话题自动建议标题）、截止日期、训练说明。</li>
+      <li><span class="ui">分配学生</span> 下拉里勾选学生；一个都不勾表示对所有学生可见。选了学生后，下方「该学生之前发布过的话题」会列出他做过的话题，避免重复。</li>
+      <li><span class="ui">Part 1 题库</span>：输入关键词筛选话题，点选后 <span class="ui">添加到 Part 1</span>（追加）或 <span class="ui">替换 Part 1</span>。已布置给该学生的话题会标「已布置过」。题库默认只列当季（9–12 月）话题，勾选「含往期话题」可看到往期。</li>
+      <li><span class="ui">Part 2 &amp; 3 题库</span>：同样筛选后 <span class="ui">应用到 Part 2 &amp; 3</span>，题卡和 Part 3 问题会自动填入，都可以手动改。</li>
+      <li>点 <span class="ui">发布为新作业</span>。再次点开这份作业修改后可以「保存」覆盖。</li>
+    </ol>
+    <h3>发布新作业（写作）</h3>
+    <p>写作作业由 <span class="ui">Task 1</span>、<span class="ui">Task 2</span> 组成，可只留其一。每个任务有标题、字数要求、题目要求；Task 1 可选类型（折线图、柱状图、饼图、表格、流程图、地图）并上传图表图片；Task 2 可选类型（单边观点、双边讨论、原因分析+观点、现状分析+观点）和主题。</p>
+    <h3>历史发布作业</h3>
+    <p>列出所有已发布作业，可打开修改，或从列表隐藏（学生已交的内容会保留）。</p>
+
+    <h2 id="daily">每日任务</h2>
+    <p class="path"><span class="ui">作业布置</span> → <span class="ui">每日任务</span></p>
+    <p>顶部切换 <span class="ui">任务布置</span> / <span class="ui">完成情况</span>。</p>
+    <ul>
+      <li><strong>任务布置</strong>：填标题、类型（词汇、口语话题、听力、阅读、写作、综合）、开始与结束日期、任务说明，勾选学生，点 <span class="ui">创建每日任务</span>。学生在这段日期内每天都要打卡一次。</li>
+      <li><strong>完成情况</strong>：左侧学生列表显示「当日已完成 / 当日任务数」，点学生查看每项任务的打卡日历，可编辑或删除任务。</li>
+    </ul>
+
+    <h2 id="grading">作业批改</h2>
+    <p class="path"><span class="ui">作业批改</span> → <span class="ui">口语</span> 或 <span class="ui">写作</span></p>
+    <p>顶部切换 <span class="ui">学生情况</span> / <span class="ui">批改作业</span>。</p>
+    <h3>学生情况</h3>
+    <p>左侧学生列表标注批改进度（已批 / 已交）。点开一个学生：作业历史（<span class="pill done">已批改</span> <span class="pill pending">已提交</span> 已发布）、给该学生发布作业的快捷入口、分数曲线；口语板块还有「自主口语练习」——学生自己从话题板提交的练习，在这里逐题点评打分。点作业历史里的某次提交会直接跳到批改。</p>
+    <h3>批改作业（口语）</h3>
+    <ol class="steps">
+      <li>用 <span class="ui">按作业查找</span> 或 <span class="ui">按学生查找</span> 找到提交，点开。</li>
+      <li>每题可播放录音，点 <span class="pill rec">生成转写</span> 得到文字稿；直接在转写上修改，选中一段文字点 <span class="ui">添加批注</span>，然后 <span class="ui">保存转写修改</span>。发布后学生会看到你的增删痕迹（绿色新增、红色删除线）和批注。</li>
+      <li>可在本题下 <span class="ui">录制示范回答</span>，学生发布后可播放参考。</li>
+      <li>填写每题点评；<span class="pill ai">AI 反馈草稿</span> 可先生成一版评分和总评，再自己修改。</li>
+      <li>在评分区填各项分数与总评，点 <span class="ui">发布批改</span>。学生端随即可见，作业状态变为「已批改」。</li>
+    </ol>
+    <h3>批改作业（写作）</h3>
+    <p>打开一份作文提交后进入审阅：左侧是学生原文和题目，右侧直接在学生作文上修改，下方实时显示修订痕迹；选中文字点 <span class="ui">添加批注</span>；每题填总点评，保存后同样在评分区打分、发布。</p>
+    <div class="note"><strong>删除</strong><p>批改页里可删除一份提交（含全部录音），不可恢复；作业本身只能「隐藏」，不会删掉学生已交的内容。</p></div>
+
+    <h2 id="schedule">排课</h2>
+    <p class="path"><span class="ui">排课管理</span> → <span class="ui">排课</span></p>
+    <div class="grid2">
+      <div class="tile"><strong>添加可预约时间</strong><p>在周历上先点开始时间、再点结束时间（或在右侧手动调整），点「添加可预约时间」。学生会按自己的时区看到这些绿色时段并自助预约。</p></div>
+      <div class="tile"><strong>直接新增课程</strong><p>为某个学生排一节课，不用等他预约：选学生、时间、类型（试课 / 1 小时 / 2 小时）。填过去的时间即为补录已上过的课，会计入已上课时。</p></div>
+      <div class="tile"><strong>课程预约请求</strong><p>学生发起的预约先是「待确认」，点「确认」即排定；「取消」可直接取消，建议的新时间为可选项，填了会一并告知学生。</p></div>
+      <div class="tile"><strong>已结束课程</strong><p>上过的课在下方列出，可「删除」错误记录（同时从已上课时中扣除）。</p></div>
+    </div>
+    <p>每节正式课预留 1.5 小时（2 小时课预留 2.5 小时），预留时段对其他学生显示为已占用。</p>
+
+    <h2 id="progress">课程进度</h2>
+    <p class="path"><span class="ui">排课管理</span> → <span class="ui">课程进度</span></p>
+    <p>每个学生一张课程表，一行一节课，按时间排序，序号即第几课：</p>
+    <div class="tablewrap">
+      <table>
+        <tr><th>列</th><th>内容</th></tr>
+        <tr><td>时间</td><td>你的本地时间；学生时区不同时小字标注学生当地时间</td></tr>
+        <tr><td>板块</td><td>口语 / 听力 / 阅读 / 写作 / 模考 / 试课，可多选</td></tr>
+        <tr><td>课题</td><td>这节课讲了什么（多行）</td></tr>
+        <tr><td>课件</td><td>用的 PPT 或材料名</td></tr>
+        <tr><td>作业 / 备注</td><td>课后作业或备注</td></tr>
+        <tr><td>完成</td><td>上完后打勾</td></tr>
+      </table>
+    </div>
+    <ul>
+      <li>行来自排课（已确认的课和补录的课）；还没上的课排在后面灰显。</li>
+      <li><span class="ui">编辑</span> 在行内展开填写；<span class="ui">删除</span> 会把这节课从课程表一并移除。</li>
+      <li><span class="ui">新建课程</span>：填时间、类型、板块、课题等。若该学生在这个时间已有课（学生约的或你排的），内容会写到那节课上，不会重复创建；没有则自动加入课程表。和别的学生撞时间会提示冲突。</li>
+    </ul>
+
+    <h2 id="students">学生档案</h2>
+    <p class="path"><span class="ui">学生档案</span> → <span class="ui">总览</span></p>
+    <p>顶部是全班统计：在读学生、总课程数、总上课时数、各科课时。下方每个学生一张卡片，折叠时显示姓名、学习时长、总上课时数；点开显示账号、已上课时（含课节数）、各科课时、当前水平（口语 / 写作最新分）、距离考试、课程计划、下次上课，以及 <span class="ui">查看学生情况</span> 和 <span class="ui">编辑</span>。已停课学生单独一块列在下方。</p>
+    <h3>编辑学生信息</h3>
+    <ul>
+      <li><strong>考试时间</strong>：选日期或点「N 个月后」快速设置；勾「日期已确定」表示已报名，不勾则按预估显示倒计时。学生自己也能在学生主页改。</li>
+      <li><strong>已上课时</strong>：默认按课程表自动统计（已确认且已过去的课，1 小时课 = 1 课时）；留空即自动，填数字则以填的为准。</li>
+      <li><strong>上课状态</strong>：在读 / 已停课。停课的学生不再出现在布置作业、批改等页面的名单里，数据全部保留，随时可改回。</li>
+      <li><strong>课程计划</strong>：如 全科、单科口语、全程陪跑 等；学生主页据此只显示相关板块的曲线。</li>
+    </ul>
+    <p>姓名、手机号、注册日期来自学生账号，这里只读。</p>
+
+    <h2 id="usage">用量与语言</h2>
+    <ul>
+      <li>边栏底部 <span class="ui">本月用量</span> 显示录音转写分钟数、AI 批改次数、存储空间，每月重置。</li>
+      <li>右上角 <span class="ui">English</span> / <span class="ui">中文</span> 一键切换整站界面语言，老师端、学生端各自记住自己的选择。你手动输入的内容（作业标题、点评等）不会被翻译。</li>
+    </ul>
+
+    <h2 id="s-home">学生主页</h2>
+    <p>学生登录后同样是左侧边栏：<span class="ui">学生主页</span>、<span class="ui">作业</span>（口语 · 写作 · 每日任务）、<span class="ui">课程预约</span>。主页内容：</p>
+    <div class="grid2">
+      <div class="tile"><strong>下次上课</strong><p>最近一节已确认或待确认的课，按学生本地时间显示。</p></div>
+      <div class="tile"><strong>距离考试还有</strong><p>倒计时，学生可自己设定或修改考试日期；下面显示课程计划。</p></div>
+      <div class="tile"><strong>每日打卡</strong><p>今天要完成的每日任务，勾选即打卡；点开可看全部任务和日历。</p></div>
+      <div class="tile"><strong>最近通知</strong><p>平台公告、新作业、已发布的反馈，点击直达。</p></div>
+    </div>
+    <p>再往下是 <strong>口语学习情况</strong>（分数曲线）与 <strong>口语过题情况</strong>（Part 1 / Part 2 话题板：绿勾为已练过；点未练的话题可直接开始「自主练习」录音提交给老师；往期练过的话题单独列在底部），以及 <strong>写作学习情况</strong>。显示哪些板块取决于课程计划（单科口语只显示口语）。</p>
+
+    <h2 id="s-homework">完成作业</h2>
+    <p class="path"><span class="ui">作业</span> → <span class="ui">口语</span> 或 <span class="ui">写作</span></p>
+    <h3>口语</h3>
+    <ol class="steps">
+      <li>打开最新作业。Part 1、Part 3 逐题录音，Part 2 录一段完整回答；每题可 <span class="ui">开始录音</span> / <span class="ui">停止</span>、<span class="ui">删除</span> 重录，或 <span class="ui">上传音频</span>。</li>
+      <li><span class="ui">保存已录内容</span> 把录音存进账号，下次打开还在，老师看不到。</li>
+      <li>全部完成后点 <span class="ui">提交给老师</span>，老师才能看到并批改。</li>
+    </ol>
+    <h3>写作</h3>
+    <p>在任务框内写作，可先 <span class="ui">保存写作</span> 分次完成，最后 <span class="ui">提交给老师</span>。Task 1 的图表在题目下方。</p>
+    <h3>查看反馈</h3>
+    <p>老师发布后，作业状态变为 <span class="pill done">已批改</span>：能看到各项分数、总评、每题点评，转写上老师的修改痕迹和批注，以及老师的示范回答（可播放）。历史作业里能回看所有提交。</p>
+    <p>右侧「索引」面板可在页面各部分之间快速跳转。</p>
+
+    <h2 id="s-booking">预约上课</h2>
+    <p class="path"><span class="ui">课程预约</span> → <span class="ui">预约上课</span></p>
+    <ol class="steps">
+      <li>周历里绿色为可预约时段，灰色为已被约走。点一个开始时间，选课程类型（试课、1 小时、2 小时）。</li>
+      <li>一次最多选 5 节，点 <span class="ui">提交预约</span>，状态为「待确认」，老师确认后变为「已确认」。</li>
+      <li>需要取消时在「即将开始的课程」里点 <span class="ui">取消预约</span>；须在开课前至少 4 小时。老师取消时如附了建议时间，会显示在该课下方。</li>
+    </ol>
+
+    <h2 id="faq">常见问题</h2>
+    <div class="tablewrap">
+      <table>
+        <tr><th>现象</th><th>处理</th></tr>
+        <tr><td>登录提示「手机号或密码不正确」</td><td>手机号要和注册时格式一致（含 <code>+86</code> 等国家码）；确认选对了「老师登录 / 学生登录」。</td></tr>
+        <tr><td>录音按钮没反应</td><td>浏览器需要允许麦克风权限；请用 Chrome、Edge 或 Safari，微信内置浏览器不支持录音。</td></tr>
+        <tr><td>录音保存了但老师看不到</td><td>「保存」只存在学生自己账号里，需再点「提交给老师」。</td></tr>
+        <tr><td>学生在名单里找不到</td><td>检查学生档案里是否被设为「已停课」；或学生尚未通过你的注册链接注册。</td></tr>
+        <tr><td>已上课时和实际不符</td><td>在课程进度里补录或删除课程；或在学生档案「编辑」里直接填写课时数。</td></tr>
+        <tr><td>话题板上练过的话题不见了</td><td>往期题库的话题在话题板底部「往期话题（已练过）」一栏；布置作业时勾选「含往期话题」可选到。</td></tr>
+        <tr><td>界面显示英文</td><td>右上角点「中文」切回。</td></tr>
+      </table>
+    </div>
+
+    <footer>本手册对应 2026 年 9 月的平台版本。功能更新后以页面为准。</footer>
+  </main>
+</div>
+</body></html>

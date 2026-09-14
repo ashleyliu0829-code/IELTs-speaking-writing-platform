@@ -142,6 +142,26 @@ export function LessonProgressPanel({ students }: { students: StudentProfile[] }
     }
   }
 
+  // Deleting removes the booking itself — the same row the scheduler shows —
+  // so the lesson leaves the schedule and the hours taught alike.
+  async function remove(lesson: LessonBooking) {
+    const confirmed = window.confirm(
+      tr(`确定删除 ${formatWhen(lesson.start_at)} 这节课吗？会同时从课程表移除，不再计入已上课时。`, `Delete the lesson at ${formatWhen(lesson.start_at)}? It leaves the schedule and no longer counts as taught.`)
+    );
+    if (!confirmed) return;
+    setStatus("");
+    try {
+      const response = await fetch(`/api/teacher/lesson-bookings?lessonType=regular&bookingId=${lesson.id}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("删除失败。", "Could not delete."));
+      setLessons((current) => current.filter((item) => item.id !== lesson.id));
+      if (editingId === lesson.id) setEditingId(null);
+      setStatus(tr("课程已删除。", "Lesson deleted."));
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : tr("删除失败。", "Could not delete."));
+    }
+  }
+
   async function reload() {
     const response = await fetch(`/api/teacher/lesson-progress?studentName=${encodeURIComponent(selected)}`);
     const data = await response.json().catch(() => ({}));
@@ -276,9 +296,14 @@ export function LessonProgressPanel({ students }: { students: StudentProfile[] }
                               />
                             </td>
                             <td className="overview-actions">
-                              <button className="btn ghost" type="button" onClick={() => setEditingId(lesson.id)}>
-                                {t("编辑", "Edit")}
-                              </button>
+                              <div className="lesson-row-actions">
+                                <button className="btn ghost" type="button" onClick={() => setEditingId(lesson.id)}>
+                                  {t("编辑", "Edit")}
+                                </button>
+                                <button className="btn ghost danger" type="button" onClick={() => remove(lesson)}>
+                                  {t("删除", "Delete")}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )

@@ -110,11 +110,11 @@ export function tr(zh: string, en: string) {
 }
 
 /** The wordmark in the topbar. */
+// One word in both languages, so no hook is needed here.
 export function BrandTitle() {
-  const { t } = useLanguage();
   return (
     <a className="brand-title" href="/">
-      {t("IELTS 作业平台", "IELTS Homework Platform")}
+      Graderley
     </a>
   );
 }

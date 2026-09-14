@@ -3,8 +3,8 @@ import "./globals.css";
 import { BrandTitle, LanguageProvider, LanguageSwitch } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "IELTS 作业平台",
-  description: "面向雅思口语和写作作业提交、批改与反馈的平台。"
+  title: "Graderley",
+  description: "Graderley — 雅思口语、写作作业布置、批改与课程管理平台。"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1463,6 +1463,17 @@ textarea:focus {
 
 /* The lesson-progress table: long text wraps, lessons still ahead are muted,
    ticked ones get the done wash. */
+.lesson-row-actions {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.lesson-row-actions .btn.ghost.danger {
+  color: var(--danger);
+  border-color: rgba(192, 57, 43, .35);
+}
+
 .lesson-table th:first-child,
 .lesson-table td:first-child {
   width: 32px;
@@ -3121,7 +3132,7 @@ audio {
 
 .daily-history-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
   gap: 14px;
   align-items: start;
 }
@@ -3130,7 +3141,19 @@ audio {
   position: sticky;
   top: 16px;
   display: grid;
-  gap: 10px;
+  gap: 6px;
+}
+
+/* Name and today's score side by side; the card is only as tall as one line. */
+.daily-history-sidebar .daily-student-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.daily-history-sidebar .daily-student-card strong {
+  font-size: 14px;
 }
 
 .daily-history-main {

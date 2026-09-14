@@ -394,21 +394,12 @@ function StudentDailyTaskHistory({
 
   return (
     <section className="daily-history-panel">
-      <div className="section-head">
-        <div>
-          <h2>{t("每日任务历史", "Task history")}</h2>
-          <div className="hint">{t("选择学生后查看已分配任务和完成进度。", "Pick a student to see their tasks and progress.")}</div>
-        </div>
-        <span className="pill">{t(`${students.length} 位学生`, `${students.length} students`)}</span>
-      </div>
       <div className="daily-history-layout">
         <aside className="daily-history-sidebar">
           {students.length ? (
             students.map((student) => {
+              // Today only: tasks due today, and how many of them are ticked.
               const summary = getStudentTodaySummary(tasks, student.name);
-              const assignedCount = tasks.filter((task) =>
-                task.assigned_students.some((studentName) => normalizeName(studentName) === normalizeName(student.name))
-              ).length;
               const active = normalizeName(student.name) === normalizeName(selectedStudent);
               return (
                 <button
@@ -418,10 +409,8 @@ function StudentDailyTaskHistory({
                   onClick={() => onSelectStudent(student.name)}
                 >
                   <strong>{student.name}</strong>
-                  <span>{student.phone || t("暂无手机号", "No phone")}</span>
-                  <span>{t(`${assignedCount} 项每日任务`, `${assignedCount} tasks`)}</span>
                   <span className={`pill ${summary.due && summary.completed >= summary.due ? "ok" : summary.due ? "warn" : ""}`}>
-                    {t("今日", "Today")} {summary.completed}/{summary.due}
+                    {summary.completed}/{summary.due}
                   </span>
                 </button>
               );
