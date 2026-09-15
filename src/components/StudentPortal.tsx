@@ -10,6 +10,7 @@ import { tr, useLanguage } from "@/lib/i18n";
 import { activeAnnouncements } from "@/lib/announcements";
 import homeworkIcon from "../../public/icons/workspace-homework.png";
 import lessonSchedulingIcon from "../../public/icons/workspace-lesson-scheduling.png";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 type AuthAccount = {
   id: string;
@@ -64,6 +65,7 @@ export function StudentPortal() {
   const [allAssignments, setAllAssignments] = useState<StudentAssignmentSummary[]>([]);
   const [historySubmissions, setHistorySubmissions] = useState<Submission[]>([]);
   const [message, setMessage] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [practiceLoadingId, setPracticeLoadingId] = useState("");
   const [practiceMessage, setPracticeMessage] = useState("");
@@ -534,11 +536,15 @@ export function StudentPortal() {
               <strong>{account.display_name}</strong>
               <small>{t("学生", "Student")}</small>
             </div>
+            <button className="home-nav-logout" onClick={() => setChangingPassword(true)} type="button">
+              {t("修改密码", "Change password")}
+            </button>
             <button className="home-nav-logout" onClick={logout} type="button">
               {t("退出登录", "Sign out")}
             </button>
           </div>
         </nav>
+        {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
 
         <div className="home-main">
       {activeView === "home" && (

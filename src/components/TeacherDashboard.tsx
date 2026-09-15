@@ -5,6 +5,7 @@ import type { Assignment, AssignmentType, Feedback, FeedbackDetail, QuestionItem
 import { mergeFeedbackDetails, questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { LessonProgressPanel } from "@/components/LessonProgress";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { averageScore, defaultAssignment, defaultWritingAssignment, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TeacherSchedulePanel } from "@/components/LessonScheduler";
@@ -85,6 +86,7 @@ export function TeacherDashboard() {
   const [selectedStudentName, setSelectedStudentName] = useState("");
   const [studentProgress, setStudentProgress] = useState<Submission[]>([]);
   const [message, setMessage] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [transcribingId, setTranscribingId] = useState("");
   const [savingTranscriptId, setSavingTranscriptId] = useState("");
@@ -954,12 +956,18 @@ export function TeacherDashboard() {
             <div className="home-nav-foot">
               <UsagePanel language={teacherLanguage} />
               {account && (
-                <button className="home-nav-logout" onClick={logout} type="button">
-                  {t("退出登录", "Log out")}
-                </button>
+                <>
+                  <button className="home-nav-logout" onClick={() => setChangingPassword(true)} type="button">
+                    {t("修改密码", "Change password")}
+                  </button>
+                  <button className="home-nav-logout" onClick={logout} type="button">
+                    {t("退出登录", "Log out")}
+                  </button>
+                </>
               )}
             </div>
           </nav>
+          {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
 
           <div className="home-main">
             <div className="dashboard-actions">

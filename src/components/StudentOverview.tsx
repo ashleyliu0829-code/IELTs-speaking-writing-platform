@@ -338,7 +338,30 @@ function StudentEditDialog({
   const [coursePlan, setCoursePlan] = useState(student.course_plan || "");
   const [isActive, setIsActive] = useState(student.is_active);
   const [taughtHours, setTaughtHours] = useState(student.taught_hours_override == null ? "" : String(student.taught_hours_override));
+  const [tempPassword, setTempPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
   const { t } = useLanguage();
+
+  async function resetPassword() {
+    if (!window.confirm(tr(`确定重置 ${student.name} 的密码吗？原密码会立即失效。`, `Reset ${student.name}'s password? The old one stops working immediately.`))) return;
+    setResetting(true);
+    setResetError("");
+    try {
+      const response = await fetch("/api/teacher/student-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: student.id })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("重置失败。", "Could not reset the password."));
+      setTempPassword(data.password);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : tr("重置失败。", "Could not reset the password."));
+    } finally {
+      setResetting(false);
+    }
+  }
 
   useEffect(() => {
     const dialog = ref.current;
@@ -485,6 +508,30 @@ function StudentEditDialog({
             ))}
           </select>
         </div>
+
+        {student.account_id && (
+          <div className="student-dialog-field">
+            <label>{t("登录密码", "Password")}</label>
+            {tempPassword ? (
+              <div className="temp-password">
+                <code>{tempPassword}</code>
+                <button className="btn ghost" type="button" onClick={() => navigator.clipboard.writeText(tempPassword)}>
+                  {t("复制", "Copy")}
+                </button>
+              </div>
+            ) : (
+              <button className="btn ghost" type="button" onClick={() => void resetPassword()} disabled={resetting}>
+                {resetting ? t("重置中...", "Resetting...") : t("重置密码", "Reset password")}
+              </button>
+            )}
+            <p className="hint">
+              {tempPassword
+                ? t("把这个临时密码发给学生，登录后可在「修改密码」里改成自己的。原密码已失效。", "Send this temporary password to the student; they can change it under “Change password” after signing in. The old password no longer works.")
+                : t("密码无法查看，只能重置为一个临时密码。", "Passwords cannot be viewed, only reset to a temporary one.")}
+            </p>
+            {resetError && <p className="error">{resetError}</p>}
+          </div>
+        )}
 
         <div className="student-dialog-actions">
           <button className="btn secondary" type="button" onClick={onClose} disabled={saving}>

@@ -1995,6 +1995,21 @@ textarea:focus {
   gap: 10px;
 }
 
+.temp-password {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.temp-password code {
+  padding: 6px 12px;
+  border: 1px dashed var(--brand);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 18px;
+  letter-spacing: .08em;
+}
+
 .overview-hours-row {
   display: flex;
   gap: 8px;
