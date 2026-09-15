@@ -6,6 +6,7 @@ import { mergeFeedbackDetails, questionCommentDetails, scoreDetails } from "@/li
 import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { LessonProgressPanel } from "@/components/LessonProgress";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { FirstRunTour, tourSeen } from "@/components/FirstRunTour";
 import { averageScore, defaultAssignment, defaultWritingAssignment, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TeacherSchedulePanel } from "@/components/LessonScheduler";
@@ -87,7 +88,30 @@ export function TeacherDashboard() {
   const [studentProgress, setStudentProgress] = useState<Submission[]>([]);
   const [message, setMessage] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [removingDemo, setRemovingDemo] = useState(false);
+  const hasDemoStudent = students.some((student) => student.name === "示例学生");
+
+  async function removeDemoStudent() {
+    if (!window.confirm(tr("确定移除示例学生和她的作业、课程、任务吗？", "Remove the example student along with her homework, lessons and task?"))) return;
+    setRemovingDemo(true);
+    try {
+      await api("/api/teacher/demo-student", { method: "DELETE" });
+      await loadAssignments();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : tr("移除失败。", "Could not remove."));
+    } finally {
+      setRemovingDemo(false);
+    }
+  }
   const [loading, setLoading] = useState(false);
+  // The tour opens once, on the first dashboard with the example student in
+  // it; after that only the banner's replay link brings it back.
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (!account || !hasDemoStudent || navLevel !== "root" || loading) return;
+    if (!tourSeen(account.id)) setTourOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account?.id, hasDemoStudent, loading]);
   const [transcribingId, setTranscribingId] = useState("");
   const [savingTranscriptId, setSavingTranscriptId] = useState("");
   const [savingWritingId, setSavingWritingId] = useState("");
@@ -136,8 +160,17 @@ export function TeacherDashboard() {
     setLoading(true);
     setMessage("");
     try {
-      const data = await api("/api/teacher/assignments");
-      const studentsData = await api(`/api/teacher/students?assignmentType=${activeArea}`);
+      let data = await api("/api/teacher/assignments");
+      let studentsData = await api(`/api/teacher/students?assignmentType=${activeArea}`);
+      // An empty workspace gets the example student before it is shown, so
+      // nobody's first sight of the dashboard is fifteen empty pages.
+      if (!(data.assignments || []).length && !(studentsData.students || []).length) {
+        const seeded = await fetch("/api/teacher/demo-student", { method: "POST" }).then((r) => r.ok).catch(() => false);
+        if (seeded) {
+          data = await api("/api/teacher/assignments");
+          studentsData = await api(`/api/teacher/students?assignmentType=${activeArea}`);
+        }
+      }
       const submissionsData = await api(`/api/teacher/submissions?assignmentType=${activeArea}`);
       const loaded = data.assignments || [];
       setStudents(studentsData.students || []);
@@ -844,7 +877,7 @@ export function TeacherDashboard() {
               {t("工作台", "Dashboard")}
             </button>
 
-            <div className="home-nav-group">
+            <div className="home-nav-group" data-tour="publish">
               <strong className="home-nav-title">
                 <img src={homeworkIcon.src} alt="" />
                 {t("作业布置", "Homework")}
@@ -872,7 +905,7 @@ export function TeacherDashboard() {
               </button>
             </div>
 
-            <div className="home-nav-group">
+            <div className="home-nav-group" data-tour="grading">
               <strong className="home-nav-title">
                 {/* Drawn inline rather than imported: the icon set has no
                     marking icon, and a mismatched one is worse than none. */}
@@ -911,7 +944,7 @@ export function TeacherDashboard() {
               </button>
             </div>
 
-            <div className="home-nav-group">
+            <div className="home-nav-group" data-tour="schedule">
               <strong className="home-nav-title">
                 <img src={lessonSchedulingIcon.src} alt="" />
                 {t("排课管理", "Scheduling")}
@@ -932,7 +965,7 @@ export function TeacherDashboard() {
               </button>
             </div>
 
-            <div className="home-nav-group">
+            <div className="home-nav-group" data-tour="students">
               <strong className="home-nav-title">
                 <img src={studentProfileIcon.src} alt="" />
                 {t("学生档案", "Student archive")}
@@ -971,6 +1004,9 @@ export function TeacherDashboard() {
 
           <div className="home-main">
             <div className="dashboard-actions">
+              <button className="btn ghost" onClick={() => setTourOpen(true)} type="button">
+                {t("使用引导", "Guide")}
+              </button>
               <button className="btn secondary" onClick={loadAssignments} disabled={loading} type="button">
                 {loading ? t("加载中...", "Loading...") : t("刷新", "Refresh")}
               </button>
@@ -978,6 +1014,31 @@ export function TeacherDashboard() {
             {message && (
               <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>
             )}
+      {navLevel === "root" && hasDemoStudent && (
+        <div className="demo-banner">
+          <div>
+            <strong>{t("工作台里有一位「示例学生」", "There is an example student in your workspace")}</strong>
+            <span>
+              {t(
+                "她有一份待批改的口语作业、一份已批改的写作作业、一节上过的课和一个每日任务，用来熟悉各个页面。自己的学生加进来后可以一键移除。",
+                "She has a speaking homework waiting to be marked, a marked writing homework, a lesson taught and a daily task, so every page has something on it. Remove her once your own students are in."
+              )}
+            </span>
+          </div>
+          <div className="demo-banner-actions">
+            <button className="btn ghost" type="button" disabled={removingDemo} onClick={() => void removeDemoStudent()}>
+              {removingDemo ? t("移除中...", "Removing...") : t("移除示例学生", "Remove example student")}
+            </button>
+          </div>
+        </div>
+      )}
+      {tourOpen && account && (
+        <FirstRunTour
+          accountId={account.id}
+          onFinish={() => setTourOpen(false)}
+          onStartGrading={() => openGrading("speaking")}
+        />
+      )}
       {navLevel === "root" && (
         <TeacherHomePanels
           onOpenSchedule={openSchedule}

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --paper: #f7f5f0;
+    --ink: #26332f;
+    --muted: #55635f;
+    --sage: #52796f;
+    --sage-deep: #3f5f57;
+    --sage-soft: #e3ebe6;
+    --coral: #f28c70;
+    --line: #e6e4de;
+  }
+  html, body { margin: 0; }
+  body {
+    width: 1080px;
+    height: 1440px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    position: relative;
+  }
+  /* A quiet frame line, like the platform's cards. */
+  .frame {
+    position: absolute;
+    inset: 40px;
+    border: 2px solid var(--line);
+    border-radius: 24px;
+  }
+  .poster {
+    position: absolute;
+    inset: 40px;
+    padding: 76px 84px 72px;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 0;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--sage);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: .12em;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 46px;
+    height: 4px;
+    background: var(--coral);
+    border-radius: 2px;
+  }
+
+  .hero {
+    align-self: center;
+    padding: 24px 0 8px;
+  }
+  .hero h1 {
+    font-family: "Noto Serif SC", "Songti SC", serif;
+    font-weight: 900;
+    font-size: 78px;
+    line-height: 1.28;
+    margin: 0;
+    color: var(--ink);
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--sage-deep);
+    position: relative;
+  }
+  .hero h1 em::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 8px;
+    height: 16px;
+    background: rgba(242, 140, 112, .38);
+    z-index: -1;
+    border-radius: 4px;
+  }
+  .hero p {
+    margin: 30px 0 0;
+    font-size: 28px;
+    line-height: 1.65;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Three facts as one object: same edges, same baseline. */
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+    padding: 34px 0;
+    margin-top: 40px;
+  }
+  .fact { display: grid; gap: 6px; padding: 0 24px; border-left: 1px solid var(--line); }
+  .fact:first-child { padding-left: 0; border-left: 0; }
+  .fact strong {
+    font-family: "Noto Serif SC", serif;
+    font-size: 66px;
+    line-height: 1;
+    color: var(--sage-deep);
+    font-variant-numeric: tabular-nums;
+  }
+  .fact strong small { font-size: 30px; margin-left: 4px; }
+  .fact span { font-size: 24px; color: var(--muted); font-weight: 500; }
+
+  .more {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 32px;
+  }
+  .chip {
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: var(--sage-soft);
+    color: var(--sage-deep);
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .chip.accent { background: var(--coral); color: #fff; }
+
+  .foot {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: end;
+    gap: 24px;
+    margin-top: 44px;
+  }
+  .who .name {
+    font-family: "Noto Serif SC", serif;
+    font-size: 44px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .who .role { margin-top: 10px; font-size: 26px; color: var(--muted); }
+  .avatar {
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    background: var(--sage-soft);
+    box-shadow: 0 10px 30px rgba(38, 51, 47, .12);
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 22px;
+  }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="poster">
+    <div class="eyebrow">雅思老师</div>
+
+    <div class="hero">
+      <h1>你卡在 6 分，<br>不是因为不努力，<br>是没人告诉你<br><em>到底弱在哪</em>。</h1>
+      <p>我的方法是先诊断再讲课：把口语、写作的问题拆到具体的<br>语法点、表达习惯和答题结构，再一个个解决。</p>
+    </div>
+
+    <div class="facts">
+      <div class="fact"><strong>8.0</strong><span>雅思总分</span></div>
+      <div class="fact"><strong>QS<small>20</small></strong><span>美国硕士 · C9 本科</span></div>
+      <div class="fact"><strong>100<small>+</small></strong><span>课时 · 10+ 学生</span></div>
+    </div>
+
+    <div class="more">
+      <span class="chip accent">先诊断，再上课</span>
+      <span class="chip">最熟悉 6 分段的同学</span>
+      <span class="chip">口语 · 写作</span>
+      <span class="chip">在美生活 2 年</span>
+    </div>
+
+    <div class="foot">
+      <div class="who">
+        <div class="name">Sherley</div>
+        <div class="role">雅思老师</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

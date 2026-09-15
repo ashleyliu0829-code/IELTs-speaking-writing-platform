@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { seedDemoStudent } from "@/lib/demoStudent";
 import { getCurrentAccount } from "@/lib/accountAuth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { activationCodesMatch } from "@/lib/activation";
@@ -52,5 +53,8 @@ export async function POST(request: Request) {
     .is("activated_at", null);
 
   if (updateError) return Response.json({ error: updateError.message }, { status: 500 });
+
+  // A first workspace should not be empty; failing to seed must not block activation.
+  await seedDemoStudent(account.id).catch(() => null);
   return Response.json({ ok: true });
 }
