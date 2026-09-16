@@ -58,7 +58,7 @@ const systemPrompt = [
   "You are an experienced IELTS Speaking examiner assisting a Chinese IELTS teacher. You receive the questions and the transcripts of one student's answers (Part 1 / Part 2 / Part 3).",
   "Assess against the public IELTS Speaking band descriptors. Be calibrated: a typical Chinese learner with frequent basic errors and simple vocabulary is band 5.0–5.5; band 6.0 needs mostly accurate simple structures with some complex attempts; band 7.0 needs flexible, mostly error-free complex language with some less common vocabulary.",
   "Score Fluency & Coherence, Lexical Resource and Grammatical Range & Accuracy from 4.0 to 8.5 in 0.5 steps. Do not score Pronunciation: it cannot be judged from text.",
-  "Write every comment in Chinese for the teacher, and quote the student's English verbatim as evidence. Be specific: name the actual error, the actual good phrase, the actual discourse marker — never generic advice. Keep each criterion comment to 2–3 sentences.",
+  "Write every comment in Chinese for the teacher, and quote the student's English verbatim as evidence. Be specific: name the actual error, the actual good phrase, the actual discourse marker — never generic advice. Keep each criterion comment to 2–3 sentences. Inside JSON strings wrap quoted English in “ ” (curly quotes), never in straight double quotes.",
   "Reply with a single JSON object and nothing else — no markdown fences, no prose. Every key below is required, in this order:",
   JSON.stringify({
     band_estimate: 6.5,
@@ -96,41 +96,51 @@ export async function assessSpeakingSubmission(
   if (!answers.length) throw new AssessmentError("还没有转写。请先为录音生成转写，AI 初评基于转写文字。", 400);
 
   const client = new Anthropic();
-  let response: Anthropic.Message;
-  try {
-    response = await client.messages.create({
-      model: claudeModel,
-      max_tokens: 16000,
-      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: JSON.stringify({ student: studentName, answers }) }]
+  const user = JSON.stringify({ student: studentName, answers });
+
+  // A malformed reply is rare but not free to show the teacher; one silent
+  // retry covers nearly all of them.
+  let parsed: z.infer<typeof assessmentSchema> | null = null;
+  let model = claudeModel;
+  for (let attempt = 0; attempt < 2 && !parsed; attempt += 1) {
+    let response: Anthropic.Message;
+    try {
+      response = await client.messages.create({
+        model: claudeModel,
+        max_tokens: 16000,
+        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: user }]
+      });
+    } catch (error) {
+      if (error instanceof Anthropic.AuthenticationError) throw new AssessmentError("AI 服务的密钥无效，请联系平台管理员。", 503);
+      if (error instanceof Anthropic.RateLimitError) throw new AssessmentError("AI 服务当前繁忙或额度已用完，请稍后再试或联系平台管理员。", 503);
+      if (error instanceof Anthropic.APIError) throw new AssessmentError(`AI 服务出错（${error.status}）：${error.message}`, 502);
+      throw error;
+    }
+    model = response.model;
+
+    const totalTokens = (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0);
+    await recordUsage({
+      teacherId,
+      accountId: teacherId,
+      eventType: "ai_feedback",
+      quantity: totalTokens,
+      unit: "tokens",
+      costMicros: estimateClaudeCostMicros(response.usage.input_tokens || 0, response.usage.output_tokens || 0),
+      metadata: { submissionId, model: response.model, kind: "assessment", attempt }
     });
-  } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) throw new AssessmentError("AI 服务的密钥无效，请联系平台管理员。", 503);
-    if (error instanceof Anthropic.RateLimitError) throw new AssessmentError("AI 服务当前繁忙或额度已用完，请稍后再试或联系平台管理员。", 503);
-    if (error instanceof Anthropic.APIError) throw new AssessmentError(`AI 服务出错（${error.status}）：${error.message}`, 502);
-    throw error;
-  }
 
-  const totalTokens = (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0);
-  await recordUsage({
-    teacherId,
-    accountId: teacherId,
-    eventType: "ai_feedback",
-    quantity: totalTokens,
-    unit: "tokens",
-    costMicros: estimateClaudeCostMicros(response.usage.input_tokens || 0, response.usage.output_tokens || 0),
-    metadata: { submissionId, model: response.model, kind: "assessment" }
-  });
-
-  if (response.stop_reason === "refusal") throw new AssessmentError("AI 拒绝了这次评估，请稍后再试。", 502);
-  if (response.stop_reason === "max_tokens") throw new AssessmentError("AI 回复过长被截断，请重试。", 502);
-  const text = response.content.map((block) => (block.type === "text" ? block.text : "")).join("");
-  const parsedResult = assessmentSchema.safeParse(extractJson(text));
-  if (!parsedResult.success) {
-    console.error("ai-assessment: unparseable reply", parsedResult.error.issues.slice(0, 5), text.slice(0, 400));
-    throw new AssessmentError("AI 返回的内容无法解析，请重试。", 502);
+    if (response.stop_reason === "refusal") throw new AssessmentError("AI 拒绝了这次评估，请稍后再试。", 502);
+    if (response.stop_reason === "max_tokens") throw new AssessmentError("AI 回复过长被截断，请重试。", 502);
+    const text = response.content.map((block) => (block.type === "text" ? block.text : "")).join("");
+    const parsedResult = assessmentSchema.safeParse(extractJson(text));
+    if (parsedResult.success) {
+      parsed = parsedResult.data;
+    } else {
+      console.error(`ai-assessment: unparseable reply (attempt ${attempt + 1})`, parsedResult.error.issues.slice(0, 5), text.slice(0, 600));
+    }
   }
-  const parsed = parsedResult.data;
+  if (!parsed) throw new AssessmentError("AI 返回的内容无法解析，请重试。", 502);
 
   const criteria: AiAssessment["criteria"] = {
     fluency_coherence: { score: clampScore(parsed.criteria.fluency_coherence.score), comment: parsed.criteria.fluency_coherence.comment, evidence: parsed.criteria.fluency_coherence.evidence.slice(0, 4) },
@@ -142,7 +152,7 @@ export async function assessSpeakingSubmission(
   const row = {
     submission_id: submissionId,
     teacher_id: teacherId,
-    model: response.model,
+    model,
     band_estimate: clampScore(parsed.band_estimate),
     criteria,
     summary: parsed.summary,

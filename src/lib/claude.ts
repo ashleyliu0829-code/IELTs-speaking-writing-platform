@@ -50,8 +50,9 @@ function translateApiError(error: unknown) {
 
 // The reply should be bare JSON; tolerate a fenced block or stray prose around
 // it, control characters (a raw newline inside a string is one common parse
-// failure), and a missing closing bracket or two (the other: the model
-// loses count at the end of a long object).
+// failure), a missing closing bracket or two (the model loses count at the
+// end of a long object), and a student quote left unescaped inside a string
+// (the most common: the comments are full of quoted English).
 export function extractJson(text: string): unknown {
   const trimmed = text
     .trim()
@@ -63,7 +64,7 @@ export function extractJson(text: string): unknown {
   const candidates = [trimmed, first >= 0 && last > first ? trimmed.slice(first, last + 1) : "", first >= 0 ? trimmed.slice(first) : ""];
   for (const candidate of candidates) {
     if (!candidate) continue;
-    for (const attempt of [candidate, closeBrackets(candidate)]) {
+    for (const attempt of [candidate, closeBrackets(candidate), closeBrackets(escapeInnerQuotes(candidate))]) {
       try {
         return JSON.parse(attempt);
       } catch {
@@ -72,6 +73,37 @@ export function extractJson(text: string): unknown {
     }
   }
   return null;
+}
+
+// A quote inside a string that is not followed by a structural character
+// (, } ] :) cannot be the end of that string, so it must be a literal quote
+// the model forgot to escape.
+function escapeInnerQuotes(text: string) {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        const next = text.slice(i + 1).match(/^\s*(.)/s);
+        const closes = !next || ",}]:".includes(next[1]);
+        if (!closes) {
+          out += '\\"';
+          continue;
+        }
+        inString = false;
+      }
+    } else if (ch === '"') {
+      inString = true;
+    }
+    out += ch;
+  }
+  return out;
 }
 
 // Append whatever closers are still open, ignoring brackets inside strings.
