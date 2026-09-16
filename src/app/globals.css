@@ -739,6 +739,159 @@ h3 {
   }
 }
 
+/* The AI assessment: four criterion cards as one row, then the summary and
+   the two lists. Washed with the AI colour so it reads as advice, not the
+   teacher's own marking. */
+.ai-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px 16px;
+  border: 1px solid rgba(139, 126, 200, .4);
+  border-radius: 10px;
+  background: rgba(139, 126, 200, .06);
+}
+
+.ai-panel h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+}
+
+.ai-panel h3 .pill {
+  font-size: 11px;
+}
+
+.ai-criteria {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.ai-criterion {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.ai-criterion.unscored {
+  background: var(--paper);
+}
+
+.ai-criterion-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.ai-criterion-short {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--ai);
+}
+
+.ai-criterion-head strong {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-criterion.unscored .ai-criterion-head strong {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ai-criterion-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-criterion p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.ai-criterion ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ai-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--white);
+  border: 1px solid var(--line);
+}
+
+.ai-summary p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ai-band {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  min-width: 84px;
+}
+
+.ai-band span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ai-band strong {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ai);
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.ai-lists ul {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-lists ul {
+  padding-left: 18px;
+}
+
+.ai-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-foot small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .demo-banner {
   display: flex;
   gap: 16px;

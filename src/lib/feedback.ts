@@ -1,6 +1,6 @@
 import type { FeedbackDetail, Recording, Submission, WritingResponse } from "@/lib/types";
 
-export const scoreParts = ["fluency", "task_response", "coherence", "grammar", "vocabulary"] as const;
+export const scoreParts = ["fluency", "task_response", "coherence", "grammar", "vocabulary", "pronunciation"] as const;
 
 export function isScoreDetail(detail: FeedbackDetail) {
   return scoreParts.includes(detail.part as (typeof scoreParts)[number]);
@@ -16,39 +16,24 @@ export function questionCommentDetails(details: FeedbackDetail[] = []) {
 
 function localizeScoreDetail(detail: FeedbackDetail): FeedbackDetail {
   const labels: Record<string, { label: string; question: string }> = {
-    fluency: { label: "流利度", question: "整体流利度评分" },
+    fluency: { label: "流利与连贯", question: "Fluency & Coherence" },
     task_response: { label: "任务回应", question: "整体任务回应评分" },
     coherence: { label: "连贯与衔接", question: "整体连贯与衔接评分" },
-    grammar: { label: "语法", question: "整体语法评分" },
-    vocabulary: { label: "词汇", question: "整体词汇评分" }
+    grammar: { label: "语法", question: "Grammatical Range & Accuracy" },
+    vocabulary: { label: "词汇", question: "Lexical Resource" },
+    pronunciation: { label: "发音", question: "Pronunciation" }
   };
   const localized = labels[detail.part];
   return localized ? { ...detail, ...localized } : detail;
 }
 
+// The four IELTS Speaking criteria, in the order of the band descriptors.
 export function defaultScoreDetails(): FeedbackDetail[] {
   return [
-    {
-      part: "fluency",
-      label: "流利度",
-      question: "整体流利度评分",
-      score: 0,
-      comment: ""
-    },
-    {
-      part: "grammar",
-      label: "语法",
-      question: "整体语法评分",
-      score: 0,
-      comment: ""
-    },
-    {
-      part: "vocabulary",
-      label: "词汇",
-      question: "整体词汇评分",
-      score: 0,
-      comment: ""
-    }
+    { part: "fluency", label: "流利与连贯", question: "Fluency & Coherence", score: 0, comment: "" },
+    { part: "vocabulary", label: "词汇", question: "Lexical Resource", score: 0, comment: "" },
+    { part: "grammar", label: "语法", question: "Grammatical Range & Accuracy", score: 0, comment: "" },
+    { part: "pronunciation", label: "发音", question: "Pronunciation", score: 0, comment: "" }
   ];
 }
 

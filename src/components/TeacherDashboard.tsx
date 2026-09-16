@@ -7,6 +7,7 @@ import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from
 import { LessonProgressPanel } from "@/components/LessonProgress";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { FirstRunTour, tourSeen } from "@/components/FirstRunTour";
+import { AiAssessmentPanel } from "@/components/AiAssessmentPanel";
 import { averageScore, defaultAssignment, defaultWritingAssignment, getQuestionItems } from "@/lib/questions";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { TeacherSchedulePanel } from "@/components/LessonScheduler";
@@ -31,6 +32,7 @@ type AuthAccount = {
   display_name: string;
   /** Null while a teacher is waiting for the operator to send their code. */
   activated_at?: string | null;
+  ai_enabled?: boolean;
 };
 type SubmissionAssignmentWithQuestions = {
   id: string;
@@ -723,6 +725,17 @@ export function TeacherDashboard() {
     if (submission?.student_name) void loadStudentProgress(submission.student_name);
   }
 
+  // The AI's three text-based scores land on the matching criteria of the
+  // teacher's draft; pronunciation stays whatever the teacher set.
+  function adoptAiScores(scores: { fluency_coherence: number | null; lexical_resource: number | null; grammar: number | null }) {
+    const base = feedbackDraft || (selectedSubmission ? createManualFeedback(selectedSubmission) : null);
+    if (!base) return;
+    const map: Record<string, number | null> = { fluency: scores.fluency_coherence, vocabulary: scores.lexical_resource, grammar: scores.grammar };
+    const details = base.details.map((detail) => (detail.part in map && map[detail.part] != null ? { ...detail, score: map[detail.part] as number } : detail));
+    setFeedbackDraft({ ...base, details, overall_score: averageScore(scoreDetails(details)) });
+    setMessage(tr("已把 AI 初评分数填入评分区，发布前请核对。", "AI scores copied into the editor; check them before publishing."));
+  }
+
   function updateDetail(index: number, patch: Partial<FeedbackDetail>) {
     const base = feedbackDraft || (selectedSubmission ? createManualFeedback(selectedSubmission) : null);
     if (!base || index < 0) return;
@@ -1375,9 +1388,11 @@ export function TeacherDashboard() {
                   onRevisionSave={saveWritingRevision}
                 />
                 <LearningProgressPanel submissions={studentProgress} />
-                <button className="btn ai" onClick={analyzeSubmission} disabled={loading} type="button">
-                  {loading ? t("生成中...", "Generating...") : t("生成 AI 反馈草稿", "Generate AI feedback draft")}
-                </button>
+                {account?.ai_enabled && (
+                  <button className="btn ai" onClick={analyzeSubmission} disabled={loading} type="button">
+                    {loading ? t("生成中...", "Generating...") : t("生成 AI 反馈草稿", "Generate AI feedback draft")}
+                  </button>
+                )}
                 <FeedbackEditor
                   feedback={feedbackDraft || createManualFeedback(selectedSubmission)}
                   updateComment={(overall_comment) => setFeedbackDraft({ ...(feedbackDraft || createManualFeedback(selectedSubmission)), overall_comment })}
@@ -1430,9 +1445,15 @@ export function TeacherDashboard() {
                   />
                 )}
                 <LearningProgressPanel submissions={studentProgress} />
-                <button className="btn ai" onClick={analyzeSubmission} disabled={loading} type="button">
-                  {loading ? t("生成中...", "Generating...") : t("生成 AI 反馈草稿", "Generate AI feedback draft")}
-                </button>
+                {isWritingSubmission(selectedSubmission) ? (
+                  account?.ai_enabled && (
+                    <button className="btn ai" onClick={analyzeSubmission} disabled={loading} type="button">
+                      {loading ? t("生成中...", "Generating...") : t("生成 AI 反馈草稿", "Generate AI feedback draft")}
+                    </button>
+                  )
+                ) : (
+                  <AiAssessmentPanel submissionId={selectedSubmission.id} enabled={Boolean(account?.ai_enabled)} onAdoptScores={adoptAiScores} />
+                )}
                 <FeedbackEditor
                   feedback={feedbackDraft || createManualFeedback(selectedSubmission)}
                   updateComment={(overall_comment) => setFeedbackDraft({ ...(feedbackDraft || createManualFeedback(selectedSubmission)), overall_comment })}

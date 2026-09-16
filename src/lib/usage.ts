@@ -43,6 +43,10 @@ const unitCostMicros = {
   // the rate moves or daily volume reaches a cheaper tier.
   asrSecond: 1972,
   openAiToken: 3, // gpt-4.1-mini blended prompt+completion
+  // Claude Opus 5 list price: USD 5 per million input tokens, 25 per million
+  // output, at 7.1 CNY to the dollar — 35.5 and 177.5 micro-CNY per token.
+  claudeInputToken: 35.5,
+  claudeOutputToken: 177.5,
   storedByte: 0.02 // Supabase storage, monthly
 };
 
@@ -59,6 +63,10 @@ export function estimateAsrCostMicros(seconds: number) {
 
 export function estimateOpenAiCostMicros(tokens: number) {
   return Math.round(tokens * unitCostMicros.openAiToken);
+}
+
+export function estimateClaudeCostMicros(inputTokens: number, outputTokens: number) {
+  return Math.round(inputTokens * unitCostMicros.claudeInputToken + outputTokens * unitCostMicros.claudeOutputToken);
 }
 
 export function estimateStorageCostMicros(bytes: number) {

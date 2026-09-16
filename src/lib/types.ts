@@ -230,6 +230,32 @@ export type SubmissionAssignment = {
   writing_tasks?: WritingTask[];
 };
 
+/** One criterion of an AI preliminary assessment. Pronunciation carries no score. */
+export type AiCriterion = {
+  score: number | null;
+  comment: string;
+  evidence: string[];
+};
+
+/** The teacher-only AI second opinion on a speaking submission. */
+export type AiAssessment = {
+  id: string;
+  submission_id: string;
+  model: string;
+  band_estimate: number | null;
+  criteria: {
+    fluency_coherence: AiCriterion;
+    lexical_resource: AiCriterion;
+    grammar: AiCriterion;
+    pronunciation: AiCriterion;
+  };
+  summary: string;
+  strengths: string[];
+  priorities: string[];
+  per_question: Array<{ part: string; comment: string }>;
+  created_at: string;
+};
+
 export type FeedbackDetail = {
   part: string;
   label: string;

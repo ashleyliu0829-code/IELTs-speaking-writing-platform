@@ -12,6 +12,8 @@ export type AccountSession = {
   teacher_id?: string | null;
   /** Null while a teacher is waiting for the operator to send their code. */
   activated_at?: string | null;
+  /** Whether the operator has switched the AI features on for this teacher. */
+  ai_enabled?: boolean;
 };
 
 export const sessionCookieName = "ielts_session";
@@ -59,7 +61,7 @@ export async function getCurrentAccount(): Promise<AccountSession | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("account_sessions")
-    .select("expires_at, accounts(id, role, phone, display_name, teacher_id, activated_at)")
+    .select("expires_at, accounts(id, role, phone, display_name, teacher_id, activated_at, ai_enabled)")
     .eq("token_hash", hashSessionToken(token))
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
@@ -74,7 +76,8 @@ export async function getCurrentAccount(): Promise<AccountSession | null> {
     phone: account.phone,
     display_name: account.display_name,
     teacher_id: account.teacher_id,
-    activated_at: account.activated_at
+    activated_at: account.activated_at,
+    ai_enabled: Boolean(account.ai_enabled)
   };
 }
 
