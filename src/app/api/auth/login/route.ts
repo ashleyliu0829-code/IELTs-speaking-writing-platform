@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const { data: account, error } = await supabase
     .from("accounts")
-    .select("id, role, phone, display_name, teacher_id, activated_at, password_hash, password_salt")
+    .select("id, role, phone, display_name, teacher_id, activated_at, ai_enabled, password_hash, password_salt")
     .eq("phone", phone)
     .eq("role", payload.role)
     .maybeSingle();
@@ -43,7 +43,8 @@ export async function POST(request: Request) {
       phone: account.phone,
       display_name: account.display_name,
       teacher_id: account.teacher_id,
-      activated_at: account.activated_at
+      activated_at: account.activated_at,
+      ai_enabled: Boolean(account.ai_enabled)
     }
   });
 }
