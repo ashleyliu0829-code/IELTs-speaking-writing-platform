@@ -14,6 +14,10 @@ export type AccountSession = {
   activated_at?: string | null;
   /** Whether the operator has switched the AI features on for this teacher. */
   ai_enabled?: boolean;
+  /** True for a throwaway trial workspace opened without an activation code. */
+  is_demo?: boolean;
+  /** When a trial workspace stops working. Null for every real account. */
+  demo_expires_at?: string | null;
 };
 
 export const sessionCookieName = "ielts_session";
@@ -61,7 +65,7 @@ export async function getCurrentAccount(): Promise<AccountSession | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("account_sessions")
-    .select("expires_at, accounts(id, role, phone, display_name, teacher_id, activated_at, ai_enabled)")
+    .select("expires_at, accounts(id, role, phone, display_name, teacher_id, activated_at, ai_enabled, is_demo, demo_expires_at)")
     .eq("token_hash", hashSessionToken(token))
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
@@ -77,7 +81,9 @@ export async function getCurrentAccount(): Promise<AccountSession | null> {
     display_name: account.display_name,
     teacher_id: account.teacher_id,
     activated_at: account.activated_at,
-    ai_enabled: Boolean(account.ai_enabled)
+    ai_enabled: Boolean(account.ai_enabled),
+    is_demo: Boolean(account.is_demo),
+    demo_expires_at: account.demo_expires_at || null
   };
 }
 

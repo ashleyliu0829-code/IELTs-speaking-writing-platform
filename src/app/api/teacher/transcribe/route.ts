@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireTeacher } from "@/lib/auth";
+import { rejectDemo, requireTeacher } from "@/lib/auth";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
 import { checkQuota, estimateAsrCostMicros, recordUsage } from "@/lib/usage";
 import type { Recording } from "@/lib/types";
@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
   const auth = await requireTeacher();
   if (auth instanceof Response) return auth;
   const { account: teacher, supabase } = auth;
+  const blocked = rejectDemo(teacher);
+  if (blocked) return blocked;
   const storage = getSupabaseAdmin();
 
   if (!process.env.TENCENT_SECRET_ID || !process.env.TENCENT_SECRET_KEY) {

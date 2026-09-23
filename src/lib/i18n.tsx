@@ -109,11 +109,17 @@ export function tr(zh: string, en: string) {
   return currentLanguage() === "zh" ? zh : en;
 }
 
-/** The wordmark in the topbar. */
-// One word in both languages, so no hook is needed here.
+/** The mark and the wordmark in the topbar. */
+// One word in both languages, so no hook is needed here. The mark is inline
+// rather than an <img> so it needs no request and inherits nothing.
 export function BrandTitle() {
   return (
     <a className="brand-title" href="/">
+      <svg className="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
+        <rect width="512" height="512" rx="116" fill="#52796f" />
+        <path d="M 339.6 156.4 A 130 130 0 1 0 386 256" fill="none" stroke="#f7f5f0" strokeWidth="54" strokeLinecap="round" />
+        <path d="M 386 256 L 302 256" fill="none" stroke="#f28c70" strokeWidth="54" strokeLinecap="round" />
+      </svg>
       Graderley
     </a>
   );

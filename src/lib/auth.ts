@@ -25,6 +25,31 @@ function activationPending(account: AccountSession) {
 }
 
 /**
+ * A trial workspace keeps working until its expiry, then stops rather than
+ * silently emptying: the visitor is told to ask for a real account.
+ */
+function demoExpired(account: AccountSession) {
+  if (!account.is_demo || !account.demo_expires_at) return null;
+  if (new Date(account.demo_expires_at).getTime() > Date.now()) return null;
+  return Response.json(
+    { error: "体验已经结束了。想继续使用请联系老师开通正式账号。", code: "demo_expired" },
+    { status: 403 }
+  );
+}
+
+/**
+ * Guards a route that spends money per call — transcription, AI. A trial
+ * account may see what these produce in the seeded data, but not run them.
+ */
+export function rejectDemo(account: AccountSession) {
+  if (!account.is_demo) return null;
+  return Response.json(
+    { error: "体验账号不能使用这个功能。示例作业里已经有转写和批改结果可以看。", code: "demo_account" },
+    { status: 403 }
+  );
+}
+
+/**
  * Guards a teacher-only route and hands back a client that can only reach this
  * teacher's workspace. Call sites cannot accidentally query unscoped, because
  * the client is the only way to get one.
@@ -39,7 +64,7 @@ export async function requireTeacher(): Promise<AuthorizedContext | Response> {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pending = activationPending(account);
+  const pending = activationPending(account) || demoExpired(account);
   if (pending) return pending;
 
   return { account, supabase: getSupabaseForAccount(account) };
@@ -52,7 +77,7 @@ export async function requireStaff(): Promise<AuthorizedContext | Response> {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pending = activationPending(account);
+  const pending = activationPending(account) || demoExpired(account);
   if (pending) return pending;
 
   return { account, supabase: getSupabaseForAccount(account) };

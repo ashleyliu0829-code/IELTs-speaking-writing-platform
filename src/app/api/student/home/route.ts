@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireStudent } from "@/lib/auth";
+import { readPhases } from "@/lib/studyPlan";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 /**
@@ -37,7 +38,7 @@ export async function GET() {
       .limit(3),
     supabase
       .from("students")
-      .select("exam_date, exam_date_confirmed, course_plan")
+      .select("exam_date, exam_date_confirmed, course_plan, study_plan")
       .eq("account_id", account.id)
       .maybeSingle()
   ]);
@@ -58,7 +59,8 @@ export async function GET() {
     lessons,
     exam_date: (profile.data?.exam_date as string | null) || null,
     exam_date_confirmed: Boolean(profile.data?.exam_date_confirmed),
-    course_plan: (profile.data?.course_plan as string | null) || ""
+    course_plan: (profile.data?.course_plan as string | null) || "",
+    study_plan: readPhases(profile.data?.study_plan)
   });
 }
 

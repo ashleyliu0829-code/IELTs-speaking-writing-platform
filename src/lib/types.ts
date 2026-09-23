@@ -1,3 +1,5 @@
+import type { StudyPlanPhase } from "@/lib/studyPlan";
+
 export type AssignmentType = "speaking" | "writing";
 
 export type WritingTask = {
@@ -67,6 +69,8 @@ export type StudentOverviewRow = {
   exam_date_confirmed: boolean;
   /** The course the student is on. Empty string when nothing is set. */
   course_plan: string;
+  /** The phases of the study plan, in date order; empty when none is set. */
+  study_plan: StudyPlanPhase[];
   /** False once the student has stopped taking lessons. */
   is_active: boolean;
   /** Hours from confirmed bookings that have already happened. */

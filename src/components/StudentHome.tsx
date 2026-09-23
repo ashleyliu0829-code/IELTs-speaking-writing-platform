@@ -5,6 +5,8 @@ import { coursePlanAreas, coursePlanFamily } from "@/lib/coursePlans";
 import { StudentDailyCheckinTile } from "@/components/DailyTasks";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
+import { StudyPlanBar } from "@/components/StudyPlan";
+import type { StudyPlanPhase } from "@/lib/studyPlan";
 import type { Submission } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
 
@@ -43,6 +45,7 @@ type HomeData = {
   exam_date: string | null;
   exam_date_confirmed: boolean;
   course_plan: string;
+  study_plan: StudyPlanPhase[];
 };
 
 const monthOptions = [1, 2, 3, 6, 12];
@@ -209,6 +212,18 @@ export function StudentHomePanels({
 
         <StudentDailyCheckinTile onOpenAll={onOpenDailyTasks} />
       </div>
+
+      {data && data.study_plan.length > 0 && (
+        <article className="card stack student-home-study-plan">
+          <div className="section-head compact">
+            <div>
+              <h2>{t("学习计划", "Study plan")}</h2>
+              <div className="hint">{t("老师为你定的阶段，进度按日期自动推进。", "The phases your teacher set; progress follows the calendar.")}</div>
+            </div>
+          </div>
+          <StudyPlanBar phases={data.study_plan} today={today} />
+        </article>
+      )}
 
       <article className="card stack">
         <div className="section-head compact">

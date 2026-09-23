@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { isCoursePlan } from "@/lib/coursePlans";
+import { readPhases } from "@/lib/studyPlan";
 import type { LessonSection, StudentOverviewLesson, StudentOverviewRow, StudentOverviewScore, StudentOverviewStats } from "@/lib/types";
 
 /**
@@ -41,7 +42,7 @@ export async function GET() {
   const [students, accounts, submissions, bookings, pastBookings] = await Promise.all([
     supabase
       .from("students")
-      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, is_active, taught_hours_override")
+      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, study_plan, is_active, taught_hours_override")
       .order("name", { ascending: true }),
     supabase.from("accounts").select("id, created_at, phone").eq("role", "student"),
     supabase
@@ -163,6 +164,7 @@ export async function GET() {
       exam_date: (student.exam_date as string | null) || null,
       exam_date_confirmed: Boolean(student.exam_date_confirmed),
       course_plan: (student.course_plan as string | null) || "",
+      study_plan: readPhases(student.study_plan),
       is_active: student.is_active !== false,
       taught_hours_auto: Math.round((((accountId ? taughtByAccount.get(accountId) : 0) || 0) + (taughtByName.get(key) || 0)) / 6) / 10,
       taught_hours_override: student.taught_hours_override == null ? null : Number(student.taught_hours_override),

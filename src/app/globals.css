@@ -118,9 +118,19 @@ a {
 }
 
 .brand-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 17px;
   font-weight: 780;
   text-decoration: none;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  flex: none;
 }
 
 .brand-subtitle,
@@ -4915,4 +4925,297 @@ PLACEHOLDER
 .recorder-row.demo-review audio {
   flex: 1 1 240px;
   min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Study plan: one bar from the first phase to the exam, split by phase,
+   filled up to today. Shared by the student's home and the teacher's card.
+   --------------------------------------------------------------------------- */
+
+.study-plan {
+  display: grid;
+  gap: 12px;
+}
+
+.study-plan-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.study-plan-head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.study-plan-percent {
+  font-size: 34px;
+  line-height: 1;
+  color: var(--brand-dark);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+
+.study-plan.compact .study-plan-percent {
+  font-size: 24px;
+}
+
+.study-plan-headline {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.study-plan.compact .study-plan-headline {
+  font-size: 13px;
+}
+
+.study-plan-bar {
+  display: flex;
+  gap: 3px;
+  height: 18px;
+}
+
+.study-plan.compact .study-plan-bar {
+  height: 10px;
+}
+
+.study-plan-segment {
+  position: relative;
+  flex-basis: 0;
+  min-width: 14px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--sage-soft);
+  border: 1px solid var(--line);
+}
+
+.study-plan-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--secondary);
+}
+
+.study-plan-segment.done .study-plan-fill {
+  background: var(--brand);
+}
+
+.study-plan-segment.current .study-plan-fill {
+  background: var(--brand);
+  border-right: 2px solid var(--accent);
+}
+
+.study-plan-segment-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink);
+  mix-blend-mode: multiply;
+}
+
+.study-plan-phases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.study-plan.compact .study-plan-phases {
+  gap: 6px 14px;
+}
+
+.study-plan-phase {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.study-plan-phase > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.study-plan-phase small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.study-plan-phase-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.study-plan-phase.todo strong {
+  color: var(--muted);
+}
+
+.study-plan-dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.study-plan-phase.done .study-plan-dot {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--white);
+}
+
+.study-plan-phase.current .study-plan-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+
+.pill.plan-state {
+  font-size: 10px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--muted);
+}
+
+.pill.plan-state.done {
+  background: var(--done-wash);
+  border-color: var(--done-line);
+  color: var(--done-ink);
+}
+
+.pill.plan-state.current {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+
+/* On the teacher's card the plan sits under the fact grid, full width. */
+.student-card-plan {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.student-card-plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.student-card-plan em {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* The editor: one row per phase, the focus line wrapping under it. */
+.student-dialog.wide {
+  width: min(680px, calc(100vw - 32px));
+}
+
+.study-plan-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.study-plan-edit-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.study-plan-edit-row .study-plan-dot {
+  margin-top: 0;
+}
+
+.study-plan-edit-to {
+  color: var(--muted);
+}
+
+.study-plan-edit-focus {
+  grid-column: 2 / -1;
+}
+
+@media (max-width: 640px) {
+  .study-plan-edit-row {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+
+  .study-plan-edit-row input[type="date"],
+  .study-plan-edit-to {
+    grid-column: 2 / -1;
+  }
+
+  .study-plan-edit-to {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Trial mode: the way in on the login card, and the strip worn inside.
+   --------------------------------------------------------------------------- */
+
+.auth-demo {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.auth-demo-rule {
+  justify-self: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-demo .hint {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.demo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: #fdeee9;
+  color: var(--ink);
+}
+
+.demo-banner > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.demo-banner strong {
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: var(--accent-dark);
+}
+
+.demo-banner span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
 }

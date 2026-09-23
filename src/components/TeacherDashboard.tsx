@@ -33,6 +33,8 @@ type AuthAccount = {
   /** Null while a teacher is waiting for the operator to send their code. */
   activated_at?: string | null;
   ai_enabled?: boolean;
+  is_demo?: boolean;
+  demo_expires_at?: string | null;
 };
 type SubmissionAssignmentWithQuestions = {
   id: string;
@@ -268,6 +270,23 @@ export function TeacherDashboard() {
       await loadAssignments();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : tr("账号请求失败。", "Account request failed."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startDemo() {
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/demo", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("体验开通失败。", "Could not open the trial."));
+      setAccount(data.account);
+      setMessage("");
+      await loadAssignments();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : tr("体验开通失败。", "Could not open the trial."));
     } finally {
       setLoading(false);
     }
@@ -869,6 +888,22 @@ export function TeacherDashboard() {
               {loading ? t("处理中...", "Processing...") : authMode === "login" ? t("登录", "Log in") : t("创建老师账号", "Create teacher account")}
             </button>
             {message && <p className={message.includes("failed") || message.includes("Unauthorized") ? "error" : "hint"}>{message}</p>}
+
+            {/* Eleven of the first seventeen teachers never came back after
+                their first login, and a code they have to ask for is the last
+                thing in the way. This opens a sandbox with no sign-up at all. */}
+            <div className="auth-demo">
+              <span className="auth-demo-rule">{t("或者", "or")}</span>
+              <button className="btn secondary" onClick={startDemo} disabled={loading} type="button">
+                {loading ? t("准备中...", "Preparing...") : t("免费体验，无需授权码", "Try it free, no code needed")}
+              </button>
+              <p className="hint">
+                {t(
+                  "立刻进入一个装好 3 位示例学生的工作区：有待批改的口语作业、批好的写作、课程进度和学习计划，随便点。体验数据 7 天后自动清除。",
+                  "Opens a workspace with three example students: speaking homework waiting to be marked, marked writing, lesson progress and a study plan. Trial data is cleared after 7 days."
+                )}
+              </p>
+            </div>
           </article>
         </section>
       </main>
@@ -877,6 +912,7 @@ export function TeacherDashboard() {
 
   return (
     <main className="shell shell-wide">
+      {account?.is_demo && <DemoBanner expiresAt={account.demo_expires_at} onLeave={logout} />}
       {hasTeacherAccess && (
         <div className="home-layout">
           {/* The index stays put. Everything it opens renders in the pane on
@@ -4029,4 +4065,31 @@ function audioExtension(mimeType: string) {
   if (mimeType.includes("aac")) return "aac";
   if (mimeType.includes("mpeg")) return "mp3";
   return "webm";
+}
+
+/**
+ * The strip a trial workspace wears: what this is, how long it lasts, and the
+ * way out. It sits above everything because a visitor who forgets they are in
+ * a sandbox will wonder why their real students are missing.
+ */
+function DemoBanner({ expiresAt, onLeave }: { expiresAt?: string | null; onLeave: () => void }) {
+  const { t } = useLanguage();
+  const daysLeft = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)) : null;
+  return (
+    <div className="demo-banner">
+      <div>
+        <strong>{t("体验模式", "Trial mode")}</strong>
+        <span>
+          {t(
+            "这里的学生和作业都是示例数据，随便改。想要自己的工作区，需要一个授权码。",
+            "The students and homework here are examples — change anything. Your own workspace needs an activation code."
+          )}
+          {daysLeft != null && t(` 体验还剩 ${daysLeft} 天。`, ` ${daysLeft} days left.`)}
+        </span>
+      </div>
+      <button className="btn secondary" type="button" onClick={onLeave}>
+        {t("退出体验", "Leave trial")}
+      </button>
+    </div>
+  );
 }

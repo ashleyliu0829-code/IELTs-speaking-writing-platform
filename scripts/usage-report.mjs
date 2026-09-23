@@ -27,7 +27,7 @@ const all = async (table, select) => {
 };
 
 const [accounts, sessions, students, assignments, submissions, feedback, rawBookings, tasks, checkins, practice, todos, aiRows] = await Promise.all([
-  all("accounts", "id, role, phone, display_name, teacher_id, created_at, activated_at, ai_enabled"),
+  all("accounts", "id, role, phone, display_name, teacher_id, created_at, activated_at, ai_enabled, is_demo"),
   all("account_sessions", "account_id, created_at"),
   all("students", "id, teacher_id, name, is_active"),
   all("assignments", "id, teacher_id, assignment_type, created_at"),
@@ -42,7 +42,8 @@ const [accounts, sessions, students, assignments, submissions, feedback, rawBook
 ]);
 
 const bookings = rawBookings.map((b) => ({ ...b, teacher_id: b.lesson_slots?.teacher_id }));
-const teachers = accounts.filter((a) => a.role === "teacher");
+const teachers = accounts.filter((a) => a.role === "teacher" && !a.is_demo);
+const demos = accounts.filter((a) => a.role === "teacher" && a.is_demo);
 const studentAccounts = accounts.filter((a) => a.role === "student");
 const subById = new Map(submissions.map((s) => [s.id, s]));
 const last = (dates) => dates.filter(Boolean).sort().at(-1);
@@ -95,3 +96,4 @@ const activeTeachers = rows.filter((r) => r.submissions > 0 || r.assignments > 0
 console.log(`\n老师账号 ${teachers.length}，有作业/提交的 ${activeTeachers.length}；学生账号 ${studentAccounts.length}；提交总数 ${submissions.length}，已批 ${feedback.filter((f) => f.published_at).length}；AI 初评 ${aiRows.length} 次`);
 const days7 = new Date(now - 7 * 864e5).toISOString();
 console.log(`近 7 天：登录 ${sessions.filter((s) => s.created_at > days7).length} 次，提交 ${submissions.filter((s) => s.submitted_at > days7).length} 份，新老师 ${teachers.filter((t) => (t.created_at || "") > days7).length}，新学生账号 ${studentAccounts.filter((a) => (a.created_at || "") > days7).length}`);
+console.log(`体验账号：共 ${demos.length}，近 7 天开通 ${demos.filter((a) => (a.created_at || "") > days7).length}`);

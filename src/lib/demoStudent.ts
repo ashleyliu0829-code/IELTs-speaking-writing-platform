@@ -3,6 +3,7 @@ import path from "node:path";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
 import { currentP1Bank, currentP2P3Bank } from "@/lib/questionBank";
 import { stringifyReviewComment } from "@/lib/reviewComments";
+import { suggestPhases } from "@/lib/studyPlan";
 
 /**
  * The example student every new teacher starts with.
@@ -21,7 +22,10 @@ import { stringifyReviewComment } from "@/lib/reviewComments";
  */
 
 export const demoStudentName = "示例学生";
-const demoTag = "【示例】";
+export const demoTag = "【示例】";
+/** The extra students a trial workspace gets on top of the one above. */
+export const demoPeerNames = ["示例学生·小周", "示例学生·小陈"];
+export const allDemoStudentNames = [demoStudentName, ...demoPeerNames];
 
 const p1Transcript =
   "Yes, I'm a student. I'm study business management in my third year at university. I choose this major because my parents think it is useful, and also I'm interested in how company works. In the future, I hope I can work in a international company.";
@@ -74,6 +78,7 @@ export async function seedDemoStudent(teacherId: string) {
       course_plan: "全科",
       exam_date: new Date(now + 60 * 86400000).toISOString().slice(0, 10),
       exam_date_confirmed: false,
+      study_plan: suggestPhases(new Date(now - 14 * 86400000), new Date(now + 60 * 86400000).toISOString().slice(0, 10)),
       is_active: true
     })
     .select("id")
@@ -294,12 +299,12 @@ export async function removeDemoStudent(teacherId: string) {
     .from("lesson_bookings")
     .select("id, slot_id, lesson_slots!inner(teacher_id)")
     .eq("lesson_slots.teacher_id", teacherId)
-    .eq("student_name", demoStudentName);
+    .in("student_name", allDemoStudentNames);
   for (const booking of bookings || []) {
     await supabase.from("lesson_bookings").delete().eq("id", booking.id);
     await supabase.from("lesson_slots").delete().eq("id", booking.slot_id);
   }
   await supabase.from("daily_tasks").delete().eq("teacher_id", teacherId).like("title", `${demoTag}%`);
-  await supabase.from("students").delete().eq("teacher_id", teacherId).eq("name", demoStudentName);
+  await supabase.from("students").delete().eq("teacher_id", teacherId).in("name", allDemoStudentNames);
   return { removed: true };
 }

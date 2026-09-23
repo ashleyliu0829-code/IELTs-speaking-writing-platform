@@ -5,7 +5,9 @@ import { coursePlanFamily, coursePlans } from "@/lib/coursePlans";
 import type { StudentOverviewLesson, StudentOverviewRow } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
 import { sectionLabel } from "@/components/LessonProgress";
+import { StudyPlanBar, StudyPlanDialog } from "@/components/StudyPlan";
 import type { LessonSection } from "@/lib/types";
+import type { StudyPlanPhase } from "@/lib/studyPlan";
 
 /**
  * The first page of the student archive: every student on one line.
@@ -42,6 +44,7 @@ export function StudentOverviewPanel({
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<StudentOverviewRow | null>(null);
+  const [planning, setPlanning] = useState<StudentOverviewRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   // Which card is unfolded; one at a time keeps the grid readable.
@@ -115,6 +118,26 @@ export function StudentOverviewPanel({
     }
   }
 
+  async function savePlan(student: StudentOverviewRow, phases: StudyPlanPhase[]) {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/teacher/study-plan", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: student.id, phases })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
+      setRows((current) => current.map((row) => (row.id === student.id ? { ...row, study_plan: data.phases || [] } : row)));
+      setPlanning(null);
+      setStatus("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : tr("保存失败。", "Could not save."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <article className="card stack student-overview">
       <div className="section-head compact">
@@ -159,6 +182,7 @@ export function StudentOverviewPanel({
                       open={openId === row.id}
                       onToggle={() => setOpenId((current) => (current === row.id ? null : row.id))}
                       onEdit={() => setEditing(row)}
+                      onPlan={() => setPlanning(row)}
                       onOpenStudent={onOpenStudent}
                     />
                   ))}
@@ -178,6 +202,17 @@ export function StudentOverviewPanel({
           onSave={(edit) => saveStudent(editing, edit)}
         />
       )}
+      {planning && (
+        <StudyPlanDialog
+          studentName={planning.name}
+          examDate={planning.exam_date}
+          phases={planning.study_plan}
+          today={today}
+          saving={saving}
+          onClose={() => setPlanning(null)}
+          onSave={(phases) => savePlan(planning, phases)}
+        />
+      )}
     </article>
   );
 }
@@ -193,6 +228,7 @@ function StudentCard({
   open,
   onToggle,
   onEdit,
+  onPlan,
   onOpenStudent
 }: {
   row: StudentOverviewRow;
@@ -200,6 +236,7 @@ function StudentCard({
   open: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onPlan: () => void;
   onOpenStudent?: (studentName: string) => void;
 }) {
   const { t } = useLanguage();
@@ -274,6 +311,19 @@ function StudentCard({
               <span className="student-card-label">{t("下次上课", "Next lesson")}</span>
               <NextLessonCell lesson={row.next_lesson} today={today} />
             </div>
+          </div>
+          <div className="student-card-plan">
+            <div className="student-card-plan-head">
+              <span className="student-card-label">{t("学习计划", "Study plan")}</span>
+              <button className="btn link" type="button" onClick={onPlan}>
+                {row.study_plan.length ? t("编辑计划", "Edit plan") : t("制定计划", "Make a plan")}
+              </button>
+            </div>
+            {row.study_plan.length ? (
+              <StudyPlanBar phases={row.study_plan} today={today} compact />
+            ) : (
+              <em>{t("还没有计划。", "No plan yet.")}</em>
+            )}
           </div>
           <div className="student-card-actions">
             {onOpenStudent && (
