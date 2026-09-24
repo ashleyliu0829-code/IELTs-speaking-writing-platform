@@ -4648,13 +4648,121 @@ PLACEHOLDER
   line-height: 1.65;
 }
 
-.landing-trial-card {
+/* Both cards occupy the same grid cell, so the deck is as tall as the taller
+   of them and nothing reflows when they swap. Depth is scale + dim + a lift
+   in the shadow; the perspective is on the deck so the lean is shared. */
+.landing-deck {
   display: grid;
+  perspective: 1400px;
+  /* Room above and to the right for the corner of the card behind. */
+  margin: 26px 0 0;
+  --lean-x: 0;
+  --lean-y: 0;
+}
+
+/* Both cards fill the cell, so the pair is one size and swapping them moves
+   nothing: the middle row takes the slack, which is the sample either way. */
+.landing-deck-card {
+  grid-area: 1 / 1;
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
   gap: 10px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--paper);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.landing-deck-card.front {
+  z-index: 2;
+  box-shadow: 0 22px 48px rgba(84, 66, 52, .16);
+  transform:
+    translate3d(0, 0, 0)
+    rotateY(calc(var(--lean-x) * 7deg))
+    rotateX(calc(var(--lean-y) * -7deg));
+}
+
+/* Behind and further off: smaller, dimmer, pushed up and right so its corner
+   shows past the front card. It is inert, so nothing in it can be reached. */
+.landing-deck-card.back {
+  z-index: 1;
+  opacity: .55;
+  box-shadow: 0 10px 24px rgba(84, 66, 52, .08);
+  transform:
+    translate3d(calc(37px + var(--lean-x) * 12px), calc(-58px + var(--lean-y) * 12px), -100px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-deck-card {
+    transition: transform .45s cubic-bezier(.22, .8, .3, 1), opacity .35s ease, box-shadow .45s ease;
+  }
+}
+
+/* The dots: a dash that grows and names itself when it is the one in front. */
+.landing-deck-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.landing-deck-dot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.landing-deck-dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--line);
+  flex: none;
+}
+
+.landing-deck-dot:hover::before,
+.landing-deck-dot:focus-visible::before {
+  background: var(--secondary);
+}
+
+.landing-deck-dot.active::before {
+  width: 22px;
+  background: var(--brand);
+}
+
+/* The name only rides the active dot; the others stay dots until pointed at. */
+.landing-deck-dot-name {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+.landing-deck-dot.active .landing-deck-dot-name {
+  max-width: 120px;
+  opacity: 1;
+  color: var(--brand-ink);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-deck-dot::before,
+  .landing-deck-dot-name {
+    transition: width .3s ease, background .2s ease, max-width .3s ease, opacity .3s ease;
+  }
 }
 
 .landing-trial-card-head {
@@ -4671,12 +4779,12 @@ PLACEHOLDER
   font-size: 13px;
 }
 
-.landing-trial-card .landing-sample,
-.landing-trial-card .landing-curve {
+.landing-deck-card .landing-sample,
+.landing-deck-card .landing-curve {
   margin: 0;
 }
 
-.landing-trial-card ul {
+.landing-deck-card ul {
   margin: 0;
   padding-left: 17px;
   display: grid;
@@ -4686,7 +4794,7 @@ PLACEHOLDER
   line-height: 1.55;
 }
 
-.landing-trial-card .btn {
+.landing-deck-card .btn {
   justify-self: stretch;
 }
 
@@ -4702,6 +4810,7 @@ PLACEHOLDER
    latest band is labelled; the gridlines carry the rest. */
 .landing-curve {
   display: grid;
+  align-content: center;
   gap: 8px;
   padding: 14px 16px 10px;
   border: 1px solid var(--line);

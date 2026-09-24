@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 import { useLanguage } from "@/lib/i18n";
 
 export default function Home() {
@@ -53,16 +53,21 @@ export default function Home() {
 
 /**
  * The way in for someone who has never seen the platform: no phone number, no
- * password, no activation code. Each side shows the one screen that side is
- * really about — the teacher's marking card, the student's score curve — and
- * then offers the door. Both are stills built from the real components;
- * nothing here is wired up, and it should not pretend to be.
+ * password, no activation code.
+ *
+ * The two sides are a deck rather than a list — the one on offer sits in
+ * front and the other waits behind it, smaller and dimmer, so the column
+ * stays about the height of one card and the choice reads as a choice. The
+ * dots below swap them; the deck leans towards the cursor, which is what
+ * makes the pair feel like objects rather than a slideshow.
  */
 function TrialColumn() {
   const { t } = useLanguage();
   const router = useRouter();
+  const [active, setActive] = useState(0);
   const [starting, setStarting] = useState<"teacher" | "student" | "">("");
   const [error, setError] = useState("");
+  const deck = useRef<HTMLDivElement | null>(null);
 
   async function start(role: "teacher" | "student") {
     setError("");
@@ -82,6 +87,51 @@ function TrialColumn() {
     }
   }
 
+  // The lean is written straight to custom properties rather than through
+  // state: this runs on every pointer move, and a re-render per frame would
+  // fight the transition it rides on.
+  function lean(event: PointerEvent<HTMLDivElement>) {
+    const node = deck.current;
+    if (!node) return;
+    const box = node.getBoundingClientRect();
+    node.style.setProperty("--lean-x", ((event.clientX - box.left) / box.width - 0.5).toFixed(3));
+    node.style.setProperty("--lean-y", ((event.clientY - box.top) / box.height - 0.5).toFixed(3));
+  }
+
+  function level() {
+    const node = deck.current;
+    if (!node) return;
+    node.style.setProperty("--lean-x", "0");
+    node.style.setProperty("--lean-y", "0");
+  }
+
+  const cards = [
+    {
+      role: "teacher" as const,
+      title: t("老师体验", "Try as a teacher"),
+      lead: t("看看批改一份作业是什么流程", "See what marking a submission is like"),
+      sample: <MarkingSample />,
+      points: [
+        t("3 位示例学生，学习阶段各不相同", "Three example students at different stages"),
+        t("一份待批改的口语作业，录音和转写都在", "A speaking submission waiting to be marked, audio and transcript included"),
+        t("课程安排、学习计划、每日任务都已铺好", "Schedule, study plan and daily tasks already set up")
+      ],
+      cta: t("开始老师体验", "Start the teacher trial")
+    },
+    {
+      role: "student" as const,
+      title: t("学生体验", "Try as a student"),
+      lead: t("看看学生收到的是什么", "See what a student receives"),
+      sample: <ProgressSample />,
+      points: [
+        t("待完成的作业，可以直接录音提交", "Homework waiting, recordable and submittable"),
+        t("老师批好的反馈：分数、逐句批注", "Marked feedback: scores and line-by-line notes"),
+        t("学习计划进度和成绩曲线", "Study plan progress and the score curve")
+      ],
+      cta: t("开始学生体验", "Start the student trial")
+    }
+  ];
+
   return (
     <aside className="landing-trial" aria-label={t("免费体验", "Free trial")}>
       <div className="landing-trial-head">
@@ -94,42 +144,64 @@ function TrialColumn() {
         </p>
       </div>
 
-      <div className="landing-trial-card">
-        <div className="landing-trial-card-head">
-          <strong>{t("老师体验", "Try as a teacher")}</strong>
-          <span>{t("看看批改一份作业是什么流程", "See what marking a submission is like")}</span>
-        </div>
+      <div className="landing-deck" ref={deck} onPointerMove={lean} onPointerLeave={level}>
+        {cards.map((card, index) => {
+          const front = index === active;
+          return (
+            <div
+              className={front ? "landing-deck-card front" : "landing-deck-card back"}
+              key={card.role}
+              id={"trial-panel-" + card.role}
+              role="tabpanel"
+              aria-labelledby={"trial-tab-" + card.role}
+              inert={!front}
+            >
+              <div className="landing-trial-card-head">
+                <strong>{card.title}</strong>
+                <span>{card.lead}</span>
+              </div>
 
-        <MarkingSample />
+              {card.sample}
 
-        <ul>
-          <li>{t("3 位示例学生，学习阶段各不相同", "Three example students at different stages")}</li>
-          <li>{t("一份待批改的口语作业，录音和转写都在", "A speaking submission waiting to be marked, audio and transcript included")}</li>
-          <li>{t("课程安排、学习计划、每日任务都已铺好", "Schedule, study plan and daily tasks already set up")}</li>
-        </ul>
+              <ul>
+                {card.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
 
-        <button className="btn accent" type="button" disabled={Boolean(starting)} onClick={() => void start("teacher")}>
-          {starting === "teacher" ? t("准备中...", "Preparing...") : t("开始老师体验", "Start the teacher trial")}
-        </button>
+              <button
+                className={card.role === "teacher" ? "btn accent" : "btn secondary"}
+                type="button"
+                disabled={Boolean(starting)}
+                onClick={() => void start(card.role)}
+              >
+                {starting === card.role ? t("准备中...", "Preparing...") : card.cta}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="landing-trial-card">
-        <div className="landing-trial-card-head">
-          <strong>{t("学生体验", "Try as a student")}</strong>
-          <span>{t("看看学生收到的是什么", "See what a student receives")}</span>
-        </div>
-
-        <ProgressSample />
-
-        <ul>
-          <li>{t("待完成的作业，可以直接录音提交", "Homework waiting, recordable and submittable")}</li>
-          <li>{t("老师批好的反馈：分数、逐句批注", "Marked feedback: scores and line-by-line notes")}</li>
-          <li>{t("学习计划进度和成绩曲线", "Study plan progress and the score curve")}</li>
-        </ul>
-
-        <button className="btn secondary" type="button" disabled={Boolean(starting)} onClick={() => void start("student")}>
-          {starting === "student" ? t("准备中...", "Preparing...") : t("开始学生体验", "Start the student trial")}
-        </button>
+      {/* Hover, focus or tap a dot to bring that card forward. They are tabs,
+          not decoration, so a keyboard reaches them the same way. */}
+      <div className="landing-deck-dots" role="tablist" aria-label={t("选择体验身份", "Choose a trial")}>
+        {cards.map((card, index) => (
+          <button
+            key={card.role}
+            id={"trial-tab-" + card.role}
+            className={index === active ? "landing-deck-dot active" : "landing-deck-dot"}
+            type="button"
+            role="tab"
+            aria-selected={index === active}
+            aria-controls={"trial-panel-" + card.role}
+            tabIndex={index === active ? 0 : -1}
+            onMouseEnter={() => setActive(index)}
+            onFocus={() => setActive(index)}
+            onClick={() => setActive(index)}
+          >
+            <span className="landing-deck-dot-name">{card.title}</span>
+          </button>
+        ))}
       </div>
 
       {error && <p className="error">{error}</p>}
