@@ -110,13 +110,13 @@ function TrialColumn() {
       role: "teacher" as const,
       title: t("老师体验", "Try as a teacher"),
       sample: <MarkingSample />,
-      cta: t("开始老师体验", "Start the teacher trial")
+      cta: t("开始体验", "Start")
     },
     {
       role: "student" as const,
       title: t("学生体验", "Try as a student"),
       sample: <ProgressSample />,
-      cta: t("开始学生体验", "Start the student trial")
+      cta: t("开始体验", "Start")
     }
   ];
 
