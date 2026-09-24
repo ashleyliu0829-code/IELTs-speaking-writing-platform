@@ -18,6 +18,8 @@ type AuthAccount = {
   phone: string;
   display_name: string;
   teacher_id?: string | null;
+  is_demo?: boolean;
+  demo_expires_at?: string | null;
 };
 
 type StudentAssignmentSummary = {
@@ -477,6 +479,7 @@ export function StudentPortal() {
 
   return (
     <main className="shell shell-wide">
+      {account?.is_demo && <StudentDemoBanner expiresAt={account.demo_expires_at} onLeave={logout} />}
       <div className="home-layout">
         {/* The same rail the teacher has. Home, then the two kinds of work,
             then booking; log out at the foot. */}
@@ -967,4 +970,31 @@ function formatSeconds(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
+}
+
+/**
+ * The strip a trial student wears. Same shape as the teacher's, but the way
+ * out leads back to the front page rather than a login form: a trial student
+ * has no password to come back with.
+ */
+function StudentDemoBanner({ expiresAt, onLeave }: { expiresAt?: string | null; onLeave: () => void }) {
+  const { t } = useLanguage();
+  const daysLeft = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)) : null;
+  return (
+    <div className="demo-banner">
+      <div>
+        <strong>{t("体验模式", "Trial mode")}</strong>
+        <span>
+          {t(
+            "你正在以示例学生的身份查看学生端：作业、反馈和学习计划都是示例数据，随便点。",
+            "You are looking at the student side as the example student. The homework, feedback and study plan are all sample data — click anything."
+          )}
+          {daysLeft != null && t(` 体验还剩 ${daysLeft} 天。`, ` ${daysLeft} days left.`)}
+        </span>
+      </div>
+      <button className="btn secondary" type="button" onClick={onLeave}>
+        {t("退出体验", "Leave trial")}
+      </button>
+    </div>
+  );
 }

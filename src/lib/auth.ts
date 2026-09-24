@@ -89,6 +89,9 @@ export async function requireStudent(): Promise<AuthorizedContext | Response> {
     return Response.json({ error: "请先登录学生账号。" }, { status: 401 });
   }
 
+  const expired = demoExpired(account);
+  if (expired) return expired;
+
   return { account, supabase: getSupabaseForAccount(account) };
 }
 

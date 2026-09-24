@@ -4402,9 +4402,24 @@ PLACEHOLDER
 
 .landing {
   position: relative;
-  width: min(720px, calc(100% - 40px));
+  width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
   padding: clamp(40px, 8vh, 76px) 0 72px;
+}
+
+/* The pitch on the left keeps its old measure; the trial panel takes the
+   room left over, and they stack on a narrow screen with the trial first —
+   someone on a phone who has never seen the platform wants the way in, not
+   the sales copy. */
+.landing-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.landing-pitch {
+  min-width: 0;
 }
 
 .landing-lang {
@@ -4427,6 +4442,9 @@ PLACEHOLDER
 /* The line break is written into the markup, so no measure is imposed here:
    a ch cap is sized on a Latin digit and would fold the Chinese line early. */
 .landing-title {
+  margin: 0;
+  font-size: clamp(26px, 2.7vw, 34px);
+  line-height: 1.32;
   font-weight: 700;
   text-wrap: balance;
 }
@@ -4598,6 +4616,169 @@ PLACEHOLDER
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.75;
+}
+
+
+/* ---------------------------------------------------------------------------
+   The trial column: two ways in, neither needing an account.
+   --------------------------------------------------------------------------- */
+
+.landing-trial {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 18px 44px rgba(84, 66, 52, .07);
+}
+
+.landing-trial-head h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  line-height: 1.35;
+  color: var(--brand-dark);
+  text-wrap: balance;
+}
+
+.landing-trial-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.landing-trial-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.landing-trial-card-head {
+  display: grid;
+  gap: 3px;
+}
+
+.landing-trial-card-head strong {
+  font-size: 15px;
+}
+
+.landing-trial-card-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.landing-trial-card .landing-sample,
+.landing-trial-card .landing-curve {
+  margin: 0;
+}
+
+.landing-trial-card ul {
+  margin: 0;
+  padding-left: 17px;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.landing-trial-card .btn {
+  justify-self: stretch;
+}
+
+.landing-trial-foot {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+
+/* The score curve: one series, so no legend — the caption names it. Only the
+   latest band is labelled; the gridlines carry the rest. */
+.landing-curve {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+}
+
+.landing-curve figcaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.landing-curve-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.landing-curve-delta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.landing-curve svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.landing-curve-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.landing-curve-tick {
+  fill: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-curve-area {
+  fill: var(--brand);
+  opacity: .1;
+}
+
+.landing-curve-line {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The ring is the surface showing through, not a border on the mark. */
+.landing-curve-dot {
+  fill: var(--brand);
+  stroke: var(--white);
+  stroke-width: 2;
+}
+
+.landing-curve-value {
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .landing-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+
+  .landing-trial {
+    order: -1;
+  }
 }
 
 @media (max-width: 560px) {
