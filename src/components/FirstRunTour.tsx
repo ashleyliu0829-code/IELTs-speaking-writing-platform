@@ -70,7 +70,7 @@ export function tourSeen(accountId: string) {
 type Box = { top: number; left: number; width: number; height: number };
 
 export function FirstRunTour({ accountId, onFinish, onStartGrading }: { accountId: string; onFinish: () => void; onStartGrading: () => void }) {
-  const { language } = useLanguage();
+  const { language, toggle } = useLanguage();
   const [index, setIndex] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
   const step = steps[index];
@@ -131,10 +131,15 @@ export function FirstRunTour({ accountId, onFinish, onStartGrading }: { accountI
         aria-hidden="true"
       />
       <div className="tour-card" style={cardStyle}>
-        <div className="tour-progress">
-          {steps.map((_, i) => (
-            <i className={i === index ? "on" : i < index ? "done" : ""} key={i} />
-          ))}
+        <div className="tour-head">
+          <div className="tour-progress">
+            {steps.map((_, i) => (
+              <i className={i === index ? "on" : i < index ? "done" : ""} key={i} />
+            ))}
+          </div>
+          <button className="lang-switch tour-lang" type="button" onClick={toggle} aria-label="Switch language">
+            {language === "zh" ? "English" : "中文"}
+          </button>
         </div>
         <h3>{title}</h3>
         <p>{body}</p>

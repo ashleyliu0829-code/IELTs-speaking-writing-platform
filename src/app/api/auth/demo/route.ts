@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   const expiresAt = new Date(Date.now() + trialDays * 86400000).toISOString();
   const { data: teacher, error: teacherError } = await supabase
     .from("accounts")
-    .insert({ ...demoAccountFields("teacher", "体验账号"), demo_expires_at: expiresAt })
+    .insert({ ...demoAccountFields("teacher", "Trial"), demo_expires_at: expiresAt })
     .select(accountColumns)
     .single();
   if (teacherError || !teacher) {

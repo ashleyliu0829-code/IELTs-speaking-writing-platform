@@ -21,11 +21,13 @@ import { suggestPhases } from "@/lib/studyPlan";
  * student makes, so there is something real to correct.
  */
 
-export const demoStudentName = "示例学生";
+export const demoStudentName = "Jack";
 export const demoTag = "【示例】";
 /** The extra students a trial workspace gets on top of the one above. */
-export const demoPeerNames = ["示例学生·小周", "示例学生·小陈"];
-export const allDemoStudentNames = [demoStudentName, ...demoPeerNames];
+export const demoPeerNames = ["Lucy", "Peter"];
+/** What the names were before they were English; still seeded in older workspaces. */
+const retiredDemoNames = ["示例学生", "示例学生·小周", "示例学生·小陈"];
+export const allDemoStudentNames = [demoStudentName, ...demoPeerNames, ...retiredDemoNames];
 
 const p1Transcript =
   "Yes, I'm a student. I'm study business management in my third year at university. I choose this major because my parents think it is useful, and also I'm interested in how company works. In the future, I hope I can work in a international company.";
@@ -52,8 +54,8 @@ const essayRevision = essay
 
 export async function hasDemoStudent(teacherId: string) {
   const supabase = getSupabaseAdmin();
-  const { data } = await supabase.from("students").select("id").eq("teacher_id", teacherId).eq("name", demoStudentName).maybeSingle();
-  return Boolean(data);
+  const { data } = await supabase.from("students").select("id").eq("teacher_id", teacherId).in("name", allDemoStudentNames).limit(1);
+  return Boolean(data?.length);
 }
 
 export async function seedDemoStudent(teacherId: string) {

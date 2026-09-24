@@ -986,8 +986,8 @@ function StudentDemoBanner({ expiresAt, onLeave }: { expiresAt?: string | null; 
         <strong>{t("体验模式", "Trial mode")}</strong>
         <span>
           {t(
-            "你正在以示例学生的身份查看学生端：作业、反馈和学习计划都是示例数据，随便点。",
-            "You are looking at the student side as the example student. The homework, feedback and study plan are all sample data — click anything."
+            "你正在以示例学生 Jack 的身份查看学生端：作业、反馈和学习计划都是示例数据，随便点。",
+            "You are looking at the student side as Jack, an example student. The homework, feedback and study plan are all sample data — click anything."
           )}
           {daysLeft != null && t(` 体验还剩 ${daysLeft} 天。`, ` ${daysLeft} days left.`)}
         </span>

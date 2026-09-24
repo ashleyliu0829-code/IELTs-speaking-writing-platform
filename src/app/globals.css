@@ -695,6 +695,19 @@ h3 {
   line-height: 1.6;
 }
 
+.tour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tour-lang {
+  flex: none;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
 .tour-progress {
   display: flex;
   gap: 5px;

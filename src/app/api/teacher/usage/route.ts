@@ -22,21 +22,18 @@ export async function GET() {
     items: [
       {
         key: "asr",
-        label: "语音转写",
         used: Math.round(usage.asr_transcribe.quantity),
         limit: limits.monthly_asr_seconds,
         unit: "seconds"
       },
       {
         key: "ai",
-        label: "AI 批改",
         used: aiCalls,
         limit: limits.monthly_ai_calls,
         unit: "calls"
       },
       {
         key: "storage",
-        label: "上传空间",
         used: usage.storage_upload.quantity,
         limit: limits.monthly_upload_bytes,
         unit: "bytes"

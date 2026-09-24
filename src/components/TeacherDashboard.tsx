@@ -63,6 +63,8 @@ type TeacherSection =
   | "lessonRecording"
   | "dailyTasks";
 
+const demoStudentNames = ["Jack", "Lucy", "Peter", "示例学生", "示例学生·小周", "示例学生·小陈"];
+
 export function TeacherDashboard() {
   const [token, setToken] = useState("");
   const [account, setAccount] = useState<AuthAccount | null>(null);
@@ -93,10 +95,10 @@ export function TeacherDashboard() {
   const [message, setMessage] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [removingDemo, setRemovingDemo] = useState(false);
-  const hasDemoStudent = students.some((student) => student.name === "示例学生");
+  const hasDemoStudent = students.some((student) => demoStudentNames.includes(student.name));
 
   async function removeDemoStudent() {
-    if (!window.confirm(tr("确定移除示例学生和她的作业、课程、任务吗？", "Remove the example student along with her homework, lessons and task?"))) return;
+    if (!window.confirm(tr("确定移除示例学生和他们的作业、课程、任务吗？", "Remove the example students along with their homework, lessons and tasks?"))) return;
     setRemovingDemo(true);
     try {
       await api("/api/teacher/demo-student", { method: "DELETE" });
@@ -1849,7 +1851,7 @@ function getWritingTask2Topic(tasks: WritingTask[]) {
   return [task?.task2_type?.trim(), task?.topic?.trim()].filter(Boolean).join(" | ") || "NA";
 }
 
-type UsageItem = { key: string; label: string; used: number; limit: number; unit: "seconds" | "calls" | "bytes" };
+type UsageItem = { key: string; used: number; limit: number; unit: "seconds" | "calls" | "bytes" };
 
 /**
  * This month's consumption against the plan.
@@ -1883,7 +1885,7 @@ function UsagePanel({ language }: { language: TeacherLanguage }) {
           <label>{t("本月用量", "This month")}</label>
           <div className="hint">{t("超出额度后转写和 AI 批改会暂停，下月 1 日重置。", "Transcription and AI review pause once a limit is reached, and reset on the 1st.")}</div>
         </div>
-        <span className="pill">{usage.plan}</span>
+        <span className="pill">{planName(usage.plan, t)}</span>
       </div>
       <div className="usage-meters">
         {usage.items.map((item) => {
@@ -1892,7 +1894,7 @@ function UsagePanel({ language }: { language: TeacherLanguage }) {
           return (
             <div className="usage-meter" key={item.key}>
               <div className="usage-meter-head">
-                <strong>{item.label}</strong>
+                <strong>{meterName(item.key, t)}</strong>
                 <span className={`pill usage-${tone}`}>{percent}%</span>
               </div>
               <div className="usage-meter-track">
@@ -1905,6 +1907,22 @@ function UsagePanel({ language }: { language: TeacherLanguage }) {
       </div>
     </div>
   );
+}
+
+type Translate = (zh: string, en: string) => string;
+
+function meterName(key: string, t: Translate) {
+  if (key === "asr") return t("语音转写", "Transcription");
+  if (key === "ai") return t("AI 批改", "AI review");
+  if (key === "storage") return t("上传空间", "Storage");
+  return key;
+}
+
+function planName(plan: string, t: Translate) {
+  if (plan === "trial") return t("试用", "Trial");
+  if (plan === "standard") return t("标准版", "Standard");
+  if (plan === "pro") return t("专业版", "Pro");
+  return plan;
 }
 
 function formatUsage(item: UsageItem) {
