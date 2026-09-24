@@ -4666,7 +4666,8 @@ PLACEHOLDER
   grid-area: 1 / 1;
   align-self: stretch;
   display: grid;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto auto auto;
+  align-content: space-between;
   gap: 10px;
   padding: 16px;
   border: 1px solid var(--line);
@@ -4713,14 +4714,10 @@ PLACEHOLDER
 .landing-deck-dot {
   display: flex;
   align-items: center;
-  gap: 7px;
   height: 26px;
   padding: 0 4px;
   border: 0;
   background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12.5px;
   cursor: pointer;
 }
 
@@ -4743,40 +4740,27 @@ PLACEHOLDER
   background: var(--brand);
 }
 
-/* The name only rides the active dot; the others stay dots until pointed at. */
-.landing-deck-dot-name {
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  opacity: 0;
-}
-
-.landing-deck-dot.active .landing-deck-dot-name {
-  max-width: 120px;
-  opacity: 1;
-  color: var(--brand-ink);
-  font-weight: 700;
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  .landing-deck-dot::before,
-  .landing-deck-dot-name {
-    transition: width .3s ease, background .2s ease, max-width .3s ease, opacity .3s ease;
+  .landing-deck-dot::before {
+    transition: width .3s ease, background .2s ease;
   }
 }
 
-.landing-trial-card-head {
-  display: grid;
-  gap: 3px;
+.landing-deck-badge {
+  justify-self: start;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .01em;
 }
 
-.landing-trial-card-head strong {
-  font-size: 15px;
-}
-
-.landing-trial-card-head span {
-  color: var(--muted);
-  font-size: 13px;
+/* The student side wears the brand green, the same white-on-green the primary
+   button uses, so the two badges carry the two sides apart. */
+.landing-deck-badge.student {
+  background: var(--brand);
 }
 
 .landing-deck-card .landing-sample,
@@ -4798,19 +4782,11 @@ PLACEHOLDER
   justify-self: stretch;
 }
 
-.landing-trial-foot {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
 
 /* The score curve: one series, so no legend — the caption names it. Only the
    latest band is labelled; the gridlines carry the rest. */
 .landing-curve {
   display: grid;
-  align-content: center;
   gap: 8px;
   padding: 14px 16px 10px;
   border: 1px solid var(--line);
@@ -4840,6 +4816,29 @@ PLACEHOLDER
   display: block;
   width: 100%;
   height: auto;
+}
+
+/* The teacher's line under the chart — the one piece of the student's page
+   that is a person rather than a number, so it is set as a quotation and
+   carries the only italic on the page. */
+.landing-curve-note {
+  margin: 6px 0 0;
+  color: var(--brand-dark);
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.landing-curve-note span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: .09em;
+  text-transform: uppercase;
 }
 
 .landing-curve-grid {

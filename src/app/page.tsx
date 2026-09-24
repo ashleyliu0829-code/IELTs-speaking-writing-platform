@@ -109,25 +109,13 @@ function TrialColumn() {
     {
       role: "teacher" as const,
       title: t("老师体验", "Try as a teacher"),
-      lead: t("看看批改一份作业是什么流程", "See what marking a submission is like"),
       sample: <MarkingSample />,
-      points: [
-        t("3 位示例学生，学习阶段各不相同", "Three example students at different stages"),
-        t("一份待批改的口语作业，录音和转写都在", "A speaking submission waiting to be marked, audio and transcript included"),
-        t("课程安排、学习计划、每日任务都已铺好", "Schedule, study plan and daily tasks already set up")
-      ],
       cta: t("开始老师体验", "Start the teacher trial")
     },
     {
       role: "student" as const,
       title: t("学生体验", "Try as a student"),
-      lead: t("看看学生收到的是什么", "See what a student receives"),
       sample: <ProgressSample />,
-      points: [
-        t("待完成的作业，可以直接录音提交", "Homework waiting, recordable and submittable"),
-        t("老师批好的反馈：分数、逐句批注", "Marked feedback: scores and line-by-line notes"),
-        t("学习计划进度和成绩曲线", "Study plan progress and the score curve")
-      ],
       cta: t("开始学生体验", "Start the student trial")
     }
   ];
@@ -136,12 +124,6 @@ function TrialColumn() {
     <aside className="landing-trial" aria-label={t("免费体验", "Free trial")}>
       <div className="landing-trial-head">
         <h2>First timer here? Try it for free!</h2>
-        <p>
-          {t(
-            "不用注册，不用授权码，点一下就进到一个装好数据的工作区。",
-            "No sign-up, no activation code — one click opens a workspace with the data already in it."
-          )}
-        </p>
       </div>
 
       <div className="landing-deck" ref={deck} onPointerMove={lean} onPointerLeave={level}>
@@ -156,18 +138,9 @@ function TrialColumn() {
               aria-labelledby={"trial-tab-" + card.role}
               inert={!front}
             >
-              <div className="landing-trial-card-head">
-                <strong>{card.title}</strong>
-                <span>{card.lead}</span>
-              </div>
+              <strong className={card.role === "teacher" ? "landing-deck-badge" : "landing-deck-badge student"}>{card.title}</strong>
 
               {card.sample}
-
-              <ul>
-                {card.points.map((point) => (
-                  <li key={point}>{point}</li>
-                ))}
-              </ul>
 
               <button
                 className={card.role === "teacher" ? "btn accent" : "btn secondary"}
@@ -195,19 +168,16 @@ function TrialColumn() {
             aria-selected={index === active}
             aria-controls={"trial-panel-" + card.role}
             tabIndex={index === active ? 0 : -1}
+            aria-label={card.title}
+            title={card.title}
             onMouseEnter={() => setActive(index)}
             onFocus={() => setActive(index)}
             onClick={() => setActive(index)}
-          >
-            <span className="landing-deck-dot-name">{card.title}</span>
-          </button>
+          />
         ))}
       </div>
 
       {error && <p className="error">{error}</p>}
-      <p className="landing-trial-foot">
-        {t("体验数据 7 天后自动清除，和正式账号完全隔离。", "Trial data is cleared after 7 days and is kept entirely separate from real accounts.")}
-      </p>
     </aside>
   );
 }
@@ -319,6 +289,12 @@ function ProgressSample() {
           </text>
         ))}
       </svg>
+
+      {/* What the curve is actually for: the teacher saw it too. */}
+      <p className="landing-curve-note">
+        <span>{t("老师评语", "Your teacher")}</span>
+        &ldquo;Great job! You&rsquo;re making progress.&rdquo;
+      </p>
     </figure>
   );
 }
