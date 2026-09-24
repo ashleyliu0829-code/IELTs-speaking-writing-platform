@@ -72,13 +72,36 @@ export function planProgress(phasesIn: StudyPlanPhase[], today: Date): StudyPlan
   return { percent: Math.round((elapsedDays / totalDays) * 100), totalDays, elapsedDays, currentIndex, state, phases: perPhase };
 }
 
+/** What a phase is called and what it is for, before the dates are worked out. */
+export type PhasePreset = { name: string; focus: string };
+
 /**
- * A three-phase plan from today to the exam, for the teacher to adjust:
- * the first half builds foundations, the next third is IELTS-specific
- * preparation, and the last stretch is the sprint. The names are Chinese,
- * as the teacher will edit them in the language they teach in.
+ * The names a real teacher gets from the button, in the language they teach
+ * in. A plan is stored once and cannot be bilingual, so these are Chinese.
  */
-export function suggestPhases(today: Date, examDate: string): StudyPlanPhase[] {
+export const phasePresets: PhasePreset[] = [
+  { name: "基础提升", focus: "补语法和词汇的底子，建立口语和写作的基本表达习惯" },
+  { name: "雅思备考", focus: "按题型系统训练听说读写，熟悉评分标准" },
+  { name: "考前冲刺", focus: "整套模考、限时练习、查漏补缺" }
+];
+
+/**
+ * The seeded example students carry the English set instead: their workspace
+ * is as likely to be read in English as in Chinese, and the rest of their
+ * data — their names — already is.
+ */
+export const phasePresetsEn: PhasePreset[] = [
+  { name: "Foundations", focus: "Build the grammar and vocabulary base, and the habits speaking and writing rest on" },
+  { name: "IELTS prep", focus: "Work through each task type and get to know the band descriptors" },
+  { name: "Final sprint", focus: "Full mock tests under time, then close whatever gaps they show" }
+];
+
+/**
+ * A three-phase plan from today to the exam, for the teacher to adjust: the
+ * first stretch builds foundations, the next is IELTS-specific preparation,
+ * and the last is the sprint.
+ */
+export function suggestPhases(today: Date, examDate: string, presets: PhasePreset[] = phasePresets): StudyPlanPhase[] {
   const start = dayNumber(today.toISOString().slice(0, 10));
   const end = dayNumber(examDate);
   if (end <= start) return [];
@@ -93,11 +116,14 @@ export function suggestPhases(today: Date, examDate: string): StudyPlanPhase[] {
     end_date: dayString(to),
     focus
   });
-  return [
-    phase(1, "基础提升", start, cutA - 1, "补语法和词汇的底子，建立口语和写作的基本表达习惯"),
-    phase(2, "雅思备考", cutA, cutB - 1, "按题型系统训练听说读写，熟悉评分标准"),
-    phase(3, "考前冲刺", cutB, end, "整套模考、限时练习、查漏补缺")
+  const spans: [number, number][] = [
+    [start, cutA - 1],
+    [cutA, cutB - 1],
+    [cutB, end]
   ];
+  return presets
+    .slice(0, spans.length)
+    .map((preset, index) => phase(index + 1, preset.name, spans[index][0], spans[index][1], preset.focus));
 }
 
 function dayNumber(day: string) {

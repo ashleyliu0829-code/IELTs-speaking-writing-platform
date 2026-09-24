@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { defaultWritingScoreDetails } from "@/lib/feedback";
 import { allDemoStudentNames, demoPeerNames, demoTag, seedDemoStudent } from "@/lib/demoStudent";
-import { suggestPhases } from "@/lib/studyPlan";
+import { phasePresetsEn, suggestPhases } from "@/lib/studyPlan";
 
 /**
  * The workspace a visitor gets when they open a trial without an activation
@@ -110,7 +110,7 @@ export async function seedDemoWorkspace(teacherId: string) {
         course_plan: peer.coursePlan,
         exam_date: examDate,
         exam_date_confirmed: Boolean(examDate),
-        study_plan: examDate ? suggestPhases(at(peer.seenDaysAgo), examDate) : [],
+        study_plan: examDate ? suggestPhases(at(peer.seenDaysAgo), examDate, phasePresetsEn) : [],
         is_active: true
       })
       .select("id")

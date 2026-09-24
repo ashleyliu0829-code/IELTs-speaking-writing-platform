@@ -3,7 +3,7 @@ import path from "node:path";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
 import { currentP1Bank, currentP2P3Bank } from "@/lib/questionBank";
 import { stringifyReviewComment } from "@/lib/reviewComments";
-import { suggestPhases } from "@/lib/studyPlan";
+import { phasePresetsEn, suggestPhases } from "@/lib/studyPlan";
 
 /**
  * The example student every new teacher starts with.
@@ -80,7 +80,7 @@ export async function seedDemoStudent(teacherId: string) {
       course_plan: "全科",
       exam_date: new Date(now + 60 * 86400000).toISOString().slice(0, 10),
       exam_date_confirmed: false,
-      study_plan: suggestPhases(new Date(now - 14 * 86400000), new Date(now + 60 * 86400000).toISOString().slice(0, 10)),
+      study_plan: suggestPhases(new Date(now - 14 * 86400000), new Date(now + 60 * 86400000).toISOString().slice(0, 10), phasePresetsEn),
       is_active: true
     })
     .select("id")
