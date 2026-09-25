@@ -5543,3 +5543,67 @@ PLACEHOLDER
   line-height: 1.5;
   color: var(--muted);
 }
+
+/* ---------------------------------------------------------------------------
+   Writing: the running word count, in the corner of the box being typed in.
+   --------------------------------------------------------------------------- */
+
+.writing-answer-box {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+/* Room at the foot of the textarea so the last line never runs under the
+   counter sitting on top of it. */
+.writing-answer-box .writing-answer {
+  padding-bottom: 42px;
+}
+
+.writing-count {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 2px 8px rgba(38, 51, 47, .07);
+  color: var(--muted);
+  font-size: 12.5px;
+  pointer-events: none;
+}
+
+.writing-count strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.writing-count em {
+  padding-left: 7px;
+  border-left: 1px solid var(--line);
+  font-style: normal;
+}
+
+.writing-count.short {
+  border-color: rgba(242, 140, 112, .55);
+  background: #fdeee9;
+}
+
+.writing-count.short strong,
+.writing-count.short em {
+  color: var(--accent-dark);
+}
+
+.writing-count.met {
+  border-color: var(--done-line);
+  background: var(--done-wash);
+}
+
+.writing-count.met strong {
+  color: var(--done-ink);
+}

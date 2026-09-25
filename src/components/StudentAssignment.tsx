@@ -1076,14 +1076,16 @@ function LatestWritingView({
                 {task.image_urls?.length ? <WritingTaskImages imageUrls={task.image_urls} /> : null}
               </div>
               <div className="writing-task-answer">
-                <textarea
-                  className="writing-answer"
-                  value={value}
-                  onChange={(event) => setDraft(task.key, event.target.value)}
-                  placeholder={t("请在这里输入你的作文...", "Write your essay here...")}
-                />
+                <div className="writing-answer-box">
+                  <textarea
+                    className="writing-answer"
+                    value={value}
+                    onChange={(event) => setDraft(task.key, event.target.value)}
+                    placeholder={t("请在这里输入你的作文...", "Write your essay here...")}
+                  />
+                  <WordCount text={value} limit={task.word_limit} t={t} />
+                </div>
                 <div className="section-head compact">
-                  <span className="hint">{t(`${value.trim().split(/\s+/).filter(Boolean).length} 词`, `${value.trim().split(/\s+/).filter(Boolean).length} words`)}</span>
                   {savedResponses[task.key] && !changed ? <span className="pill ok">{t("已保存到账号", "Saved")}</span> : null}
                   {changed ? <span className="pill warn">{t("尚未保存", "Unsaved")}</span> : null}
                 </div>
@@ -1095,6 +1097,41 @@ function LatestWritingView({
       {publishedFeedback && <PublishedFeedback feedback={publishedFeedback} />}
     </>
   );
+}
+
+/**
+ * The running word count, in the corner of the box the student is typing in.
+ *
+ * Under the task's minimum it says how many are still owed and wears the
+ * warning colour; on or over it turns green and stops counting down. Being
+ * short costs marks before an examiner has read a word, so it is worth more
+ * than the grey line under the box that this replaces.
+ */
+function WordCount({ text, limit, t }: { text: string; limit?: string; t: (zh: string, en: string) => string }) {
+  const words = countWords(text);
+  const minimum = minimumWords(limit);
+  const short = minimum > 0 && words < minimum;
+  const met = minimum > 0 && words >= minimum;
+
+  return (
+    <div className={`writing-count ${short ? "short" : ""} ${met ? "met" : ""}`} aria-live="polite">
+      <strong>{words}</strong>
+      <span>{minimum > 0 ? t(`/ ${minimum} 词`, `/ ${minimum} words`) : t("词", words === 1 ? "word" : "words")}</span>
+      {short && <em>{t(`还差 ${minimum - words}`, `${minimum - words} to go`)}</em>}
+    </div>
+  );
+}
+
+/** Whitespace-separated, the way a word limit is counted: a hyphenated word is
+ *  one word, and a number is a word. */
+function countWords(text: string) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** The first number in whatever the teacher typed, e.g. "250+ words" -> 250. */
+function minimumWords(limit?: string) {
+  const found = (limit || "").match(/\d+/);
+  return found ? Number(found[0]) : 0;
 }
 
 function WritingTaskImages({ imageUrls }: { imageUrls: string[] }) {
