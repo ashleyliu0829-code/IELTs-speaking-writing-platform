@@ -5607,3 +5607,24 @@ PLACEHOLDER
 .writing-count.met strong {
   color: var(--done-ink);
 }
+
+/* The reset sits in two places — the student card's action row and the edit
+   dialog — so it carries its own stacking rather than the row's. */
+.password-reset {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.student-card-actions .password-reset {
+  margin-right: auto;
+}
+
+.student-card-actions .temp-password code {
+  font-size: 16px;
+}
+
+.password-reset .hint,
+.password-reset .error {
+  margin: 0;
+}
