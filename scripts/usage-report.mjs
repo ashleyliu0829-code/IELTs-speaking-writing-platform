@@ -30,11 +30,11 @@ const [accounts, sessions, students, assignments, submissions, feedback, rawBook
   all("accounts", "id, role, phone, display_name, teacher_id, created_at, activated_at, ai_enabled, is_demo"),
   all("account_sessions", "account_id, created_at"),
   all("students", "id, teacher_id, name, is_active"),
-  all("assignments", "id, teacher_id, assignment_type, created_at"),
-  all("submissions", "id, teacher_id, student_name, submitted_at"),
+  all("assignments", "id, teacher_id, assignment_type, title, created_at"),
+  all("submissions", "id, teacher_id, student_name, submission_title, submitted_at"),
   all("feedback", "submission_id, published_at"),
   all("lesson_bookings", "id, status, start_at, lesson_slots(teacher_id)"),
-  all("daily_tasks", "id, teacher_id, created_at"),
+  all("daily_tasks", "id, teacher_id, title, created_at"),
   all("daily_task_checkins", "id, task_id"),
   all("speaking_practice_submissions", "id, teacher_id, created_at"),
   all("teacher_todos", "id, teacher_id"),
@@ -42,6 +42,11 @@ const [accounts, sessions, students, assignments, submissions, feedback, rawBook
 ]);
 
 const bookings = rawBookings.map((b) => ({ ...b, teacher_id: b.lesson_slots?.teacher_id }));
+// Seeded example data would otherwise read as work the teacher did: every
+// workspace starts with two homeworks, four submissions and a daily task.
+const demoTag = "【示例】";
+const seeded = (row) => (row.title || row.submission_title || "").startsWith(demoTag);
+const real = (rows) => rows.filter((row) => !seeded(row));
 const teachers = accounts.filter((a) => a.role === "teacher" && !a.is_demo);
 const demos = accounts.filter((a) => a.role === "teacher" && a.is_demo);
 const studentAccounts = accounts.filter((a) => a.role === "student");
@@ -52,7 +57,7 @@ const now = Date.now();
 
 const rows = teachers.map((t) => {
   const mine = (list) => list.filter((x) => x.teacher_id === t.id);
-  const subs = mine(submissions);
+  const subs = real(mine(submissions));
   const graded = feedback.filter((f) => f.published_at && subById.get(f.submission_id)?.teacher_id === t.id);
   const logins = sessions.filter((s) => s.account_id === t.id);
   const studentLogins = sessions.filter((s) => studentAccounts.some((a) => a.id === s.account_id && a.teacher_id === t.id));
@@ -71,11 +76,11 @@ const rows = teachers.map((t) => {
     students: mine(students).filter((s) => s.is_active !== false).length,
     studentAccts: studentAccounts.filter((a) => a.teacher_id === t.id).length,
     studentLogins: studentLogins.length,
-    assignments: mine(assignments).length,
+    assignments: real(mine(assignments)).length,
     submissions: subs.length,
     graded: graded.length,
     lessons: mine(bookings).filter((b) => b.status !== "cancelled").length,
-    tasks: mine(tasks).length,
+    tasks: real(mine(tasks)).length,
     practice: mine(practice).length,
     ai: mine(aiRows).length + (t.ai_enabled ? "★" : "")
   };
@@ -93,7 +98,9 @@ console.log(cols.map(([h, , w]) => pad(h, w)).join(" "));
 for (const r of rows) console.log(cols.map(([, k, w]) => pad(r[k], w)).join(" "));
 
 const activeTeachers = rows.filter((r) => r.submissions > 0 || r.assignments > 0);
-console.log(`\n老师账号 ${teachers.length}，有作业/提交的 ${activeTeachers.length}；学生账号 ${studentAccounts.length}；提交总数 ${submissions.length}，已批 ${feedback.filter((f) => f.published_at).length}；AI 初评 ${aiRows.length} 次`);
+const realSubs = real(submissions);
+const realSubIds = new Set(realSubs.map((s) => s.id));
+console.log(`\n老师账号 ${teachers.length}，有作业/提交的 ${activeTeachers.length}；学生账号 ${studentAccounts.length}；真实提交 ${realSubs.length}（另有示例 ${submissions.length - realSubs.length}），已批 ${feedback.filter((f) => f.published_at && realSubIds.has(f.submission_id)).length}；AI 初评 ${aiRows.length} 次`);
 const days7 = new Date(now - 7 * 864e5).toISOString();
-console.log(`近 7 天：登录 ${sessions.filter((s) => s.created_at > days7).length} 次，提交 ${submissions.filter((s) => s.submitted_at > days7).length} 份，新老师 ${teachers.filter((t) => (t.created_at || "") > days7).length}，新学生账号 ${studentAccounts.filter((a) => (a.created_at || "") > days7).length}`);
+console.log(`近 7 天：登录 ${sessions.filter((s) => s.created_at > days7).length} 次，提交 ${realSubs.filter((s) => s.submitted_at > days7).length} 份，新老师 ${teachers.filter((t) => (t.created_at || "") > days7).length}，新学生账号 ${studentAccounts.filter((a) => (a.created_at || "") > days7).length}`);
 console.log(`体验账号：共 ${demos.length}，近 7 天开通 ${demos.filter((a) => (a.created_at || "") > days7).length}`);
