@@ -8,6 +8,7 @@ import { sectionLabel } from "@/components/LessonProgress";
 import { StudyPlanBar, StudyPlanDialog } from "@/components/StudyPlan";
 import type { LessonSection } from "@/lib/types";
 import type { StudyPlanPhase } from "@/lib/studyPlan";
+import type { StudentFile } from "@/lib/types";
 
 /**
  * The first page of the student archive: every student on one line.
@@ -183,7 +184,8 @@ export function StudentOverviewPanel({
                       onToggle={() => setOpenId((current) => (current === row.id ? null : row.id))}
                       onEdit={() => setEditing(row)}
                       onPlan={() => setPlanning(row)}
-                      onNotesSaved={(notes) => setRows((current) => current.map((item) => (item.id === row.id ? { ...item, ...notes } : item)))}
+                      onNotesSaved={(notes) => setRows((current) => current.map((item) => (item.id === row.id ? { ...item, notes } : item)))}
+                      onFilesChanged={(files) => setRows((current) => current.map((item) => (item.id === row.id ? { ...item, files } : item)))}
                       onOpenStudent={onOpenStudent}
                     />
                   ))}
@@ -231,6 +233,7 @@ function StudentCard({
   onEdit,
   onPlan,
   onNotesSaved,
+  onFilesChanged,
   onOpenStudent
 }: {
   row: StudentOverviewRow;
@@ -239,7 +242,8 @@ function StudentCard({
   onToggle: () => void;
   onEdit: () => void;
   onPlan: () => void;
-  onNotesSaved: (notes: StudentNotesFields) => void;
+  onNotesSaved: (notes: string) => void;
+  onFilesChanged: (files: StudentFile[]) => void;
   onOpenStudent?: (studentName: string) => void;
 }) {
   const { t } = useLanguage();
@@ -315,7 +319,7 @@ function StudentCard({
               <NextLessonCell lesson={row.next_lesson} today={today} />
             </div>
           </div>
-          <StudentNotes row={row} onSaved={onNotesSaved} />
+          <StudentNotes row={row} onNotesSaved={onNotesSaved} onFilesChanged={onFilesChanged} />
           <div className="student-card-plan">
             <div className="student-card-plan-head">
               <span className="student-card-label">{t("学习计划", "Study plan")}</span>
@@ -377,49 +381,34 @@ function ScoreLine({ label, score, at }: { label: string; score?: number; at?: s
  * the name is the key that ties a student to their submissions, their feedback
  * and their bookings, so changing it here would quietly detach their history.
  */
-export type StudentNotesFields = Pick<StudentOverviewRow, "current_level" | "weaknesses" | "focus_notes">;
-
 /**
- * What the teacher knows about a student that no submission records: where
- * they are now, what is holding them back, and what the lessons are working
- * on. Written by hand, and edited in place rather than in the edit dialog —
- * these are paragraphs a teacher adds after a lesson, and they want to see
- * what is already there while they type.
+ * The teacher's own read on a student — level, weak points, what the lessons
+ * are working on — in one free-text box, plus whatever documents go with it:
+ * the assessment written after a trial lesson, a scanned plan, a photo.
+ *
+ * Edited in place rather than in the edit dialog: this is written after a
+ * lesson, and the teacher wants to see what is already there while they type.
+ * The dialog holds settings; this holds what they know.
  */
-function StudentNotes({ row, onSaved }: { row: StudentOverviewRow; onSaved: (notes: StudentNotesFields) => void }) {
+function StudentNotes({
+  row,
+  onNotesSaved,
+  onFilesChanged
+}: {
+  row: StudentOverviewRow;
+  onNotesSaved: (notes: string) => void;
+  onFilesChanged: (files: StudentFile[]) => void;
+}) {
   const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(row.notes);
   const [saving, setSaving] = useState(false);
+  const [busyFile, setBusyFile] = useState("");
   const [error, setError] = useState("");
-  const [draft, setDraft] = useState<StudentNotesFields>({
-    current_level: row.current_level,
-    weaknesses: row.weaknesses,
-    focus_notes: row.focus_notes
-  });
-
-  const fields: { key: keyof StudentNotesFields; label: string; placeholder: string; rows: number }[] = [
-    {
-      key: "current_level",
-      label: t("目前水平", "Current level"),
-      placeholder: t("例：口语 5.5，流利度尚可，复杂句一用就崩", "e.g. Speaking 5.5 — fluent enough, but complex sentences fall apart"),
-      rows: 2
-    },
-    {
-      key: "weaknesses",
-      label: t("主要薄弱点", "Main weaknesses"),
-      placeholder: t("例：时态混用；Part 2 撑不满两分钟；高频词反复", "e.g. mixes tenses; cannot fill two minutes in Part 2; repeats the same words"),
-      rows: 3
-    },
-    {
-      key: "focus_notes",
-      label: t("详细课程重点", "Lesson focus"),
-      placeholder: t("例：前四节练 Part 1 答题结构，之后进入 Part 2 的例子库", "e.g. four lessons on Part 1 structure, then build a bank of Part 2 examples"),
-      rows: 4
-    }
-  ];
+  const picker = useRef<HTMLInputElement | null>(null);
 
   function open() {
-    setDraft({ current_level: row.current_level, weaknesses: row.weaknesses, focus_notes: row.focus_notes });
+    setDraft(row.notes);
     setError("");
     setEditing(true);
   }
@@ -431,20 +420,11 @@ function StudentNotes({ row, onSaved }: { row: StudentOverviewRow; onSaved: (not
       const response = await fetch("/api/teacher/student-overview", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: row.id,
-          currentLevel: draft.current_level,
-          weaknesses: draft.weaknesses,
-          focusNotes: draft.focus_notes
-        })
+        body: JSON.stringify({ studentId: row.id, notes: draft })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
-      onSaved({
-        current_level: data.student?.current_level ?? "",
-        weaknesses: data.student?.weaknesses ?? "",
-        focus_notes: data.student?.focus_notes ?? ""
-      });
+      onNotesSaved(data.student?.notes ?? "");
       setEditing(false);
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : tr("保存失败。", "Could not save."));
@@ -453,7 +433,60 @@ function StudentNotes({ row, onSaved }: { row: StudentOverviewRow; onSaved: (not
     }
   }
 
-  const filled = fields.filter((field) => row[field.key].trim());
+  async function upload(file: File) {
+    setBusyFile("upload");
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("studentId", row.id);
+      body.append("file", file);
+      const response = await fetch("/api/teacher/student-files", { method: "POST", body });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("上传失败。", "Upload failed."));
+      onFilesChanged([data.file, ...row.files]);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("上传失败。", "Upload failed."));
+    } finally {
+      setBusyFile("");
+      if (picker.current) picker.current.value = "";
+    }
+  }
+
+  // The bucket is private, so the link is minted now and lives five minutes.
+  async function download(file: StudentFile) {
+    setBusyFile(file.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/teacher/student-files?fileId=${encodeURIComponent(file.id)}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.error || tr("无法打开这个文件。", "Could not open the file."));
+      window.open(data.url, "_blank", "noopener");
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("无法打开这个文件。", "Could not open the file."));
+    } finally {
+      setBusyFile("");
+    }
+  }
+
+  async function remove(file: StudentFile) {
+    if (!window.confirm(tr(`确定删除「${file.file_name}」吗？`, `Delete “${file.file_name}”?`))) return;
+    setBusyFile(file.id);
+    setError("");
+    try {
+      const response = await fetch("/api/teacher/student-files", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: file.id })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("删除失败。", "Could not delete."));
+      onFilesChanged(row.files.filter((item) => item.id !== file.id));
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("删除失败。", "Could not delete."));
+    } finally {
+      setBusyFile("");
+    }
+  }
 
   return (
     <div className="student-card-notes">
@@ -461,25 +494,23 @@ function StudentNotes({ row, onSaved }: { row: StudentOverviewRow; onSaved: (not
         <span className="student-card-label">{t("学生情况", "Student notes")}</span>
         {!editing && (
           <button className="btn link" type="button" onClick={open}>
-            {filled.length ? t("编辑", "Edit") : t("填写", "Add")}
+            {row.notes.trim() ? t("编辑", "Edit") : t("填写", "Add")}
           </button>
         )}
       </div>
 
       {editing ? (
         <>
-          {fields.map((field) => (
-            <label className="student-note-field" key={field.key}>
-              <span>{field.label}</span>
-              <textarea
-                rows={field.rows}
-                value={draft[field.key]}
-                placeholder={field.placeholder}
-                onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
-              />
-            </label>
-          ))}
-          {error && <p className="error">{error}</p>}
+          <textarea
+            className="student-note-box"
+            rows={7}
+            value={draft}
+            placeholder={t(
+              "目前水平、主要薄弱点、详细课程重点…想到什么写什么。",
+              "Current level, main weaknesses, what the lessons are working on — whatever is worth remembering."
+            )}
+            onChange={(event) => setDraft(event.target.value)}
+          />
           <div className="student-note-actions">
             <button className="btn secondary" type="button" onClick={() => setEditing(false)} disabled={saving}>
               {t("取消", "Cancel")}
@@ -489,20 +520,58 @@ function StudentNotes({ row, onSaved }: { row: StudentOverviewRow; onSaved: (not
             </button>
           </div>
         </>
-      ) : filled.length ? (
-        <dl className="student-note-list">
-          {filled.map((field) => (
-            <div key={field.key}>
-              <dt>{field.label}</dt>
-              <dd>{row[field.key]}</dd>
-            </div>
-          ))}
-        </dl>
+      ) : row.notes.trim() ? (
+        <p className="student-note-text">{row.notes}</p>
       ) : (
         <em>{t("还没有填写。", "Nothing written yet.")}</em>
       )}
+
+      <div className="student-file-head">
+        <span className="student-card-label">{t("相关文件", "Files")}</span>
+        <button className="btn link" type="button" onClick={() => picker.current?.click()} disabled={busyFile === "upload"}>
+          {busyFile === "upload" ? t("上传中...", "Uploading...") : t("上传文件", "Upload")}
+        </button>
+        <input
+          ref={picker}
+          className="student-file-input"
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.webp"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void upload(file);
+          }}
+        />
+      </div>
+
+      {row.files.length ? (
+        <ul className="student-file-list">
+          {row.files.map((file) => (
+            <li key={file.id}>
+              <button className="student-file-name" type="button" onClick={() => void download(file)} disabled={busyFile === file.id}>
+                {file.file_name}
+              </button>
+              <small>
+                {formatBytes(file.size_bytes)} · {formatDay(file.uploaded_at)}
+              </small>
+              <button className="btn ghost" type="button" onClick={() => void remove(file)} disabled={busyFile === file.id} aria-label={t("删除", "Delete")}>
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <em>{t("还没有上传文件。试课评估、学习计划之类都可以放这里。", "No files yet — trial-lesson assessments, plans, anything worth keeping.")}</em>
+      )}
+
+      {error && <p className="error">{error}</p>}
     </div>
   );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
 }
 
 /**

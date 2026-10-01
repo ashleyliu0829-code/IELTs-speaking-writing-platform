@@ -5645,51 +5645,80 @@ PLACEHOLDER
   font-size: 13px;
 }
 
-.student-note-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-
-.student-note-list > div {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.student-note-list dt {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-.student-note-list dd {
+.student-note-text {
   margin: 0;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
   /* Written as paragraphs, so the line breaks the teacher typed are kept. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.student-note-field {
-  display: grid;
-  gap: 4px;
-}
-
-.student-note-field > span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.student-note-field textarea {
+.student-note-box {
   width: 100%;
   resize: vertical;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
+}
+
+/* Files: a name that opens it, what it is, and a way to remove it. */
+.student-file-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.student-file-input {
+  display: none;
+}
+
+.student-file-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-file-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.student-file-name {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.student-file-name:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.student-file-list small {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .student-note-actions {
@@ -5699,8 +5728,11 @@ PLACEHOLDER
 }
 
 @media (max-width: 560px) {
-  .student-note-list > div {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
+  .student-file-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .student-file-list small {
+    grid-column: 1 / -1;
   }
 }

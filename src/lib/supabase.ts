@@ -2,6 +2,8 @@ import { createHmac } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 export const recordingsBucket = process.env.SUPABASE_RECORDINGS_BUCKET || "speaking-recordings";
+/** Private: the documents a teacher attaches to a student, served by signed link only. */
+export const studentFilesBucket = process.env.SUPABASE_STUDENT_FILES_BUCKET || "student-files";
 export const homeworkImagesBucket = process.env.SUPABASE_HOMEWORK_IMAGES_BUCKET || "homework-images";
 
 /**

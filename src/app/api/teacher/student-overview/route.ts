@@ -2,7 +2,7 @@ import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { isCoursePlan } from "@/lib/coursePlans";
 import { readPhases } from "@/lib/studyPlan";
-import type { LessonSection, StudentOverviewLesson, StudentOverviewRow, StudentOverviewScore, StudentOverviewStats } from "@/lib/types";
+import type { LessonSection, StudentFile, StudentOverviewLesson, StudentOverviewRow, StudentOverviewScore, StudentOverviewStats } from "@/lib/types";
 
 /**
  * Everything the teacher wants to know about a student on one line: who they
@@ -39,10 +39,10 @@ export async function GET() {
   const { account, supabase } = auth;
 
   const now = new Date().toISOString();
-  const [students, accounts, submissions, bookings, pastBookings] = await Promise.all([
+  const [students, accounts, submissions, bookings, pastBookings, files] = await Promise.all([
     supabase
       .from("students")
-      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, study_plan, current_level, weaknesses, focus_notes, is_active, taught_hours_override")
+      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, study_plan, notes, is_active, taught_hours_override")
       .order("name", { ascending: true }),
     supabase.from("accounts").select("id, created_at, phone").eq("role", "student"),
     supabase
@@ -62,11 +62,23 @@ export async function GET() {
       .select("student_name, student_account_id, course_minutes, lesson_sections, lesson_slots!inner(teacher_id)")
       .eq("lesson_slots.teacher_id", account.id)
       .eq("status", "confirmed")
-      .lt("start_at", now)
+      .lt("start_at", now),
+    // Just the index; a download link is minted per click, not per page load.
+    supabase
+      .from("student_files")
+      .select("id, student_id, file_name, size_bytes, content_type, uploaded_at")
+      .order("uploaded_at", { ascending: false })
   ]);
 
-  const failure = [students, accounts, submissions, bookings, pastBookings].find((result) => result.error);
+  const failure = [students, accounts, submissions, bookings, pastBookings, files].find((result) => result.error);
   if (failure?.error) return Response.json({ error: failure.error.message }, { status: 500 });
+
+  const filesByStudent = new Map<string, StudentFile[]>();
+  ((files.data || []) as StudentFile[]).forEach((file) => {
+    const list = filesByStudent.get(file.student_id) || [];
+    list.push(file);
+    filesByStudent.set(file.student_id, list);
+  });
 
   const registeredAt = new Map<string, string>();
   (accounts.data || []).forEach((row) => registeredAt.set(row.id as string, row.created_at as string));
@@ -165,9 +177,8 @@ export async function GET() {
       exam_date_confirmed: Boolean(student.exam_date_confirmed),
       course_plan: (student.course_plan as string | null) || "",
       study_plan: readPhases(student.study_plan),
-      current_level: (student.current_level as string | null) || "",
-      weaknesses: (student.weaknesses as string | null) || "",
-      focus_notes: (student.focus_notes as string | null) || "",
+      notes: (student.notes as string | null) || "",
+      files: filesByStudent.get(student.id as string) || [],
       is_active: student.is_active !== false,
       taught_hours_auto: Math.round((((accountId ? taughtByAccount.get(accountId) : 0) || 0) + (taughtByName.get(key) || 0)) / 6) / 10,
       taught_hours_override: student.taught_hours_override == null ? null : Number(student.taught_hours_override),
@@ -202,9 +213,7 @@ const editSchema = z.object({
   isActive: z.boolean().optional(),
   // Null clears the manual figure so the automatic total shows again.
   taughtHours: z.number().min(0).max(9999).nullable().optional(),
-  currentLevel: z.string().max(400).optional(),
-  weaknesses: z.string().max(1500).optional(),
-  focusNotes: z.string().max(1500).optional()
+  notes: z.string().max(4000).optional()
 });
 
 export async function PATCH(request: Request) {
@@ -214,7 +223,7 @@ export async function PATCH(request: Request) {
 
   const parsed = editSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "考试日期格式不正确。" }, { status: 400 });
-  const { studentId, examDate, confirmed, coursePlan, isActive, taughtHours, currentLevel, weaknesses, focusNotes } = parsed.data;
+  const { studentId, examDate, confirmed, coursePlan, isActive, taughtHours, notes } = parsed.data;
 
   // The picker offers a fixed list, so anything else arrived from somewhere
   // that is not the picker, and is not written.
@@ -232,16 +241,14 @@ export async function PATCH(request: Request) {
   if (coursePlan !== undefined) patch.course_plan = coursePlan;
   if (isActive !== undefined) patch.is_active = isActive;
   if (taughtHours !== undefined) patch.taught_hours_override = taughtHours;
-  if (currentLevel !== undefined) patch.current_level = currentLevel.trim();
-  if (weaknesses !== undefined) patch.weaknesses = weaknesses.trim();
-  if (focusNotes !== undefined) patch.focus_notes = focusNotes.trim();
+  if (notes !== undefined) patch.notes = notes.trim();
   if (!Object.keys(patch).length) return Response.json({ error: "没有要保存的内容。" }, { status: 400 });
 
   const { data, error } = await supabase
     .from("students")
     .update(patch)
     .eq("id", studentId)
-    .select("id, exam_date, exam_date_confirmed, course_plan, current_level, weaknesses, focus_notes, is_active, taught_hours_override")
+    .select("id, exam_date, exam_date_confirmed, course_plan, notes, is_active, taught_hours_override")
     .maybeSingle();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
