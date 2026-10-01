@@ -5628,3 +5628,79 @@ PLACEHOLDER
 .password-reset .error {
   margin: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   Student notes: the teacher's own read on a student, above the study plan.
+   --------------------------------------------------------------------------- */
+
+.student-card-notes {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.student-card-notes em {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.student-note-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.student-note-list > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.student-note-list dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.student-note-list dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  /* Written as paragraphs, so the line breaks the teacher typed are kept. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.student-note-field {
+  display: grid;
+  gap: 4px;
+}
+
+.student-note-field > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-note-field textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.student-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .student-note-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

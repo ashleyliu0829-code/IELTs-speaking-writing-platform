@@ -42,7 +42,7 @@ export async function GET() {
   const [students, accounts, submissions, bookings, pastBookings] = await Promise.all([
     supabase
       .from("students")
-      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, study_plan, is_active, taught_hours_override")
+      .select("id, name, normalized_name, phone, account_id, first_seen_at, exam_date, exam_date_confirmed, course_plan, study_plan, current_level, weaknesses, focus_notes, is_active, taught_hours_override")
       .order("name", { ascending: true }),
     supabase.from("accounts").select("id, created_at, phone").eq("role", "student"),
     supabase
@@ -165,6 +165,9 @@ export async function GET() {
       exam_date_confirmed: Boolean(student.exam_date_confirmed),
       course_plan: (student.course_plan as string | null) || "",
       study_plan: readPhases(student.study_plan),
+      current_level: (student.current_level as string | null) || "",
+      weaknesses: (student.weaknesses as string | null) || "",
+      focus_notes: (student.focus_notes as string | null) || "",
       is_active: student.is_active !== false,
       taught_hours_auto: Math.round((((accountId ? taughtByAccount.get(accountId) : 0) || 0) + (taughtByName.get(key) || 0)) / 6) / 10,
       taught_hours_override: student.taught_hours_override == null ? null : Number(student.taught_hours_override),
@@ -189,14 +192,19 @@ export async function GET() {
 
 const editSchema = z.object({
   studentId: z.string().uuid(),
-  // Null clears the date back to "not set".
-  examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  confirmed: z.boolean(),
+  // Null clears the date back to "not set"; leaving a field out leaves it
+  // alone, so the notes below can be saved on their own without the dialog's
+  // other values riding along and overwriting them.
+  examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  confirmed: z.boolean().optional(),
   // Empty string means no plan chosen.
-  coursePlan: z.string().default(""),
-  isActive: z.boolean().default(true),
+  coursePlan: z.string().optional(),
+  isActive: z.boolean().optional(),
   // Null clears the manual figure so the automatic total shows again.
-  taughtHours: z.number().min(0).max(9999).nullable().default(null)
+  taughtHours: z.number().min(0).max(9999).nullable().optional(),
+  currentLevel: z.string().max(400).optional(),
+  weaknesses: z.string().max(1500).optional(),
+  focusNotes: z.string().max(1500).optional()
 });
 
 export async function PATCH(request: Request) {
@@ -206,7 +214,7 @@ export async function PATCH(request: Request) {
 
   const parsed = editSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "考试日期格式不正确。" }, { status: 400 });
-  const { studentId, examDate, confirmed, coursePlan, isActive, taughtHours } = parsed.data;
+  const { studentId, examDate, confirmed, coursePlan, isActive, taughtHours, currentLevel, weaknesses, focusNotes } = parsed.data;
 
   // The picker offers a fixed list, so anything else arrived from somewhere
   // that is not the picker, and is not written.
@@ -216,17 +224,24 @@ export async function PATCH(request: Request) {
 
   // RLS keeps this inside the teacher's own workspace, so a student id from
   // another teacher matches no row rather than updating theirs.
+  const patch: Record<string, unknown> = {};
+  if (examDate !== undefined) {
+    patch.exam_date = examDate;
+    patch.exam_date_confirmed = examDate ? Boolean(confirmed) : false;
+  }
+  if (coursePlan !== undefined) patch.course_plan = coursePlan;
+  if (isActive !== undefined) patch.is_active = isActive;
+  if (taughtHours !== undefined) patch.taught_hours_override = taughtHours;
+  if (currentLevel !== undefined) patch.current_level = currentLevel.trim();
+  if (weaknesses !== undefined) patch.weaknesses = weaknesses.trim();
+  if (focusNotes !== undefined) patch.focus_notes = focusNotes.trim();
+  if (!Object.keys(patch).length) return Response.json({ error: "没有要保存的内容。" }, { status: 400 });
+
   const { data, error } = await supabase
     .from("students")
-    .update({
-      exam_date: examDate,
-      exam_date_confirmed: examDate ? confirmed : false,
-      course_plan: coursePlan,
-      is_active: isActive,
-      taught_hours_override: taughtHours
-    })
+    .update(patch)
     .eq("id", studentId)
-    .select("id, exam_date, exam_date_confirmed, course_plan, is_active, taught_hours_override")
+    .select("id, exam_date, exam_date_confirmed, course_plan, current_level, weaknesses, focus_notes, is_active, taught_hours_override")
     .maybeSingle();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

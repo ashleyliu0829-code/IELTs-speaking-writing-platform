@@ -71,6 +71,10 @@ export type StudentOverviewRow = {
   course_plan: string;
   /** The phases of the study plan, in date order; empty when none is set. */
   study_plan: StudyPlanPhase[];
+  /** The teacher's own notes: where the student is, what holds them back, what the lessons work on. */
+  current_level: string;
+  weaknesses: string;
+  focus_notes: string;
   /** False once the student has stopped taking lessons. */
   is_active: boolean;
   /** Hours from confirmed bookings that have already happened. */
