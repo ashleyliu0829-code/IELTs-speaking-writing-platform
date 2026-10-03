@@ -5736,3 +5736,48 @@ PLACEHOLDER
     grid-column: 1 / -1;
   }
 }
+
+/* The way to reach a person, for someone who wandered onto the front page. */
+.landing-contact {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.landing-contact > span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.landing-contact dl {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.landing-contact dl > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.landing-contact dt {
+  flex: none;
+  min-width: 34px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.landing-contact dd {
+  margin: 0;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.landing-contact a {
+  color: var(--brand-ink);
+}

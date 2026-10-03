@@ -43,6 +43,24 @@ export default function Home() {
               "Works in the browser. Sign up with a phone number, no app to download."
             )}
           </p>
+
+          {/* For someone who wandered in: the trial needs no account, but
+              asking about one has to land somewhere. */}
+          <div className="landing-contact">
+            <span>{t("如有兴趣，请联系", "Interested? Get in touch")}</span>
+            <dl>
+              <div>
+                <dt>{t("微信", "WeChat")}</dt>
+                <dd>_ashley0829</dd>
+              </div>
+              <div>
+                <dt>{t("邮箱", "Email")}</dt>
+                <dd>
+                  <a href="mailto:ashleyliu0829@gmail.com">ashleyliu0829@gmail.com</a>
+                </dd>
+              </div>
+            </dl>
+          </div>
         </div>
 
         <TrialColumn />
