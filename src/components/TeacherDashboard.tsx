@@ -681,12 +681,12 @@ export function TeacherDashboard() {
         body: formData
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || tr("示范回答保存失败。", "Could not save the sample answer."));
+      if (!response.ok) throw new Error(data.error || tr("语音点评保存失败。", "Could not save the voice feedback."));
 
       patchRecording(recordingId, { teacher_demo: data.demo || null });
-      setMessage(tr("示范回答已保存。", "Sample answer saved."));
+      setMessage(tr("语音点评已保存。", "Voice feedback saved."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : tr("示范回答保存失败。", "Could not save the sample answer."));
+      setMessage(error instanceof Error ? error.message : tr("语音点评保存失败。", "Could not save the voice feedback."));
     } finally {
       setUploadingDemoId("");
     }
@@ -3215,8 +3215,8 @@ function RecordingList({
                 <div className="transcript-editor">
                   <div className="section-head compact">
                     <div>
-                      <label>{tr("示范回答", "Sample answer")}</label>
-                      <div className="hint">{tr("可以在这里直接录制老师示范回答。发布批改后，学生可以播放参考。", "Record a sample answer here. Once feedback is published the student can play it.")}</div>
+                      <label>{tr("语音点评", "Voice feedback")}</label>
+                      <div className="hint">{tr("可以在这里录一段语音点评。发布批改后，学生可以播放收听。", "Record a spoken comment here. The student can play it once the feedback is published.")}</div>
                     </div>
                   </div>
                   <TeacherDemoRecorder
@@ -3227,7 +3227,7 @@ function RecordingList({
                   {recording.teacher_demo?.signed_url ? (
                     <audio controls src={recording.teacher_demo.signed_url} />
                   ) : (
-                    <p className="hint">{tr("还没有示范回答。", "No sample answer yet.")}</p>
+                    <p className="hint">{tr("还没有语音点评。", "No voice feedback yet.")}</p>
                   )}
                 </div>
               </>
@@ -3390,7 +3390,7 @@ function TranscriptWorkspace({
 type DemoDraft = { blob: Blob; url: string; duration: number };
 
 /**
- * Records the teacher's sample answer.
+ * Records the teacher's spoken comment on an answer.
  *
  * Stopping used to upload immediately, so a fluffed line could only be undone
  * by recording the whole thing again over the top of it. Stopping now produces
@@ -3541,12 +3541,12 @@ function TeacherDemoRecorder({
         <audio controls src={draft.url} />
         <span className="timer">{formatTime(draft.duration)}</span>
         <button className="btn" disabled={disabled} onClick={save} type="button">
-          {disabled ? tr("保存中...", "Saving...") : tr("保存示范", "Save sample")}
+          {disabled ? tr("保存中...", "Saving...") : tr("保存点评", "Save")}
         </button>
         <button className="btn secondary" disabled={disabled} onClick={discard} type="button">
           {tr("重录", "Re-record")}
         </button>
-        <span className="hint">{tr("满意再保存，保存后会覆盖上一条示范。", "Save when you're happy with it; saving replaces the previous sample.")}</span>
+        <span className="hint">{tr("满意再保存，保存后会覆盖上一条语音点评。", "Save when you're happy with it; saving replaces the previous one.")}</span>
       </div>
     );
   }
@@ -3566,7 +3566,7 @@ function TeacherDemoRecorder({
         </>
       ) : (
         <button className="btn rec" disabled={disabled || processing} onClick={() => void start()} type="button">
-          {disabled ? tr("保存中...", "Saving...") : processing ? tr("处理中...", "Processing...") : tr("录制示范回答", "Record sample answer")}
+          {disabled ? tr("保存中...", "Saving...") : processing ? tr("处理中...", "Processing...") : tr("录制语音点评", "Record voice feedback")}
         </button>
       )}
       <span className="timer">{formatTime(seconds)}</span>

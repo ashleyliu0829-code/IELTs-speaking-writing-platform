@@ -5240,7 +5240,7 @@ PLACEHOLDER
   justify-content: flex-end;
 }
 
-/* The sample answer after recording stops: listen back before committing. */
+/* The voice feedback after recording stops: listen back before committing. */
 .recorder-row.demo-review {
   flex-wrap: wrap;
   gap: 10px;

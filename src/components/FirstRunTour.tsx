@@ -37,8 +37,8 @@ const steps: Step[] = [
   },
   {
     target: '[data-tour="grading"]',
-    zh: ["作业批改", "示例学生有一份待批改的口语作业：播放录音、修改转写、加批注、录示范回答，然后发布。建议从这里开始。"],
-    en: ["Marking", "The example student has a speaking homework waiting: play the recordings, edit the transcript, add notes, record a sample answer, publish. Start here."]
+    zh: ["作业批改", "示例学生有一份待批改的口语作业：播放录音、修改转写、加批注、录语音点评，然后发布。建议从这里开始。"],
+    en: ["Marking", "The example student has a speaking homework waiting: play the recordings, edit the transcript, add notes, record a voice comment, publish. Start here."]
   },
   {
     target: '[data-tour="schedule"]',

@@ -20,11 +20,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (!(audio instanceof File)) {
-    return Response.json({ error: "Please choose an audio file for the sample answer." }, { status: 400 });
+    return Response.json({ error: "Please choose an audio file for the voice feedback." }, { status: 400 });
   }
 
   if (audio.size > maxAudioBytes) {
-    return Response.json({ error: `示范录音不能超过 ${maxAudioBytes / 1024 / 1024} MB。` }, { status: 413 });
+    return Response.json({ error: `语音点评不能超过 ${maxAudioBytes / 1024 / 1024} MB。` }, { status: 413 });
   }
 
   const quotaError = await checkQuota(teacher.id, "storage_upload", audio.size);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     .single<TeacherDemoRecording>();
 
   if (demoError || !demo) {
-    return Response.json({ error: demoError?.message || "Could not save sample answer." }, { status: 500 });
+    return Response.json({ error: demoError?.message || "Could not save the voice feedback." }, { status: 500 });
   }
 
   const { data: signed } = await storage.storage.from(recordingsBucket).createSignedUrl(path, 60 * 60);

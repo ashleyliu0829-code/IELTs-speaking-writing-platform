@@ -1343,9 +1343,9 @@ function RecorderCard({
       {uploadStatus?.status === "failed" && uploadStatus.message && <p className="error">{uploadStatus.message}</p>}
       {showTeacherDemo && savedRecording?.teacher_demo?.signed_url && (
         <div className="inline-comment">
-          <label>{t("老师示范回答", "Teacher's sample answer")}</label>
+          <label>{t("老师语音点评", "Teacher's voice feedback")}</label>
           <audio controls src={savedRecording.teacher_demo.signed_url} />
-          <p className="hint">{t("可以先听示范回答，准备好后删除原录音并重新录制这一题。", "Listen to the sample first, then delete your recording and record this question again.")}</p>
+          <p className="hint">{t("先听老师的语音点评，需要的话可以删除原录音、重新录这一题。", "Listen to your teacher's comments first; if you want another go, delete your recording and do this question again.")}</p>
         </div>
       )}
     </div>
@@ -1537,9 +1537,9 @@ function HistoryRecording({
       )}
       {feedback?.published_at && recording.teacher_demo?.signed_url && (
         <div className="inline-comment">
-          <label>{tr("老师示范回答", "Teacher's sample answer")}</label>
+          <label>{tr("老师语音点评", "Teacher's voice feedback")}</label>
           <audio controls src={recording.teacher_demo.signed_url} />
-          <p className="hint">{tr("你可以把它作为参考答案，再回到最新作业页面重新录制这一题。", "Use it as a model, then go back to the latest homework and record this question again.")}</p>
+          <p className="hint">{tr("想再练一次的话，回到最新作业页面重新录制这一题。", "If you want another go at it, head back to the latest homework and record this question again.")}</p>
         </div>
       )}
       {comment && <SpeakingCommentView value={comment.comment} />}
