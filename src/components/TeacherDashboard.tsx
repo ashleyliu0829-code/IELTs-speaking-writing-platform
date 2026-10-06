@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Assignment, AssignmentType, Feedback, FeedbackDetail, QuestionItem, Recording, SpeakingPracticeSubmission, StudentProfile, Submission, WritingResponse, WritingTask } from "@/lib/types";
+import type { Assignment, AssignmentType, Feedback, FeedbackDetail, QuestionItem, Recording, SpeakingPracticeRecording, SpeakingPracticeSubmission, StudentProfile, Submission, WritingResponse, WritingTask } from "@/lib/types";
 import { mergeFeedbackDetails, questionCommentDetails, scoreDetails } from "@/lib/feedback";
 import { currentP1Bank, currentP2P3Bank, p1QuestionBank, p2P3QuestionBank } from "@/lib/questionBank";
 import { LessonProgressPanel } from "@/components/LessonProgress";
@@ -2776,7 +2776,7 @@ function TeacherSpeakingPracticePanel({
       {practices.length ? (
         <div className="practice-review-grid">
           {practices.map((practice) => (
-            <TeacherPracticeCard key={practice.id} practice={practice} onSave={onSave} />
+            <TeacherPracticeCard key={practice.id} practice={practice} onSave={onSave} onRefresh={onRefresh} />
           ))}
         </div>
       ) : (
@@ -2786,12 +2786,89 @@ function TeacherSpeakingPracticePanel({
   );
 }
 
+/**
+ * Transcript for one self-practice answer: generate it, correct it, save it.
+ *
+ * The same two calls the grading page makes, pointed at the practice table.
+ * Practice answers were markable by ear only until now, which is most of the
+ * work missing — correcting what the student actually said is the point.
+ */
+function PracticeTranscript({ recording, onChanged }: { recording: SpeakingPracticeRecording; onChanged: () => void }) {
+  const [transcript, setTranscript] = useState(recording.transcript_text || "");
+  const [edited, setEdited] = useState(recording.corrected_transcript_text || recording.transcript_text || "");
+  const [busy, setBusy] = useState<"" | "generate" | "save">("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setTranscript(recording.transcript_text || "");
+    setEdited(recording.corrected_transcript_text || recording.transcript_text || "");
+  }, [recording.id, recording.transcript_text, recording.corrected_transcript_text]);
+
+  async function run(mode: "generate" | "save") {
+    setBusy(mode);
+    setError("");
+    try {
+      const response = await fetch("/api/teacher/transcribe", {
+        method: mode === "generate" ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          mode === "generate"
+            ? { recordingId: recording.id, kind: "practice" }
+            : { recordingId: recording.id, correctedTranscript: edited, kind: "practice" }
+        )
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("操作失败。", "That did not work."));
+      const next = data.recording || {};
+      setTranscript(next.transcript_text || "");
+      setEdited(next.corrected_transcript_text || next.transcript_text || "");
+      onChanged();
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("操作失败。", "That did not work."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <div className="transcript-editor">
+      <div className="section-head compact">
+        <label>{tr("录音转写", "Transcript")}</label>
+        <button className="btn secondary" type="button" disabled={Boolean(busy)} onClick={() => void run("generate")}>
+          {busy === "generate"
+            ? tr("生成中...", "Generating...")
+            : transcript
+              ? tr("重新生成转写", "Regenerate transcript")
+              : tr("生成转写", "Generate transcript")}
+        </button>
+      </div>
+      {transcript ? (
+        <>
+          <textarea className="speaking-transcript-editor" value={edited} onChange={(event) => setEdited(event.target.value)} />
+          <div className="section-head compact">
+            <span className="hint">{tr("改完保存，学生会看到修改痕迹。", "Save your edits; the student sees them marked up.")}</span>
+            <button className="btn" type="button" disabled={Boolean(busy)} onClick={() => void run("save")}>
+              {busy === "save" ? tr("保存中...", "Saving...") : tr("保存转写", "Save transcript")}
+            </button>
+          </div>
+          {edited !== transcript && <TranscriptDiff original={transcript} edited={edited} />}
+        </>
+      ) : (
+        <p className="hint">{tr("还没有转写。", "No transcript yet.")}</p>
+      )}
+      {error && <p className="error">{error}</p>}
+    </div>
+  );
+}
+
 function TeacherPracticeCard({
   practice,
-  onSave
+  onSave,
+  onRefresh
 }: {
   practice: SpeakingPracticeSubmission;
   onSave: (practice: SpeakingPracticeSubmission, draft: PracticeFeedbackDraft) => void;
+  onRefresh: () => void;
 }) {
   const [draft, setDraft] = useState<PracticeFeedbackDraft>(() => ({
     teacherComment: practice.teacher_comment || "",
@@ -2841,6 +2918,7 @@ function TeacherPracticeCard({
                 <strong>{item.question}</strong>
               </div>
               {recording?.signed_url ? <audio controls src={recording.signed_url} /> : <p className="hint">{tr("这题还没有录音。", "No recording for this question.")}</p>}
+              {recording && <PracticeTranscript recording={recording} onChanged={onRefresh} />}
               {recording && (
                 <div>
                   <label>{tr("本题点评", "Comment")}</label>

@@ -5,6 +5,7 @@ import type { AssignmentType, SpeakingPracticeRecording, SpeakingPracticeSubmiss
 import { StudentSchedulePanel } from "@/components/LessonScheduler";
 import { StudentDailyTasksPanel } from "@/components/DailyTasks";
 import { StudentHomePanels } from "@/components/StudentHome";
+import { TranscriptDiff } from "@/components/TranscriptDiff";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
 import { tr, useLanguage } from "@/lib/i18n";
 import { activeAnnouncements } from "@/lib/announcements";
@@ -574,6 +575,7 @@ export function StudentPortal() {
             <span className="page-index-group">{activeArea === "writing" ? t("写作作业", "Writing") : t("口语作业", "Speaking")}</span>
             <a href="#hw-latest">{t("最新作业", "Latest")}</a>
             {activeArea === "speaking" && activePractice && <a href="#hw-practice">{t("自主练习", "Practice")}</a>}
+            {activeArea === "speaking" && <a href="#hw-practice-history">{t("练习记录", "Past practice")}</a>}
             <a href="#hw-history">{t("历史作业", "History")}</a>
           </nav>
           <div className="stack">
@@ -610,6 +612,41 @@ export function StudentPortal() {
                 onToggleRecording={togglePracticeRecording}
               />
             </div>
+          )}
+          {activeArea === "speaking" && (
+            <article className="card stack" id="hw-practice-history">
+              <div className="section-head">
+                <div>
+                  <h2>{t("自主练习记录", "Past practice")}</h2>
+                  <div className="hint">{t("你自己练过的题目都在这里，点开可以重听录音、看老师点评。", "Everything you practised on your own. Open one to hear the recordings and read your teacher's comments.")}</div>
+                </div>
+                <span className="pill">{t(`${speakingPractices.length} 项`, `${speakingPractices.length}`)}</span>
+              </div>
+              {speakingPractices.length ? (
+                <div className="practice-history-list">
+                  {speakingPractices.map((item) => (
+                    <button
+                      className={`practice-history-row ${activePractice?.id === item.id ? "open" : ""}`}
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActivePractice(item)}
+                    >
+                      <span className="practice-type-badge">{item.practice_type === "p1" ? "P1" : "P2+P3"}</span>
+                      <span className="practice-history-topic">{item.topic_title}</span>
+                      <span className="practice-history-meta">
+                        {t(`${item.recordings?.length || 0} 条录音`, `${item.recordings?.length || 0} recordings`)}
+                        {item.submitted_at ? ` · ${formatPracticeDay(item.submitted_at)}` : ""}
+                      </span>
+                      <span className={`pill ${item.status === "reviewed" ? "ok" : item.status === "submitted" ? "warn" : ""}`}>
+                        {item.status === "reviewed" ? t("老师已点评", "Marked") : item.status === "submitted" ? t("已提交", "Submitted") : t("未提交", "Draft")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="hint">{t("还没有自主练习记录。在下面的「口语过题情况」里挑一个话题就能开始。", "No practice yet. Pick a topic from the board below to start one.")}</p>
+              )}
+            </article>
           )}
           <article className="card stack" id="hw-history">
             <div className="section-head">
@@ -726,6 +763,14 @@ function SpeakingPracticePanel({
                 <audio controls src={saved.signed_url} />
               ) : (
                 <p className="hint">{t("还没有保存录音。", "No recording saved yet.")}</p>
+              )}
+              {/* Once the teacher has been through it, the corrections are
+                  the useful part — same as on a marked homework. */}
+              {practice.status === "reviewed" && saved?.transcript_text && (
+                <div className="inline-comment">
+                  <strong>{t("录音转写", "Transcript")}</strong>
+                  <TranscriptDiff original={saved.transcript_text} edited={saved.corrected_transcript_text || saved.transcript_text} />
+                </div>
               )}
               {saved?.teacher_comment && (
                 <div className="inline-comment">
@@ -997,4 +1042,11 @@ function StudentDemoBanner({ expiresAt, onLeave }: { expiresAt?: string | null; 
       </button>
     </div>
   );
+}
+
+/** Just the day: a practice is remembered by its topic, not its timestamp. */
+function formatPracticeDay(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
 }

@@ -184,6 +184,8 @@ export type SpeakingPracticeRecording = {
   question_text: string;
   storage_path: string;
   duration_seconds: number;
+  transcript_text?: string | null;
+  corrected_transcript_text?: string | null;
   teacher_comment?: string | null;
   signed_url?: string;
   created_at?: string;

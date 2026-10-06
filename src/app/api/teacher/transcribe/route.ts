@@ -19,13 +19,18 @@ const tencentHost = "asr.tencentcloudapi.com";
 const tencentVersion = "2019-06-14";
 
 const transcribeSchema = z.object({
-  recordingId: z.string().uuid()
+  recordingId: z.string().uuid(),
+  /** Practice answers live in their own table; everything else about the job is the same. */
+  kind: z.enum(["homework", "practice"]).default("homework")
 });
 
 const updateSchema = z.object({
   recordingId: z.string().uuid(),
-  correctedTranscript: z.string()
+  correctedTranscript: z.string(),
+  kind: z.enum(["homework", "practice"]).default("homework")
 });
+
+const tableFor = (kind: "homework" | "practice") => (kind === "practice" ? "speaking_practice_recordings" : "recordings");
 
 type TencentResponse<T> = {
   Response: T & {
@@ -65,9 +70,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Missing TENCENT_SECRET_ID or TENCENT_SECRET_KEY." }, { status: 500 });
   }
 
-  const { recordingId } = transcribeSchema.parse(await request.json());
+  const { recordingId, kind } = transcribeSchema.parse(await request.json());
 
-  const { data: recording, error } = await loadTeacherRecording(supabase, recordingId);
+  const { data: recording, error } = await loadTeacherRecording(supabase, recordingId, kind);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   if (!recording) return Response.json({ error: "Recording not found." }, { status: 404 });
 
@@ -83,11 +88,16 @@ export async function POST(request: NextRequest) {
   if (!audio) return Response.json({ error: "Recording audio could not be downloaded." }, { status: 404 });
 
   const sourceBuffer = Buffer.from(await audio.arrayBuffer());
-  const wavBuffer = await convertToWav(sourceBuffer);
+  const audioForAsr = await convertForAsr(sourceBuffer);
 
-  if (wavBuffer.byteLength > 5 * 1024 * 1024) {
+  // Tencent's 5 MB ceiling is on the base64 payload, not the bytes behind it,
+  // and base64 is a third larger. Measuring the raw buffer let a Part 3 answer
+  // of just over two minutes through to be rejected by Tencent with an opaque
+  // error; measuring what is actually sent is the honest check.
+  const encoded = audioForAsr.buffer.toString("base64");
+  if (encoded.length > 5 * 1024 * 1024) {
     return Response.json(
-      { error: "Converted audio is larger than Tencent ASR's 5 MB local-audio limit. Please shorten this recording." },
+      { error: "这段录音太长了，超出了转写服务单次 5 MB 的上限。请分段后再试。" },
       { status: 413 }
     );
   }
@@ -97,7 +107,8 @@ export async function POST(request: NextRequest) {
     EngineModelType: process.env.TENCENT_ASR_ENGINE_MODEL_TYPE || "16k_en",
     ResTextFormat: 0,
     SourceType: 1,
-    Data: wavBuffer.toString("base64")
+    VoiceFormat: audioForAsr.format,
+    Data: encoded
   });
 
   const taskId = createTask.Data.TaskId;
@@ -109,7 +120,7 @@ export async function POST(request: NextRequest) {
     : { transcript_text: transcript, corrected_transcript_text: transcript };
 
   const { data: updated, error: updateError } = await supabase
-    .from("recordings")
+    .from(tableFor(kind))
     .update(patch)
     .eq("id", recordingId)
     .select("*")
@@ -124,7 +135,7 @@ export async function POST(request: NextRequest) {
     quantity: durationSeconds,
     unit: "seconds",
     costMicros: estimateAsrCostMicros(durationSeconds),
-    metadata: { recordingId }
+    metadata: { recordingId, kind }
   });
 
   return Response.json({ recording: updated });
@@ -135,13 +146,13 @@ export async function PATCH(request: NextRequest) {
   if (auth instanceof Response) return auth;
   const { supabase } = auth;
 
-  const { recordingId, correctedTranscript } = updateSchema.parse(await request.json());
-  const { data: recording, error: loadError } = await loadTeacherRecording(supabase, recordingId);
+  const { recordingId, correctedTranscript, kind } = updateSchema.parse(await request.json());
+  const { data: recording, error: loadError } = await loadTeacherRecording(supabase, recordingId, kind);
   if (loadError) return Response.json({ error: loadError.message }, { status: 500 });
   if (!recording) return Response.json({ error: "Recording not found." }, { status: 404 });
 
   const { data, error } = await supabase
-    .from("recordings")
+    .from(tableFor(kind))
     .update({ corrected_transcript_text: correctedTranscript })
     .eq("id", recordingId)
     .select("*")
@@ -151,26 +162,48 @@ export async function PATCH(request: NextRequest) {
   return Response.json({ recording: data });
 }
 
-// RLS reaches recordings through their submission, so a miss means "not yours".
-function loadTeacherRecording(supabase: SupabaseClient, recordingId: string) {
-  return supabase.from("recordings").select("*").eq("id", recordingId).maybeSingle();
+// RLS reaches either table through its parent row, so a miss means "not yours".
+function loadTeacherRecording(supabase: SupabaseClient, recordingId: string, kind: "homework" | "practice") {
+  return supabase.from(tableFor(kind)).select("*").eq("id", recordingId).maybeSingle();
 }
 
-async function convertToWav(input: Buffer) {
+/**
+ * Prepares the audio for Tencent, as mp3 when ffmpeg can encode it.
+ *
+ * 16 kHz mono PCM is 32 KB a second, so base64'd it reaches the 5 MB request
+ * ceiling just past two minutes — shorter than a Part 3 answer. The same
+ * speech as 48 kbps mp3 is a sixth of that, which puts the ceiling around ten
+ * minutes and leaves the 16k engine the sample rate it expects. A build
+ * without an mp3 encoder falls back to wav, which still works for the short
+ * answers it always worked for.
+ */
+async function convertForAsr(input: Buffer): Promise<{ buffer: Buffer; format: "mp3" | "wav" }> {
+  try {
+    return { buffer: await convert(input, "mp3", ["-b:a", "48k"]), format: "mp3" };
+  } catch (mp3Error) {
+    console.error("transcribe: mp3 encode failed, falling back to wav", mp3Error instanceof Error ? mp3Error.message : mp3Error);
+    return { buffer: await convert(input, "wav", []), format: "wav" };
+  }
+}
+
+async function convert(input: Buffer, format: "mp3" | "wav", extraArgs: string[]) {
   const workdir = join(tmpdir(), `ielts-asr-${randomUUID()}`);
   const inputPath = join(workdir, "input.audio");
-  const outputPath = join(workdir, "output.wav");
+  const outputPath = join(workdir, `output.${format}`);
 
   await mkdir(workdir, { recursive: true });
   await writeFile(inputPath, input);
 
   try {
-    await runFile("ffmpeg", ["-y", "-i", inputPath, "-ac", "1", "-ar", "16000", "-f", "wav", outputPath]);
+    await runFile("ffmpeg", ["-y", "-i", inputPath, "-ac", "1", "-ar", "16000", ...extraArgs, "-f", format, outputPath]);
     return await readFile(outputPath);
   } catch (error) {
-    throw new Error(
-      "Audio conversion failed. Please install ffmpeg on the Tencent server with: sudo apt update && sudo apt install -y ffmpeg"
-    );
+    if (format === "wav") {
+      throw new Error(
+        "Audio conversion failed. Please install ffmpeg on the Tencent server with: sudo apt update && sudo apt install -y ffmpeg"
+      );
+    }
+    throw error;
   } finally {
     await Promise.allSettled([unlink(inputPath), unlink(outputPath)]);
   }

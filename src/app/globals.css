@@ -5781,3 +5781,55 @@ PLACEHOLDER
 .landing-contact a {
   color: var(--brand-ink);
 }
+
+/* The student's own practice history: a row per practice, newest first. */
+.practice-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.practice-history-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.practice-history-row:hover {
+  border-color: var(--brand-ink);
+}
+
+.practice-history-row.open {
+  border-color: var(--brand);
+  background: var(--soft);
+}
+
+.practice-history-topic {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.practice-history-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .practice-history-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .practice-history-meta {
+    grid-column: 2 / -1;
+  }
+}
