@@ -102,18 +102,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const createTask = await callTencentAsr<CreateTaskResponse>("CreateRecTask", {
-    ChannelNum: 1,
-    EngineModelType: process.env.TENCENT_ASR_ENGINE_MODEL_TYPE || "16k_en",
-    ResTextFormat: 0,
-    SourceType: 1,
-    VoiceFormat: audioForAsr.format,
-    Data: encoded
-  });
+  // Everything from here talks to Tencent, and an unhandled throw reaches the
+  // teacher as an empty 500 — which is how a wrong parameter once looked like
+  // "transcription is broken for long recordings" and nothing more.
+  let transcript: string;
+  try {
+    const createTask = await callTencentAsr<CreateTaskResponse>("CreateRecTask", {
+      ChannelNum: 1,
+      EngineModelType: process.env.TENCENT_ASR_ENGINE_MODEL_TYPE || "16k_en",
+      ResTextFormat: 0,
+      SourceType: 1,
+      Data: encoded
+    });
+    const result = await waitForTencentTask(createTask.Data.TaskId);
+    transcript = normalizeTencentResult(result).trim();
+  } catch (asrError) {
+    const message = asrError instanceof Error ? asrError.message : "转写服务返回了未知错误。";
+    console.error("transcribe: Tencent ASR failed", { recordingId, kind, seconds: durationSeconds, format: audioForAsr.format, message });
+    return Response.json({ error: `转写失败：${message}` }, { status: 502 });
+  }
 
-  const taskId = createTask.Data.TaskId;
-  const result = await waitForTencentTask(taskId);
-  const transcript = normalizeTencentResult(result).trim();
   const correctedTranscript = ((recording as Recording).corrected_transcript_text || "").trim();
   const patch = correctedTranscript
     ? { transcript_text: transcript }
