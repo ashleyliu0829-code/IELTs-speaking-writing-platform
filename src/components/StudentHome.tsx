@@ -328,7 +328,7 @@ export function StudentHomePanels({
       {/* The plan and the scores answer the same question from two sides —
           where am I, and is it working — so they sit together. A row with
           one child in it spans the width rather than leaving a hole. */}
-      <div className="student-home-row loose">
+      <div className="student-home-row plan-scores">
         {data && data.study_plan.length > 0 && (
           <article className="card stack student-home-study-plan">
             <div className="section-head compact">

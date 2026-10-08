@@ -6324,6 +6324,20 @@ PLACEHOLDER
   grid-column: 1 / -1;
 }
 
+/* The plan is a list and the scores are five numbers, so they do not want
+   the same width — and the two cards square off at the same height rather
+   than ending wherever their content happens to stop. */
+.student-home-row.plan-scores {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .student-home-row.plan-scores {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* The scores are the answer to "is the plan working", so they carry more
    weight on the page than the plan beside them. */
 .mock-results-card {
