@@ -6286,6 +6286,23 @@ PLACEHOLDER
   background: var(--wash);
 }
 
+.mock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mock-filter {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+}
+
 /* The two halves of the mock section: setting one, and reading the result. */
 .mock-tabs {
   display: inline-flex;

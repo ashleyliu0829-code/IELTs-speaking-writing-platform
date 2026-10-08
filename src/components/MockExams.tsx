@@ -28,11 +28,15 @@ export function MockExamsPanel({ students, assignments }: { students: StudentPro
   const [openId, setOpenId] = useState("");
   // Two jobs, not one list: setting a sitting up, and reading what came back.
   const [tab, setTab] = useState<"new" | "done">("new");
+  // A teacher with a term's worth of sittings wants one student's.
+  const [who, setWho] = useState("");
 
   const writingAssignments = assignments.filter((item) => (item.assignment_type || "speaking") === "writing");
   const open = exams.filter((exam) => !exam.completed_at);
   const finished = exams.filter((exam) => exam.completed_at);
-  const shown = tab === "new" ? open : finished;
+  const pool = tab === "new" ? open : finished;
+  const names = [...new Set(pool.map((exam) => exam.student_name))].sort((a, b) => a.localeCompare(b, "zh"));
+  const shown = who ? pool.filter((exam) => exam.student_name === who) : pool;
 
   useEffect(() => {
     void load();
@@ -107,26 +111,41 @@ export function MockExamsPanel({ students, assignments }: { students: StudentPro
         </button>
       </div>
 
-      <div className="mock-tabs" role="tablist">
-        <button
-          className={`mock-tab ${tab === "new" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={tab === "new"}
-          onClick={() => setTab("new")}
-        >
-          {t(`发布新模考 (${open.length})`, `Set a sitting (${open.length})`)}
-        </button>
-        <button
-          className={`mock-tab ${tab === "done" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={tab === "done"}
-          onClick={() => setTab("done")}
-        >
-          {t(`模考成绩 (${finished.length})`, `Results (${finished.length})`)}
-        </button>
+      <div className="mock-toolbar">
+        <div className="mock-tabs" role="tablist">
+          <button
+            className={`mock-tab ${tab === "new" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === "new"}
+            onClick={() => setTab("new")}
+          >
+            {t(`发布新模考 (${open.length})`, `Set a sitting (${open.length})`)}
+          </button>
+          <button
+            className={`mock-tab ${tab === "done" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === "done"}
+            onClick={() => setTab("done")}
+          >
+            {t(`模考成绩 (${finished.length})`, `Results (${finished.length})`)}
+          </button>
+        </div>
+
+        {/* Only worth offering once there is more than one name to pick. */}
+        {names.length > 1 && (
+          <select className="mock-filter" value={who} onChange={(event) => setWho(event.target.value)}>
+            <option value="">{t("全部学生", "All students")}</option>
+            {names.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
+
 
       {tab === "new" && (
         <div className="mock-create">
