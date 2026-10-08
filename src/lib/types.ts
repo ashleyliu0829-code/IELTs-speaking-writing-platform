@@ -55,6 +55,39 @@ export type StudentProfile = {
   is_active?: boolean;
 };
 
+/** One mock exam sitting: four parts, one student. */
+export type MockExam = {
+  id: string;
+  teacher_id?: string | null;
+  title: string;
+  student_name: string;
+  student_account_id?: string | null;
+  speaking_url: string;
+  writing_assignment_id?: string | null;
+  listening_name: string;
+  listening_path: string;
+  listening_audio: Record<string, string>;
+  reading_name: string;
+  reading_path: string;
+  scheduled_at?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  /** Joined for display, not stored here. */
+  writing_assignment?: { id: string; title: string } | null;
+  result?: MockExamResult | null;
+};
+
+/** What the listening paper reported back. */
+export type MockExamResult = {
+  id: string;
+  exam_id: string;
+  part: string;
+  correct: number;
+  total: number;
+  detail: { part: string; questions: { question: string; answer: string; correct: boolean }[] }[];
+  submitted_at: string;
+};
+
 /** A document the teacher attached to a student. The URL is minted on click. */
 export type StudentFile = {
   id: string;

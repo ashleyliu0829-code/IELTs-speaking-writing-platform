@@ -6,6 +6,7 @@ import { StudentSchedulePanel } from "@/components/LessonScheduler";
 import { StudentDailyTasksPanel } from "@/components/DailyTasks";
 import { StudentHomePanels } from "@/components/StudentHome";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
+import { StudentMockExamsPanel } from "@/components/StudentMockExams";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
 import { tr, useLanguage } from "@/lib/i18n";
 import { activeAnnouncements } from "@/lib/announcements";
@@ -63,7 +64,7 @@ export function StudentPortal() {
   const [teacherPhone, setTeacherPhone] = useState("");
   const [password, setPassword] = useState("");
   const [activeArea, setActiveArea] = useState<AssignmentType>("speaking");
-  const [activeView, setActiveView] = useState<"home" | "homework" | "dailyTasks" | "schedule">("home");
+  const [activeView, setActiveView] = useState<"home" | "homework" | "dailyTasks" | "mockExams" | "schedule">("home");
   const [assignments, setAssignments] = useState<StudentAssignmentSummary[]>([]);
   const [allAssignments, setAllAssignments] = useState<StudentAssignmentSummary[]>([]);
   const [historySubmissions, setHistorySubmissions] = useState<Submission[]>([]);
@@ -519,6 +520,13 @@ export function StudentPortal() {
             >
               {t("每日任务", "Daily tasks")}
             </button>
+            <button
+              className={`home-nav-item ${activeView === "mockExams" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveView("mockExams")}
+            >
+              {t("模考", "Mock exam")}
+            </button>
           </div>
 
           <div className="home-nav-group">
@@ -568,6 +576,18 @@ export function StudentPortal() {
 
       {activeView === "schedule" && <StudentSchedulePanel account={account} />}
       {activeView === "dailyTasks" && <StudentDailyTasksPanel account={account} />}
+
+      {activeView === "mockExams" && (
+        <article className="card stack">
+          <div className="section-head">
+            <div>
+              <h2>{t("模考", "Mock exam")}</h2>
+              <div className="hint">{t("按顺序完成四个部分。听力做完点 Finish All，成绩会自动交给老师。", "Work through the four parts. Press Finish All on the listening and your score goes to your teacher.")}</div>
+            </div>
+          </div>
+          <StudentMockExamsPanel />
+        </article>
+      )}
       {activeView === "homework" && (
         <div className="student-body">
           <nav className="page-index" aria-label={t("本页目录", "On this page")}>

@@ -14,6 +14,7 @@ import { TeacherSchedulePanel } from "@/components/LessonScheduler";
 import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { TeacherDailyTasksPanel } from "@/components/DailyTasks";
 import { StudentOverviewPanel } from "@/components/StudentOverview";
+import { MockExamsPanel } from "@/components/MockExams";
 import { tr, useLanguage } from "@/lib/i18n";
 import { TeacherHomePanels } from "@/components/TeacherHome";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
@@ -59,6 +60,7 @@ type TeacherSection =
   | "studentInvite"
   | "assignments"
   | "grading"
+  | "mockExams"
   | "schedule"
   | "lessonRecording"
   | "dailyTasks";
@@ -560,6 +562,11 @@ export function TeacherDashboard() {
     setNavLevel("detail");
   }
 
+  function openMockExams() {
+    setTeacherSection("mockExams");
+    setNavLevel("detail");
+  }
+
   function openLessonRecording() {
     setTeacherSection("lessonRecording");
     setNavLevel("detail");
@@ -992,6 +999,25 @@ export function TeacherDashboard() {
                 onClick={() => openGrading("writing")}
               >
                 {t("写作", "Writing")}
+              </button>
+            </div>
+
+            <div className="home-nav-group">
+              <strong className="home-nav-title">
+                {/* A clock on a page: a sitting is homework under exam conditions. */}
+                <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false">
+                  <path d="M4.5 2.5h7l4 4v11h-11z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                  <circle cx="13.6" cy="13.4" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                  <path d="M13.6 11.6v1.9l1.3.9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                {t("模考", "Mock exams")}
+              </strong>
+              <button
+                className={`home-nav-item ${atSection("mockExams") ? "active" : ""}`}
+                type="button"
+                onClick={openMockExams}
+              >
+                {t("模考安排", "Sittings")}
               </button>
             </div>
 
@@ -1532,6 +1558,12 @@ export function TeacherDashboard() {
           <TeacherDailyTasksPanel students={students} api={api} language={teacherLanguage} />
         </section>
       )}
+
+      {hasTeacherAccess && navLevel === "detail" && teacherSection === "mockExams" && (
+        <section className="single-column">
+          <MockExamsPanel students={students} assignments={assignments} />
+        </section>
+      )}
           </div>
         </div>
       )}
@@ -1767,6 +1799,7 @@ function sectionLabel(section: TeacherSection, language: TeacherLanguage = "zh")
     studentInvite: { zh: "学生注册", en: "Student sign-up" },
     assignments: { zh: "作业布置", en: "Homework publishing" },
     grading: { zh: "作业批改", en: "Homework grading" },
+    mockExams: { zh: "模考", en: "Mock exams" },
     schedule: { zh: "课程排课", en: "Lesson scheduling" },
     lessonRecording: { zh: "课程进度", en: "Lesson progress" },
     dailyTasks: { zh: "每日任务", en: "Daily tasks" }

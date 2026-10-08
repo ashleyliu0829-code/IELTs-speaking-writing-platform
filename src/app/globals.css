@@ -5938,3 +5938,154 @@ PLACEHOLDER
     font-size: 20px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Mock exams: a sitting per card, four parts inside.
+   --------------------------------------------------------------------------- */
+
+.mock-create {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mock-create select {
+  min-width: 200px;
+}
+
+.mock-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mock-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  overflow: hidden;
+}
+
+.mock-card.open {
+  border-color: var(--brand);
+}
+
+.mock-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mock-card-head > div {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.mock-card-head small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.mock-card-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 14px 14px;
+}
+
+.mock-part {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.mock-part select,
+.mock-part input[type="text"],
+.mock-part .overview-hours-row input {
+  min-width: min(360px, 100%);
+}
+
+.mock-part em {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.mock-part .hint {
+  margin: 0;
+}
+
+/* The papers run tall: a listening sitting is four parts of questions. */
+.mock-paper-frame {
+  width: 100%;
+  height: min(78vh, 760px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+}
+
+.mock-result {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.mock-result-score {
+  font-size: 20px;
+  color: var(--brand-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.mock-result-part-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mock-answer-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mock-answer-list li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.mock-answer-list li.right {
+  background: var(--done-wash);
+  color: var(--done-ink);
+}
+
+.mock-answer-list li.wrong {
+  background: #fdeee9;
+  color: var(--accent-dark);
+}
+
+.mock-answer-no {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mock-answer-text {
+  overflow-wrap: anywhere;
+}

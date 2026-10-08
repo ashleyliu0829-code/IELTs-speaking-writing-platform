@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 export const recordingsBucket = process.env.SUPABASE_RECORDINGS_BUCKET || "speaking-recordings";
 /** Private: the documents a teacher attaches to a student, served by signed link only. */
 export const studentFilesBucket = process.env.SUPABASE_STUDENT_FILES_BUCKET || "student-files";
+/** Private: mock exam papers — the prepared listening page, its audio, and reading PDFs. */
+export const mockExamBucket = process.env.SUPABASE_MOCK_EXAM_BUCKET || "mock-exams";
 export const homeworkImagesBucket = process.env.SUPABASE_HOMEWORK_IMAGES_BUCKET || "homework-images";
 
 /**
