@@ -28,6 +28,9 @@ const assignmentSchema = z.object({
     )
     .default([]),
   training_note: z.string().min(1),
+  // 0 is untimed. Capped well above a real paper so a typo cannot lock a
+  // student out for a day.
+  timed_minutes: z.coerce.number().int().min(0).max(600).default(0),
   assigned_students: z.array(z.string()).transform(cleanStudents).default([]),
   is_active: z.boolean().default(true)
 }).superRefine((assignment, ctx) => {

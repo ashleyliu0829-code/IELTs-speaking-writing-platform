@@ -28,6 +28,7 @@ type AuthAccount = {
 };
 
 import { tr, useLanguage } from "@/lib/i18n";
+import { WritingTimer, type WritingTimerState } from "@/components/WritingTimer";
 
 const LABEL_LATEST = () => tr("查看最新作业", "Latest homework");
 const LABEL_HISTORY = () => tr("查看历史作业", "Past homework");
@@ -67,6 +68,8 @@ export function StudentAssignment({
   const [writingDrafts, setWritingDrafts] = useState<Record<string, string>>({});
   const [savedWritingResponses, setSavedWritingResponses] = useState<Record<string, WritingResponse>>({});
   const [submissionId, setSubmissionId] = useState("");
+  const [timer, setTimer] = useState<WritingTimerState>({ minutes: Number(assignment.timed_minutes || 0), startedAt: null, remainingSeconds: null, expired: false });
+  const [startingTimer, setStartingTimer] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState<"in_progress" | "submitted" | "reviewed">("in_progress");
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [processingRecordingKey, setProcessingRecordingKey] = useState<string | null>(null);
@@ -216,6 +219,7 @@ export function StudentAssignment({
   async function saveProfileAndLoadDraft() {
     await saveStudentProfile();
     await loadSubmissionDraft();
+    await syncTimer();
   }
 
   async function toggleRecording(key: string) {
@@ -328,6 +332,46 @@ export function StudentAssignment({
         ? tr(`音频已添加（${formatTime(Math.round(measured))}），现在可以保存这段录音。`, `Audio added (${formatTime(Math.round(measured))}); you can save it now.`)
         : tr("音频已添加，现在可以保存这段录音。", "Audio added; you can save it now.")
     );
+  }
+
+  /** Asks the server where the clock is; also the only way to start it. */
+  async function syncTimer(start = false) {
+    if (!isWriting || !assignment.timed_minutes) return;
+    if (start) setStartingTimer(true);
+    try {
+      const response = await fetch("/api/student/writing-timer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignmentId: assignment.id, submissionId: validSubmissionId(submissionId) || undefined, start })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(data.error || tr("计时状态读取失败。", "Could not read the timer."));
+        return;
+      }
+      if (data.timer) setTimer(data.timer);
+      if (data.submissionId) setSubmissionId(data.submissionId);
+    } catch {
+      setMessage(tr("计时状态读取失败，请检查网络。", "Could not reach the timer; check your connection."));
+    } finally {
+      if (start) setStartingTimer(false);
+    }
+  }
+
+  /**
+   * The clock reached zero: hand in whatever is written.
+   *
+   * The server stops accepting edits a few seconds after the deadline anyway,
+   * so a failure here costs nothing that was already saved — the page locks
+   * either way, which is what the rule promised.
+   */
+  async function submitOnExpiry() {
+    try {
+      await saveWriting("submit");
+    } catch (error) {
+      console.error("writing timer: auto-submit failed", error);
+    }
+    setTimer((current) => ({ ...current, expired: true, remainingSeconds: 0 }));
   }
 
   async function loadStudentData(area = activeArea) {
@@ -736,6 +780,9 @@ export function StudentAssignment({
 
   return (
     <main className="shell">
+      {isWriting && Boolean(assignment.timed_minutes) && account && submissionStatus === "in_progress" && (
+        <WritingTimer timer={timer} starting={startingTimer} onStart={() => void syncTimer(true)} onExpire={() => void submitOnExpiry()} />
+      )}
       {/* A homework link drops the student straight onto this page, and the
           only other way out was the wordmark, which goes to the marketing
           page rather than to their own. A full navigation is deliberate: the

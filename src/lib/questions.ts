@@ -35,6 +35,7 @@ export const defaultAssignment: Omit<Assignment, "id"> = {
   ],
   training_note: defaultTrainingNote,
   assigned_students: [],
+  timed_minutes: 0,
   is_active: true
 };
 

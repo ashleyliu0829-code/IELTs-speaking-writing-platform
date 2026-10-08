@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireStudent } from "@/lib/auth";
 import { upsertStudentProfile } from "@/lib/students";
+import { isPastGrace } from "@/lib/writingTimer";
 
 const responseSchema = z.object({
   taskKey: z.string().min(1),
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   const { data: assignment } = await supabase
     .from("assignments")
-    .select("id, title, assigned_students")
+    .select("id, title, assigned_students, timed_minutes")
     .eq("id", payload.assignmentId)
     .eq("is_active", true)
     .maybeSingle();
@@ -50,11 +51,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "This homework is not assigned to this student name." }, { status: 403 });
   }
 
-  let submission = null as { id: string; submission_status?: string | null } | null;
+  let submission = null as { id: string; submission_status?: string | null; timer_started_at?: string | null } | null;
   if (payload.submissionId) {
     const { data: existing, error } = await supabase
       .from("submissions")
-      .select("id, submission_status")
+      .select("id, submission_status, timer_started_at")
       .eq("id", payload.submissionId)
       .eq("assignment_id", payload.assignmentId)
       .ilike("student_name", studentName)
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
   } else {
     const { data: existing } = await supabase
       .from("submissions")
-      .select("id, submission_status")
+      .select("id, submission_status, timer_started_at")
       .eq("assignment_id", payload.assignmentId)
       .ilike("student_name", studentName)
       .order("submitted_at", { ascending: false })
@@ -92,6 +93,13 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: error?.message || "Could not create submission." }, { status: 500 });
     }
     submission = created;
+  }
+
+  if (isPastGrace(assignment.timed_minutes, submission.timer_started_at)) {
+    return Response.json(
+      { error: "倒计时已结束，这份作文已经提交，不能再修改了。", code: "timer_expired" },
+      { status: 409 }
+    );
   }
 
   const rows = payload.responses.map((response) => ({

@@ -1750,6 +1750,7 @@ function getSubmissionQuestionItems(submission: Submission) {
     p3_questions: assignment.p3_questions || [],
     writing_tasks: assignment.writing_tasks || [],
     training_note: "",
+    timed_minutes: 0,
     assigned_students: [],
     is_active: true
   });
@@ -2066,6 +2067,38 @@ function AssignmentEditor({
         <label>{tr("训练说明", "Instructions")}</label>
         <textarea value={draft.training_note} onChange={(event) => setDraft({ ...draft, training_note: event.target.value })} />
       </div>
+      {activeArea === "writing" && (
+        <div className="writing-timer-field">
+          <label>{tr("考试计时", "Exam timer")}</label>
+          <label className="check-row plain">
+            <input
+              type="checkbox"
+              checked={Boolean(draft.timed_minutes)}
+              onChange={(event) => setDraft({ ...draft, timed_minutes: event.target.checked ? 60 : 0 })}
+            />
+            <span>{tr("开启计时", "Time this paper")}</span>
+            <small>{tr("学生点「开始」后计时，到点自动提交并锁定页面", "The clock starts when the student presses start; at zero the paper submits itself and locks")}</small>
+          </label>
+          {Boolean(draft.timed_minutes) && (
+            <div className="overview-hours-row">
+              <input
+                type="number"
+                min={5}
+                max={600}
+                step={5}
+                value={draft.timed_minutes}
+                onChange={(event) => setDraft({ ...draft, timed_minutes: Math.max(0, Number(event.target.value) || 0) })}
+              />
+              <span>{tr("分钟", "minutes")}</span>
+              {draft.timed_minutes !== 60 && (
+                <button className="btn ghost" type="button" onClick={() => setDraft({ ...draft, timed_minutes: 60 })}>
+                  {tr("改回 60", "Back to 60")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="area-badge">
         <label>{tr("当前板块", "Area")}</label>
         <span className="pill ok">{activeArea === "writing" ? tr("仅写作作业", "Writing only") : tr("仅口语作业", "Speaking only")}</span>

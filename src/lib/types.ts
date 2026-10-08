@@ -26,6 +26,8 @@ export type Assignment = {
   p3_questions: string[];
   writing_tasks: WritingTask[];
   training_note: string;
+  /** Minutes allowed once the student starts; 0 means the homework is untimed. */
+  timed_minutes?: number;
   assigned_students: string[];
   is_active: boolean;
   created_at?: string;
