@@ -39,7 +39,24 @@ const readingStartSchema = z.object({
 const readingAnswersSchema = z.object({
   examId: z.string().uuid(),
   action: z.enum(["reading-save", "reading-submit"]),
-  answers: z.array(z.string().trim().max(200)).max(60)
+  answers: z.array(z.string().trim().max(200)).max(60),
+  // Which questions they flagged to come back to, and what they highlighted.
+  // Both travel with the answers so one save covers the whole paper.
+  flags: z.array(z.number().int().min(1).max(60)).max(60).optional(),
+  marks: z
+    .array(
+      z.object({
+        id: z.string().max(40),
+        page: z.number().int().min(1).max(200),
+        color: z.string().max(20).optional(),
+        note: z.string().max(2000).optional(),
+        rects: z
+          .array(z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }))
+          .max(60)
+      })
+    )
+    .max(300)
+    .optional()
 });
 
 const resultSchema = z.object({
@@ -72,7 +89,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("mock_exams")
     .select(
-      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_key, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(part, correct, total, detail, submitted_at), scores:mock_exam_scores(part, criteria, band, comment, published_at)"
+      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_key, reading_started_at, reading_minutes, reading_draft, reading_flags, reading_marks, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(part, correct, total, detail, submitted_at), scores:mock_exam_scores(part, criteria, band, comment, published_at)"
     )
     .eq("student_account_id", account.id)
     .eq("is_active", true)
@@ -184,9 +201,12 @@ export async function POST(request: Request) {
 
     // The sheet is saved on every pass, including the one that hands it in,
     // so a submission that fails halfway still leaves the answers behind.
+    const draft: Record<string, unknown> = { reading_draft: reading.data.answers };
+    if (reading.data.flags) draft.reading_flags = reading.data.flags;
+    if (reading.data.marks) draft.reading_marks = reading.data.marks;
     const { error: saveError } = await getSupabaseAdmin()
       .from("mock_exams")
-      .update({ reading_draft: reading.data.answers })
+      .update(draft)
       .eq("id", exam.id)
       .eq("student_account_id", account.id);
     if (saveError) return Response.json({ error: saveError.message }, { status: 500 });

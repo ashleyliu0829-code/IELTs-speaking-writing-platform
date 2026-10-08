@@ -65,6 +65,22 @@ export async function GET(request: NextRequest) {
     return Response.redirect(url, 302);
   }
 
+  // The exam page renders the paper itself rather than handing it to the
+  // browser's viewer, and a reader fetching a signed link on another origin
+  // is a CORS problem waiting to happen. So the bytes come back from here.
+  if (want === "reading" && request.nextUrl.searchParams.get("stream") === "1") {
+    if (!exam.reading_path) return new Response("这场模考还没有上传阅读 PDF。", { status: 404 });
+    const { data: file, error } = await admin.storage.from(mockExamBucket).download(exam.reading_path);
+    if (error || !file) return new Response("PDF 暂时不可用。", { status: 500 });
+    return new Response(await file.arrayBuffer(), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline",
+        "Cache-Control": "private, max-age=600"
+      }
+    });
+  }
+
   if (want === "reading") {
     if (!exam.reading_path) return new Response("这场模考还没有上传阅读 PDF。", { status: 404 });
     const url = await signed(exam.reading_path, 60 * 60 * 3);

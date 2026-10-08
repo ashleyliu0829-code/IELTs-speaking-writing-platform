@@ -392,62 +392,27 @@ function StudentReading({
   const endsAt = startedAt ? new Date(startedAt).getTime() + minutes * 60 * 1000 : 0;
   const result = exam.reading_result;
 
-  const submit = useCallback(
-    async (auto: boolean) => {
-      if (handedIn.current) return;
-      handedIn.current = true;
-      setBusy("submit");
-      try {
-        const response = await fetch("/api/student/mock-exams", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ examId: exam.id, action: "reading-submit", answers: answersRef.current })
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || tr("提交失败。", "Could not hand it in."));
-        onPatch({ reading_result: data.result });
-        setNote(auto ? tr("时间到，答案已自动提交。", "Time is up; your sheet was handed in.") : "");
-      } catch (problem) {
-        handedIn.current = false;
-        setNote(problem instanceof Error ? problem.message : tr("提交失败。", "Could not hand it in."));
-      } finally {
-        setBusy("");
-      }
-    },
-    [exam.id, onPatch]
-  );
-
-  // The countdown, and handing in by itself at zero.
+  // The clock, shown but not acted on: handing in belongs to the exam page,
+  // which holds the answers. A card counting down in a forgotten tab must
+  // not hand in the answers it happened to load with.
   useEffect(() => {
     if (!startedAt || !minutes || result) return;
-    const tick = () => {
-      const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
-      setRemaining(left);
-      if (left <= 0) void submit(true);
-    };
+    const tick = () => setRemaining(Math.max(0, Math.round((endsAt - Date.now()) / 1000)));
     tick();
     const loop = window.setInterval(tick, 1000);
     return () => window.clearInterval(loop);
-  }, [startedAt, minutes, endsAt, result, submit]);
+  }, [startedAt, minutes, endsAt, result]);
 
-  // Saved as they go, so the automatic hand-in has something to mark even if
-  // the page is closed before the clock runs out.
-  useEffect(() => {
-    if (!startedAt || result) return;
-    const loop = window.setInterval(() => {
-      void fetch("/api/student/mock-exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId: exam.id, action: "reading-save", answers: answersRef.current })
-      }).catch(() => undefined);
-    }, 20_000);
-    return () => window.clearInterval(loop);
-  }, [exam.id, startedAt, result]);
+
+  // The sheet lives on the exam page now, and so does its saving. This card
+  // must not also save: it holds whatever the answers were when it loaded,
+  // and a card left open in another tab would quietly write them back over
+  // an hour of work.
 
   function openPaper() {
     // The tab is opened on the click itself, before anything is awaited, or
     // the browser treats it as a pop-up and blocks it.
-    const tab = window.open(`/api/mock-exam/paper?examId=${exam.id}&part=reading`, `mock-reading-${exam.id}`);
+    const tab = window.open(`/exam/reading/${exam.id}`, `mock-reading-${exam.id}`);
     if (!tab) setNote(tr("浏览器拦截了新标签页，请允许弹出窗口后再试。", "Your browser blocked the new tab; allow pop-ups and try again."));
     if (!startedAt) void beginClock();
   }
@@ -533,12 +498,12 @@ function StudentReading({
             `点开试卷文件后，倒计时会启动。雅思正式考试时长是 60min，这里由于需要下载、输入答案，时间延长至 ${minutes}min。请把握好时间，准备好后再点击题目。`,
             `Opening the paper starts the clock. The real IELTS paper is 60 minutes; here it is ${minutes}, because the paper has to be downloaded and the answers typed. Take your time getting ready, then open it.`
           )}
-          {/* The paper opens in its own tab, so the one thing a student can
-              forget is the sheet they have to come back to. */}
+          {/* The paper is sat on its own page, so the sheet is not here any
+              more — two sheets saving to the same place would fight. */}
           <strong className="exam-start-warn">
             {t(
-              "完成后，请记得回到这个页面，把答案填写上。",
-              "When you have finished, come back to this page and fill in your answers."
+              "试卷和答题卡在同一个考试页面里，左右分栏。做完记得点交卷。",
+              "The paper and the answer sheet share one exam screen, side by side. Remember to hand in when you are done."
             )}
           </strong>
         </p>
@@ -551,49 +516,25 @@ function StudentReading({
 
       <div className="overview-hours-row">
         <button className="btn" type="button" disabled={busy === "start"} onClick={() => openPaper()}>
-          {t("打开阅读试卷", "Open the reading paper")}
+          {startedAt ? t("继续阅读考试", "Carry on with the paper") : t("开始阅读考试", "Start the reading paper")}
         </button>
         {exam.reading_name && <small>{exam.reading_name}</small>}
       </div>
 
       {startedAt && (
-        <>
-          <div className="mock-key-part">
-            <span className="student-card-label">{t(`答题卡 · 第 1–${total} 题`, `Answer sheet · 1–${total}`)}</span>
-            <div className="mock-key-grid">
-              {Array.from({ length: total }, (_, index) => (
-                <label className="mock-key-cell" key={index + 1}>
-                  <span>{index + 1}</span>
-                  <input
-                    value={answers[index] || ""}
-                    onChange={(event) => setAnswers((current) => current.map((entry, at) => (at === index ? event.target.value : entry)))}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="mock-publish">
-            <div>
-              <strong>{t("答案填完了吗？", "Finished the sheet?")}</strong>
-              <span className="hint">
-                {t(
-                  "提交后立刻出分，不能再修改。时间到了还没提交的话，系统会把你填好的内容自动交上去。",
-                  "Handing in marks it straight away and cannot be undone. If the clock runs out first, whatever you have typed is handed in for you."
-                )}
-              </span>
-            </div>
-            <button className="btn" type="button" disabled={busy === "submit"} onClick={() => void submit(false)}>
-              {busy === "submit" ? t("提交中...", "Handing in...") : t("提交阅读答案", "Hand in the sheet")}
-            </button>
-          </div>
-        </>
+        <p className="hint">
+          {t(
+            "考试在新标签页里进行；关掉也没关系，作答已经保存，点上面的按钮可以回去接着做。",
+            "The exam runs in its own tab. Closing it is fine — your answers are saved and the button above takes you back."
+          )}
+        </p>
       )}
 
       {note && <p className="hint">{note}</p>}
     </div>
   );
 }
+
 
 function formatClock(seconds: number) {
   const safe = Math.max(0, seconds);
