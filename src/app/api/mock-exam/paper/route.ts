@@ -76,7 +76,9 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "inline",
-        "Cache-Control": "private, max-age=600"
+        // Not cached: a teacher who replaces the paper minutes before the
+        // sitting must not have the old one handed out from a browser cache.
+        "Cache-Control": "private, no-store"
       }
     });
   }

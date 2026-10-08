@@ -31,6 +31,38 @@ export function PaperPane({
   const [status, setStatus] = useState("");
   const [zoom, setZoom] = useState(1.25);
 
+  // PDF.js draws a page in chunks scheduled on animation frames, and a
+  // browser gives none of those to a tab that is not on screen. The exam
+  // opens in its own tab, so it is often exactly that tab: rendering stopped
+  // on the first page and stayed there, which looked like a paper missing
+  // most of itself. Standing in for the scheduler while the tab is hidden is
+  // the only way through — the frames are never coming.
+  useEffect(() => {
+    const nativeRequest = window.requestAnimationFrame.bind(window);
+    const nativeCancel = window.cancelAnimationFrame.bind(window);
+    const standIns = new Set<number>();
+
+    window.requestAnimationFrame = (callback: FrameRequestCallback) => {
+      if (document.visibilityState !== "hidden") return nativeRequest(callback);
+      const id = window.setTimeout(() => {
+        standIns.delete(id);
+        callback(performance.now());
+      }, 16);
+      standIns.add(id);
+      return id;
+    };
+    window.cancelAnimationFrame = (id: number) => {
+      if (standIns.delete(id)) window.clearTimeout(id);
+      else nativeCancel(id);
+    };
+
+    return () => {
+      window.requestAnimationFrame = nativeRequest;
+      window.cancelAnimationFrame = nativeCancel;
+      standIns.forEach((id) => window.clearTimeout(id));
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let doc: { destroy: () => void } | null = null;
