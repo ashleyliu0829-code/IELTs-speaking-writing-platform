@@ -564,7 +564,9 @@ function ReadingSetup({ exam, onChanged }: { exam: MockExam; onChanged: (exam: M
         ) : null
       )}
       <div className="overview-hours-row">
-        <button className="btn" type="button" disabled={saving === "key"} onClick={() => void patch({ readingKey: key.slice(0, total) }, "key")}>
+        {/* The counts go with the key: a key typed before any PDF is uploaded
+            still has to say where each part ends. */}
+        <button className="btn" type="button" disabled={saving === "key"} onClick={() => void patch({ readingKey: key.slice(0, total), readingCounts: counts }, "key")}>
           {saving === "key" ? t("保存中...", "Saving...") : t("保存答案", "Save the key")}
         </button>
         {note && <small className="hint">{note}</small>}
