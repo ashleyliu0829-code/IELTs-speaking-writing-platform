@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { closeExpiredReading } from "@/lib/readingExam";
+import { closeExpiredReading, storeReadingResult, type ExamForMarking } from "@/lib/readingExam";
 import { readReadingTimer } from "@/lib/readingSheet";
 import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
 
@@ -29,7 +29,9 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   // The answer key in question order, as typed. Blank entries are questions
   // the paper does not have.
-  readingKey: z.array(z.string().trim().max(120)).max(60).optional()
+  readingKey: z.array(z.string().trim().max(120)).max(60).optional(),
+  // Mark the sheet again against the key as it now stands.
+  remarkReading: z.boolean().optional()
 });
 
 const columns =
@@ -115,6 +117,27 @@ export async function PATCH(request: Request) {
   const { data, error } = await supabase.from("mock_exams").update(patch).eq("id", examId).select(columns).maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });
   if (!data) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
+
+  // Marking again is for a key that was wrong when the sheet came in — a
+  // typo, or a paper keyed from the wrong test. The student cannot hand in
+  // twice, so without this a mis-keyed exam would stay mis-marked for ever.
+  // Their answers are untouched; only the verdict is worked out afresh.
+  if (fields.remarkReading) {
+    const { data: result } = await supabase
+      .from("mock_exam_results")
+      .select("exam_id")
+      .eq("exam_id", examId)
+      .eq("part", "reading")
+      .maybeSingle();
+    if (!result) return Response.json({ error: "这份阅读还没有提交，没有可以重判的内容。" }, { status: 400 });
+    try {
+      const fresh = await storeReadingResult(data as unknown as ExamForMarking, (data.reading_draft || []) as string[]);
+      return Response.json({ exam: { ...flatten(data), reading_result: { part: "reading", ...fresh } } });
+    } catch (problem) {
+      return Response.json({ error: problem instanceof Error ? problem.message : "重判失败。" }, { status: 500 });
+    }
+  }
+
   return Response.json({ exam: flatten(data) });
 }
 

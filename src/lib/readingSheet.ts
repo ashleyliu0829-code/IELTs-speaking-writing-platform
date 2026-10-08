@@ -121,13 +121,17 @@ export type ReadingMark = { question: number; answer: string; correct: boolean }
 export type ReadingGrade = { correct: number; total: number; detail: ReadingMark[] };
 
 /**
- * Marks the sheet.
+ * Marks the sheet, one question at a time.
  *
- * Questions whose key is identical and adjacent are a choose-two (or three)
- * question spread over several numbers: the key is the same on each line and
- * either order is right. They are marked as a group so that each accepted
- * answer can only earn a mark once — otherwise writing "B" twice would score
- * both lines.
+ * Each question stands alone: whether question 7 is right has nothing to do
+ * with what was written for question 6. An earlier version grouped adjacent
+ * questions that shared a key, so that a choose-two question could not earn
+ * the same mark twice — but a run of identical answers is ordinary in a
+ * reading paper (fifteen questions whose answer is "A" is a perfectly normal
+ * matching task), and that rule silently marked every repeat wrong. A rule
+ * that quietly takes marks away is worse than one that occasionally gives a
+ * spare: on a choose-two question a student who writes the same letter on
+ * both lines now scores both, and the teacher can see that in the breakdown.
  *
  * A question with no key is not marked and does not count towards the total,
  * which is what lets a teacher set a paper of 38 or 40 without saying so.
@@ -137,34 +141,19 @@ export function gradeReading(keys: string[], answers: string[]): ReadingGrade {
   let correct = 0;
   let total = 0;
 
-  let index = 0;
-  while (index < keys.length) {
-    const key = String(keys[index] || "").trim();
+  keys.forEach((raw, index) => {
+    const key = String(raw || "").trim();
+    const given = String(answers[index] || "").trim();
     if (!key) {
-      detail.push({ question: index + 1, answer: String(answers[index] || "").trim(), correct: false });
-      index += 1;
-      continue;
+      detail.push({ question: index + 1, answer: given, correct: false });
+      return;
     }
-
-    // How far this identical key runs.
-    let end = index;
-    while (end + 1 < keys.length && String(keys[end + 1] || "").trim() === key) end += 1;
-
-    const forms = acceptedForms(key);
-    const spent = new Set<string>();
-    for (let q = index; q <= end; q += 1) {
-      const given = String(answers[q] || "").trim();
-      const normalized = normalizeAnswer(given);
-      const hit = normalized && forms.includes(normalized) && !spent.has(normalized);
-      if (hit) {
-        spent.add(normalized);
-        correct += 1;
-      }
-      total += 1;
-      detail.push({ question: q + 1, answer: given, correct: Boolean(hit) });
-    }
-    index = end + 1;
-  }
+    const normalized = normalizeAnswer(given);
+    const hit = Boolean(normalized) && acceptedForms(key).includes(normalized);
+    if (hit) correct += 1;
+    total += 1;
+    detail.push({ question: index + 1, answer: given, correct: hit });
+  });
 
   return { correct, total, detail };
 }
@@ -173,10 +162,12 @@ export function gradeReading(keys: string[], answers: string[]): ReadingGrade {
  * The band a raw reading score is worth, for the Academic paper.
  *
  * Reported as a guide rather than a result: the table is the public IELTS
- * one, and real papers vary a little either way.
+ * one, and real papers vary a little either way. Only a full forty-question
+ * paper gets one — scaling six questions up to a band says more about the
+ * arithmetic than about the student.
  */
-export function readingBand(correct: number, total: number) {
-  if (!total) return 0;
+export function readingBand(correct: number, total: number): number | null {
+  if (total !== 40) return null;
   const scaled = Math.round((correct / total) * 40);
   const table: [number, number][] = [
     [39, 9],

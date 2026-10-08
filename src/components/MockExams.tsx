@@ -568,6 +568,18 @@ function ReadingSetup({ exam, onChanged }: { exam: MockExam; onChanged: (exam: M
       {exam.reading_started_at && (
         <p className="hint">{t(`学生已于 ${formatWhen(exam.reading_started_at)} 开始阅读。`, `Started reading at ${formatWhen(exam.reading_started_at)}.`)}</p>
       )}
+      {/* A key that was wrong when the sheet came in can be corrected and the
+          sheet marked again — the student cannot hand in twice. */}
+      {exam.reading_result && (
+        <div className="overview-hours-row">
+          <button className="btn ghost" type="button" disabled={saving === "remark"} onClick={() => void patch({ remarkReading: true }, "remark")}>
+            {saving === "remark" ? t("重判中...", "Marking...") : t("按当前答案重新判分", "Mark again with this key")}
+          </button>
+          <small className="hint">
+            {t(`当前成绩 ${exam.reading_result.correct}/${exam.reading_result.total}`, `Currently ${exam.reading_result.correct}/${exam.reading_result.total}`)}
+          </small>
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
     </div>
   );
@@ -648,7 +660,14 @@ function MockExamReview({ exam }: { exam: MockExam }) {
               <span className="mock-result-score">
                 {exam.reading_result.correct}/{exam.reading_result.total}
               </span>
-              <span className="pill">{t(`参考 Band ${readingBand(exam.reading_result.correct, exam.reading_result.total)}`, `Band ${readingBand(exam.reading_result.correct, exam.reading_result.total)}`)}</span>
+              {readingBand(exam.reading_result.correct, exam.reading_result.total) !== null && (
+                <span className="pill">
+                  {t(
+                    `参考 Band ${readingBand(exam.reading_result.correct, exam.reading_result.total)}`,
+                    `Band ${readingBand(exam.reading_result.correct, exam.reading_result.total)}`
+                  )}
+                </span>
+              )}
               <span className="hint">{t(`交卷于 ${formatWhen(exam.reading_result.submitted_at)}`, `Handed in ${formatWhen(exam.reading_result.submitted_at)}`)}</span>
               {exam.reading_path && (
                 <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=reading`} target="_blank" rel="noreferrer">

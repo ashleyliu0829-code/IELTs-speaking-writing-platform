@@ -421,7 +421,11 @@ function StudentReading({
           <span className="mock-result-score">
             {result.correct}/{result.total}
           </span>
-          <span className="pill">{t(`参考 Band ${readingBand(result.correct, result.total)}`, `Band ${readingBand(result.correct, result.total)}`)}</span>
+          {readingBand(result.correct, result.total) !== null && (
+            <span className="pill">
+              {t(`参考 Band ${readingBand(result.correct, result.total)}`, `Band ${readingBand(result.correct, result.total)}`)}
+            </span>
+          )}
         </div>
         {note && <p className="hint">{note}</p>}
         <ol className="mock-answer-list reading">
