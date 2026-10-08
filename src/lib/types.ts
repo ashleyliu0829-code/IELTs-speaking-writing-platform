@@ -67,11 +67,9 @@ export type MockExam = {
   listening_name: string;
   listening_path: string;
   listening_audio: Record<string, string>;
-  /** The single reading PDF of the earlier sittings, kept so they still open. */
+  /** The reading paper: one PDF holding the whole thing. */
   reading_name: string;
   reading_path: string;
-  /** One PDF per part, and how many questions each part carries. */
-  reading_papers?: ReadingPaperPart[];
   /** The key, in question order, as the teacher typed it. Teacher side only. */
   reading_key?: string[];
   reading_minutes?: number;
@@ -92,9 +90,6 @@ export type MockExam = {
   result?: MockExamResult | null;
   writing?: MockExamWriting | null;
 };
-
-/** One of the three reading papers, and the questions it carries. */
-export type ReadingPaperPart = { part: number; name: string; path: string; count: number };
 
 /** The reading clock, worked out on the server from when the student started. */
 export type ReadingTimerState = {

@@ -11,23 +11,8 @@
  * the answers would not be an exam.
  */
 
-/** A standard academic paper: 13 + 13 + 14 questions. */
-export const defaultReadingCounts = [13, 13, 14];
-
-export function totalQuestions(counts: number[]) {
-  return counts.reduce((sum, n) => sum + (Number(n) || 0), 0);
-}
-
-/** Where each part sits in the straight-through 1..40 numbering. */
-export function partRanges(counts: number[]) {
-  let from = 1;
-  return counts.map((count, index) => {
-    const size = Number(count) || 0;
-    const range = { part: index + 1, from, to: from + size - 1, count: size };
-    from += size;
-    return range;
-  });
-}
+/** A full academic reading paper. The teacher can change it per sitting. */
+export const defaultQuestionCount = 40;
 
 /**
  * One answer reduced to what actually has to match.

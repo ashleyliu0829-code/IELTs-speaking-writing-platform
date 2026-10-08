@@ -15,8 +15,6 @@ import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
  * update, and the student simply sees whichever parts are present.
  */
 
-type ReadingPaper = { part: number; name: string; path: string; count: number };
-
 const createSchema = z.object({
   title: z.string().trim().max(120).default(""),
   studentName: z.string().trim().min(1)
@@ -31,13 +29,11 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   // The answer key in question order, as typed. Blank entries are questions
   // the paper does not have.
-  readingKey: z.array(z.string().trim().max(120)).max(60).optional(),
-  // How many questions each part carries, which is what numbers the sheet.
-  readingCounts: z.array(z.number().int().min(0).max(40)).length(3).optional()
+  readingKey: z.array(z.string().trim().max(120)).max(60).optional()
 });
 
 const columns =
-  "id, teacher_id, title, student_name, student_account_id, speaking_url, writing_assignment_id, listening_name, listening_path, listening_audio, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_papers, reading_key, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, is_active, created_at";
+  "id, teacher_id, title, student_name, student_account_id, speaking_url, writing_assignment_id, listening_name, listening_path, listening_audio, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_key, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, is_active, created_at";
 
 export async function GET(request: NextRequest) {
   const auth = await requireTeacher();
@@ -116,18 +112,6 @@ export async function PATCH(request: Request) {
   if (fields.isActive !== undefined) patch.is_active = fields.isActive;
   if (fields.readingKey !== undefined) patch.reading_key = fields.readingKey;
 
-  // The counts live on the paper entries, so changing them means rewriting
-  // the list — and a part with no PDF yet still needs its count remembered.
-  if (fields.readingCounts !== undefined) {
-    const { data: current } = await supabase.from("mock_exams").select("reading_papers").eq("id", examId).maybeSingle();
-    const papers = ((current?.reading_papers || []) as ReadingPaper[]).slice();
-    patch.reading_papers = fields.readingCounts.map((count, index) => {
-      const part = index + 1;
-      const existing = papers.find((entry) => entry.part === part);
-      return { part, name: existing?.name || "", path: existing?.path || "", count };
-    });
-  }
-
   const { data, error } = await supabase.from("mock_exams").update(patch).eq("id", examId).select(columns).maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });
   if (!data) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
@@ -144,7 +128,7 @@ export async function DELETE(request: Request) {
 
   const { data: exam } = await supabase
     .from("mock_exams")
-    .select("id, listening_path, listening_audio, reading_path, reading_answer_path, reading_papers")
+    .select("id, listening_path, listening_audio, reading_path, reading_answer_path")
     .eq("id", parsed.data.examId)
     .maybeSingle();
   if (!exam) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
@@ -154,7 +138,6 @@ export async function DELETE(request: Request) {
     exam.listening_path,
     exam.reading_path,
     exam.reading_answer_path,
-    ...((exam.reading_papers || []) as ReadingPaper[]).map((entry) => entry.path),
     ...Object.values(exam.listening_audio || {})
   ].filter(Boolean) as string[];
   if (paths.length) {

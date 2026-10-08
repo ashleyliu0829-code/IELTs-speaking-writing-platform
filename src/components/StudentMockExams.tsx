@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
-import { partRanges, readingBand } from "@/lib/readingSheet";
-import type { ReadingPaperPart, ReadingResult, ReadingTimerState } from "@/lib/types";
+import { readingBand } from "@/lib/readingSheet";
+import type { ReadingResult, ReadingTimerState } from "@/lib/types";
 
 /**
  * The student's side of a mock exam.
@@ -28,7 +28,7 @@ type StudentMockExam = {
   listening_path: string;
   reading_name: string;
   reading_path: string;
-  reading_papers: ReadingPaperPart[];
+  reading_total: number;
   reading_minutes: number;
   reading_started_at: string | null;
   reading_draft: string[];
@@ -163,7 +163,7 @@ function StudentExamCard({
     { label: t("口语", "Speaking"), ready: Boolean(exam.speaking_url) },
     { label: t("写作", "Writing"), ready: Boolean(exam.writing_assignment_id) },
     { label: t("听力", "Listening"), ready: Boolean(exam.listening_path) },
-    { label: t("阅读", "Reading"), ready: (exam.reading_papers || []).some((paper) => paper.path) }
+    { label: t("阅读", "Reading"), ready: Boolean(exam.reading_path) }
   ];
 
   return (
@@ -297,8 +297,8 @@ function StudentExamCard({
 }
 
 /**
- * Reading: three papers, one answer sheet, and a clock that starts when the
- * first paper is opened.
+ * Reading: the paper, an answer sheet numbered straight through, and a
+ * clock that starts when the paper is opened.
  *
  * The clock is anchored to a moment the server stored, so a reload or a
  * second tab carries on rather than starting over, and nothing the browser
@@ -316,10 +316,8 @@ function StudentReading({
   done: boolean;
 }) {
   const { t } = useLanguage();
-  const papers = (exam.reading_papers || []).filter((paper) => paper.path).sort((a, b) => a.part - b.part);
-  const counts = [1, 2, 3].map((part) => exam.reading_papers?.find((paper) => paper.part === part)?.count || 0);
-  const ranges = partRanges(counts);
-  const total = counts.reduce((sum, count) => sum + count, 0);
+  // How many questions, without the answers behind them.
+  const total = exam.reading_total || 0;
 
   const [answers, setAnswers] = useState<string[]>(() => Array.from({ length: total }, (_, i) => exam.reading_draft?.[i] || ""));
   const [startedAt, setStartedAt] = useState<string | null>(exam.reading_started_at);
@@ -387,10 +385,10 @@ function StudentReading({
     return () => window.clearInterval(loop);
   }, [exam.id, startedAt, result]);
 
-  function openPaper(part: number) {
+  function openPaper() {
     // The tab is opened on the click itself, before anything is awaited, or
     // the browser treats it as a pop-up and blocks it.
-    const tab = window.open(`/api/mock-exam/paper?examId=${exam.id}&part=reading${part}`, `mock-reading-${exam.id}-${part}`);
+    const tab = window.open(`/api/mock-exam/paper?examId=${exam.id}&part=reading`, `mock-reading-${exam.id}`);
     if (!tab) setNote(tr("浏览器拦截了新标签页，请允许弹出窗口后再试。", "Your browser blocked the new tab; allow pop-ups and try again."));
     if (!startedAt) void beginClock();
   }
@@ -453,11 +451,11 @@ function StudentReading({
     );
   }
 
-  if (!papers.length) {
+  if (!exam.reading_path || !total) {
     return (
       <div className="mock-part">
         <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
-        <em>{t("老师还没有上传阅读试卷。", "No reading papers yet.")}</em>
+        <em>{t("老师还没有上传阅读试卷。", "No reading paper yet.")}</em>
       </div>
     );
   }
@@ -469,10 +467,10 @@ function StudentReading({
       {!startedAt ? (
         <p className="exam-start-note">
           {t(
-            `点开 P1 文件后，倒计时会启动。雅思正式考试时长是 60min，这里由于需要下载、输入答案，时间延长至 ${minutes}min。请把握好时间，准备好后再点击题目。`,
-            `Opening P1 starts the clock. The real IELTS paper is 60 minutes; here it is ${minutes}, because the papers have to be downloaded and the answers typed. Take your time getting ready, then open the first paper.`
+            `点开试卷文件后，倒计时会启动。雅思正式考试时长是 60min，这里由于需要下载、输入答案，时间延长至 ${minutes}min。请把握好时间，准备好后再点击题目。`,
+            `Opening the paper starts the clock. The real IELTS paper is 60 minutes; here it is ${minutes}, because the paper has to be downloaded and the answers typed. Take your time getting ready, then open it.`
           )}
-          {/* The papers open in their own tabs, so the one thing a student can
+          {/* The paper opens in its own tab, so the one thing a student can
               forget is the sheet they have to come back to. */}
           <strong className="exam-start-warn">
             {t(
@@ -489,38 +487,28 @@ function StudentReading({
       )}
 
       <div className="overview-hours-row">
-        {papers.map((paper) => (
-          <button className="btn ghost" type="button" key={paper.part} disabled={busy === "start"} onClick={() => openPaper(paper.part)}>
-            {t(`打开 P${paper.part}`, `Open P${paper.part}`)}
-          </button>
-        ))}
+        <button className="btn" type="button" disabled={busy === "start"} onClick={() => openPaper()}>
+          {t("打开阅读试卷", "Open the reading paper")}
+        </button>
+        {exam.reading_name && <small>{exam.reading_name}</small>}
       </div>
 
       {startedAt && (
         <>
-          {ranges.map((range) =>
-            range.count ? (
-              <div className="mock-key-part" key={range.part}>
-                <span className="student-card-label">{t(`P${range.part} · 第 ${range.from}–${range.to} 题`, `P${range.part} · ${range.from}–${range.to}`)}</span>
-                <div className="mock-key-grid">
-                  {Array.from({ length: range.count }, (_, offset) => {
-                    const number = range.from + offset;
-                    return (
-                      <label className="mock-key-cell" key={number}>
-                        <span>{number}</span>
-                        <input
-                          value={answers[number - 1] || ""}
-                          onChange={(event) =>
-                            setAnswers((current) => current.map((entry, index) => (index === number - 1 ? event.target.value : entry)))
-                          }
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null
-          )}
+          <div className="mock-key-part">
+            <span className="student-card-label">{t(`答题卡 · 第 1–${total} 题`, `Answer sheet · 1–${total}`)}</span>
+            <div className="mock-key-grid">
+              {Array.from({ length: total }, (_, index) => (
+                <label className="mock-key-cell" key={index + 1}>
+                  <span>{index + 1}</span>
+                  <input
+                    value={answers[index] || ""}
+                    onChange={(event) => setAnswers((current) => current.map((entry, at) => (at === index ? event.target.value : entry)))}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="mock-publish">
             <div>

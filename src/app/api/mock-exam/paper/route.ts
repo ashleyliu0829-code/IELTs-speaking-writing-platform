@@ -19,7 +19,6 @@ import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
 export const runtime = "nodejs";
 
 type ReplayPart = { part: string; questions: { question: string; answer: string; correct: boolean }[] };
-type ReadingPaper = { part: number; name: string; path: string; count: number };
 
 export async function GET(request: NextRequest) {
   const account = await getCurrentAccount();
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
   const { data: exam } = await admin
     .from("mock_exams")
     .select(
-      "id, teacher_id, student_account_id, is_active, completed_at, listening_path, listening_audio, reading_path, reading_name, reading_answer_path, reading_papers"
+      "id, teacher_id, student_account_id, is_active, completed_at, listening_path, listening_audio, reading_path, reading_name, reading_answer_path"
     )
     .eq("id", examId)
     .maybeSingle();
@@ -56,25 +55,13 @@ export async function GET(request: NextRequest) {
     return Response.redirect(url, 302);
   }
 
-  // The key is the student's to see only once they have finished; a teacher
-  // may look whenever.
+  // The key is the student's to see only once they have finished the whole
+  // sitting; a teacher may look whenever.
   if (want === "readingAnswer") {
     if (!exam.reading_answer_path) return new Response("这场模考还没有上传阅读答案。", { status: 404 });
-    if (!isTeacher && !exam.completed_at) return new Response("交卷之后才能看答案。", { status: 403 });
+    if (!isTeacher && !exam.completed_at) return new Response("点「模考完成」之后才能看答案。", { status: 403 });
     const url = await signed(exam.reading_answer_path, 60 * 60 * 3);
     if (!url) return new Response("答案暂时不可用。", { status: 500 });
-    return Response.redirect(url, 302);
-  }
-
-  // One of the three reading parts. The paper itself is never withheld — it
-  // is the exam; only the key waits for the student to finish.
-  const readingPart = want.match(/^reading([123])$/);
-  if (readingPart) {
-    const part = Number(readingPart[1]);
-    const entry = ((exam.reading_papers || []) as ReadingPaper[]).find((item) => item.part === part);
-    if (!entry?.path) return new Response(`这场模考还没有上传 P${part} 的 PDF。`, { status: 404 });
-    const url = await signed(entry.path, 60 * 60 * 3);
-    if (!url) return new Response("PDF 暂时不可用。", { status: 500 });
     return Response.redirect(url, 302);
   }
 
