@@ -6335,6 +6335,17 @@ PLACEHOLDER
   color: var(--exam);
 }
 
+/* The same red as the button in the top bar, since it goes to the same place. */
+.btn.mock-open {
+  border-color: transparent;
+  background: var(--mock);
+  color: var(--white);
+}
+
+.btn.mock-open:hover {
+  background: var(--mock-dark);
+}
+
 /* One past sitting, laid out the way a results slip is: the overall first
    and largest, then the four skills under it with the total repeated at the
    end of the row. */

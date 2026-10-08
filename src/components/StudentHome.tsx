@@ -91,9 +91,8 @@ function MockExamResults({ onOpen }: { onOpen: () => void }) {
       <div className="section-head compact">
         <div>
           <h2>{t("模考成绩", "Mock exam results")}</h2>
-          <div className="hint">{t("每一场的四科分数和总分。", "The four skills and the overall, sitting by sitting.")}</div>
         </div>
-        <button className="btn secondary" type="button" onClick={onOpen}>
+        <button className="btn mock-open" type="button" onClick={onOpen}>
           {t("打开模考", "Open mock exams")}
         </button>
       </div>
@@ -113,7 +112,8 @@ function MockExamResults({ onOpen }: { onOpen: () => void }) {
         return (
           <div className="exam-report" key={exam.id}>
             <div className="exam-report-head">
-              <strong>{exam.title}</strong>
+              {/* The date is what tells one sitting from another; the title is
+                  the teacher's filing, not the student's. */}
               <span className="hint">{formatExamDate(exam.completed_at)}</span>
             </div>
 
