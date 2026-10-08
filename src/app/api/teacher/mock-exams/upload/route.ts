@@ -1,22 +1,21 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
-import { looksLikeListeningPaper, prepareListeningPaper } from "@/lib/listeningPaper";
 import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
 
 /**
- * Takes the papers for one sitting: the listening export, or a reading PDF.
+ * Takes the PDFs for one sitting: the reading paper and its answer key.
  *
- * The listening export carries its audio base64'd inside it — four parts came
- * to 52 MB — so it is taken apart here: the audio becomes plain MP3s stored
- * beside the page, and the page is rewritten to stream them. A student then
- * downloads about a megabyte to start rather than fifty.
+ * The listening export does not come through here. At around fifty megabytes
+ * it is bigger than the proxy in front of the app will accept, so the browser
+ * takes it apart and sends the pieces straight to storage — see
+ * mock-exams/paper-upload.
  */
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const maxBytes = 120 * 1024 * 1024;
+const maxBytes = 40 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   const auth = await requireTeacher();
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "请求不完整。" }, { status: 400 });
   }
   if (!file.size) return Response.json({ error: "这个文件是空的。" }, { status: 400 });
-  if (file.size > maxBytes) return Response.json({ error: "文件不能超过 120 MB。" }, { status: 413 });
+  if (file.size > maxBytes) return Response.json({ error: "PDF 不能超过 40 MB。" }, { status: 413 });
 
   // RLS scopes the sitting to this teacher, so a foreign id finds nothing.
   const { data: exam } = await supabase
@@ -66,55 +65,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ exam: data });
     }
 
-    const source = await file.text();
-    if (!looksLikeListeningPaper(source)) {
-      return Response.json({ error: "这个 HTML 不像导出的听力试卷（找不到内嵌音频）。" }, { status: 400 });
-    }
-
-    const prepared = prepareListeningPaper(source);
-    if (!prepared.parts) return Response.json({ error: "这份试卷里没有找到题目部分。" }, { status: 400 });
-
-    // Whatever was there before is replaced, including audio from an older
-    // upload that the new paper has no use for.
-    const stale = Object.values((exam.listening_audio || {}) as Record<string, string>).filter(Boolean);
-    if (stale.length) await admin.storage.from(mockExamBucket).remove(stale);
-
-    const htmlPath = `${examId}/listening.html`;
-    const audioPaths: Record<string, string> = {};
-    const started = Date.now();
-    await Promise.all([
-      store(htmlPath, Buffer.from(prepared.html, "utf8"), "text/html"),
-      ...prepared.audio.map(async (track) => {
-        const path = `${examId}/audio-${track.id}.mp3`;
-        await store(path, track.mp3, "audio/mpeg");
-        audioPaths[track.id] = path;
-      })
-    ]);
-    const uploadSeconds = Math.round((Date.now() - started) / 1000);
-
-    const { data, error } = await supabase
-      .from("mock_exams")
-      .update({
-        listening_name: file.name.slice(0, 200),
-        listening_path: htmlPath,
-        listening_audio: audioPaths,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", examId)
-      .select("listening_name, listening_path, listening_audio")
-      .single();
-    if (error) throw new Error(error.message);
-
-    return Response.json({
-      exam: data,
-      summary: {
-        parts: prepared.parts,
-        audio: prepared.audio.length,
-        originalMb: Number((file.size / 1024 / 1024).toFixed(1)),
-        pageMb: Number((prepared.html.length / 1024 / 1024).toFixed(2)),
-        seconds: uploadSeconds
-      }
-    });
+    return Response.json({ error: "听力试卷由浏览器直接上传，不走这个接口。" }, { status: 400 });
   } catch (problem) {
     console.error("mock-exams: upload failed", problem);
     return Response.json({ error: problem instanceof Error ? problem.message : "上传失败。" }, { status: 500 });

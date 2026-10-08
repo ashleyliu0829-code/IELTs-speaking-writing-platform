@@ -4,9 +4,13 @@
  * The papers come out of the authoring tool as one HTML file with the audio
  * base64'd inside it — four parts came to 52 MB, which a student on a phone
  * would have to download in full before seeing the first question. So the
- * audio is lifted out at upload and stored as plain MP3s, and the page is
- * rewritten to fetch them when a part is opened. What is left is about a
- * megabyte.
+ * audio is lifted out and stored as plain MP3s, and the page is rewritten to
+ * fetch them when a part is opened. What is left is about a megabyte.
+ *
+ * This runs in the teacher's browser rather than on the server. Fifty
+ * megabytes through a proxy is a request most of them refuse by default and
+ * all of them time out eventually; doing it here means only the pieces
+ * travel, and they go straight to storage.
  *
  * The paper already grades itself: each part is a same-origin srcdoc iframe
  * exposing `DATA.questionIds`, `getAnswer(q)` and `isCorrect(q)`, and the
@@ -15,7 +19,7 @@
  * after grading and posts the result to whatever embedded the page.
  */
 
-export type ExtractedAudio = { id: string; mp3: Buffer };
+export type ExtractedAudio = { id: string; base64: string };
 export type PreparedPaper = { html: string; audio: ExtractedAudio[]; parts: number };
 
 /** The exported pages mark audio like `<script type="application/octet-stream" id="audio-P1">`. */
@@ -27,7 +31,7 @@ export function prepareListeningPaper(source: string): PreparedPaper {
   // Lift each audio blob out and leave an empty marker behind, so the page
   // keeps its shape and the ids stay findable.
   let html = source.replace(audioBlockPattern, (_match, id: string, base64: string) => {
-    audio.push({ id, mp3: Buffer.from(base64.trim(), "base64") });
+    audio.push({ id, base64: base64.trim() });
     return `<!-- audio ${id} served separately -->`;
   });
 
@@ -120,3 +124,11 @@ const reporter = `<script>
   post({ ready: true });
 })();
 </script>`;
+
+/** base64 to bytes, for a browser that has no Buffer. */
+export function base64ToBytes(base64: string) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}

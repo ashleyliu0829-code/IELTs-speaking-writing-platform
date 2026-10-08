@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
+import { base64ToBytes, looksLikeListeningPaper, prepareListeningPaper } from "@/lib/listeningPaper";
 import type { Assignment, MockExam, StudentProfile } from "@/lib/types";
 
 /**
@@ -154,6 +155,7 @@ function MockExamCard({
   const [saving, setSaving] = useState("");
   const [uploadNote, setUploadNote] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const listeningPicker = useRef<HTMLInputElement | null>(null);
   const readingPicker = useRef<HTMLInputElement | null>(null);
@@ -185,6 +187,95 @@ function MockExamCard({
       setError(problem instanceof Error ? problem.message : tr("保存失败。", "Could not save."));
     } finally {
       setSaving("");
+    }
+  }
+
+  /**
+   * The listening paper never passes through the app.
+   *
+   * It is taken apart here and each piece goes straight to storage with a
+   * signed URL, because fifty megabytes through the proxy in front of the app
+   * is a request it refuses by default and times out regardless. What crosses
+   * the app is two small JSON calls: one asking where to put things, one
+   * saying where they went.
+   */
+  async function uploadListening(file: File) {
+    setSaving("listening");
+    setError("");
+    setUploadNote("");
+    setElapsed(0);
+    const ticking = window.setInterval(() => setElapsed((n) => n + 1), 1000);
+    const started = Date.now();
+    try {
+      setStage(t("正在读取文件", "Reading the file"));
+      const source = await file.text();
+      if (!looksLikeListeningPaper(source)) {
+        throw new Error(tr("这个 HTML 不像导出的听力试卷（找不到内嵌音频）。", "This HTML does not look like an exported listening paper."));
+      }
+
+      setStage(t("正在抽出音频", "Lifting out the audio"));
+      const prepared = prepareListeningPaper(source);
+      if (!prepared.parts) throw new Error(tr("这份试卷里没有找到题目部分。", "No question parts found in this paper."));
+
+      setStage(t("正在准备上传", "Getting ready"));
+      const audioIds = prepared.audio.map((track) => track.id);
+      const askResponse = await fetch("/api/teacher/mock-exams/paper-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, audioIds })
+      });
+      const slots = await askResponse.json().catch(() => ({}));
+      if (!askResponse.ok) throw new Error(slots.error || tr("无法开始上传。", "Could not start the upload."));
+
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const put = async (slot: { path: string; token: string }, body: BlobPart, type: string) => {
+        const url = `${base}/storage/v1/object/upload/sign/${slots.bucket}/${slot.path}?token=${encodeURIComponent(slot.token)}`;
+        const response = await fetch(url, { method: "PUT", headers: { "Content-Type": type }, body: new Blob([body], { type }) });
+        if (!response.ok) throw new Error(tr("上传到存储失败，请重试。", "The upload to storage failed; try again."));
+      };
+
+      let done = 0;
+      const total = prepared.audio.length + 1;
+      const step = () => {
+        done += 1;
+        setStage(t(`已上传 ${done}/${total}`, `Uploaded ${done}/${total}`));
+      };
+      setStage(t(`已上传 0/${total}`, `Uploaded 0/${total}`));
+
+      await Promise.all([
+        put(slots.html, prepared.html, "text/html").then(step),
+        ...prepared.audio.map((track) => {
+          const slot = (slots.audio || []).find((item: { id: string }) => item.id === track.id);
+          if (!slot) throw new Error(tr("上传地址不完整，请重试。", "The upload slots were incomplete; try again."));
+          return put(slot, base64ToBytes(track.base64), "audio/mpeg").then(step);
+        })
+      ]);
+
+      setStage(t("正在保存", "Saving"));
+      const finishResponse = await fetch("/api/teacher/mock-exams/paper-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "finish", examId: exam.id, fileName: file.name, audioIds })
+      });
+      const finished = await finishResponse.json().catch(() => ({}));
+      if (!finishResponse.ok) throw new Error(finished.error || tr("保存失败。", "Could not save."));
+
+      onChanged({ ...exam, ...finished.exam });
+      const seconds = Math.round((Date.now() - started) / 1000);
+      setUploadNote(
+        t(
+          `已处理：${prepared.parts} 个部分，抽出 ${prepared.audio.length} 段音频，页面从 ${(file.size / 1024 / 1024).toFixed(1)}MB 降到 ${(prepared.html.length / 1024 / 1024).toFixed(2)}MB，用时 ${seconds} 秒。`,
+          `Done: ${prepared.parts} parts, ${prepared.audio.length} tracks lifted out, page down from ${(file.size / 1024 / 1024).toFixed(1)}MB to ${(prepared.html.length / 1024 / 1024).toFixed(2)}MB in ${seconds}s.`
+        )
+      );
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("上传失败。", "Upload failed."));
+    } finally {
+      window.clearInterval(ticking);
+      setSaving("");
+      setElapsed(0);
+      setStage("");
+      if (listeningPicker.current) listeningPicker.current.value = "";
     }
   }
 
@@ -280,7 +371,7 @@ function MockExamCard({
             <div className="overview-hours-row">
               <button className="btn ghost" type="button" disabled={saving === "listening"} onClick={() => listeningPicker.current?.click()}>
                 {saving === "listening"
-                  ? t(`处理中... ${elapsed}s`, `Processing... ${elapsed}s`)
+                  ? `${stage || t("处理中...", "Processing...")} ${elapsed}s`
                   : exam.listening_path
                     ? t("重新上传", "Replace")
                     : t("上传听力试卷 (HTML)", "Upload paper (HTML)")}
@@ -292,7 +383,7 @@ function MockExamCard({
                 </a>
               )}
             </div>
-            <input ref={listeningPicker} className="student-file-input" type="file" accept=".html,.htm" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("listening", file); }} />
+            <input ref={listeningPicker} className="student-file-input" type="file" accept=".html,.htm" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadListening(file); }} />
             <p className="hint">
               {t(
                 "上传导出的听力 HTML，系统会自动把音频拆出来，学生打开快很多。一份 50MB 的试卷大约需要半分钟到一分钟，期间不要关页面。学生做完点 Finish All 后，成绩自动回传。",
