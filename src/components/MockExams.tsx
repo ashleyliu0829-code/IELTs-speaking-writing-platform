@@ -324,22 +324,29 @@ function MockExamCard({
           <strong>{exam.student_name}</strong>
           <small>{exam.title}</small>
         </div>
-        <span className={`pill ${done ? "ok" : published ? "" : ""}`}>
+        <span className={`pill ${done ? "ok" : ""}`}>
           {done ? t("已完成模考", "Exam finished") : published ? t("已发布", "Published") : t("未发布", "Draft")}
         </span>
-        <span className={`pill ${readyCount === 4 ? "ok" : "warn"}`}>{t(`${readyCount}/4 部分已就绪`, `${readyCount}/4 ready`)}</span>
-        {exam.reading_result && (
-          <span className="pill ok">
-            {t(`阅读 ${exam.reading_result.correct}/${exam.reading_result.total}`, `Reading ${exam.reading_result.correct}/${exam.reading_result.total}`)}
-          </span>
-        )}
-        {exam.result ? (
-          <span className="pill ok">{t(`听力 ${exam.result.correct}/${exam.result.total}`, `Listening ${exam.result.correct}/${exam.result.total}`)}</span>
+        {/* A finished sitting is summed up by its four bands; how much of it
+            was uploaded stopped mattering the moment it was sat. */}
+        {done ? (
+          <ExamBandPills exam={exam} />
         ) : (
-          <span className="pill">{t("听力未提交", "Listening not done")}</span>
+          <>
+            <span className={`pill ${readyCount === 4 ? "ok" : "warn"}`}>{t(`${readyCount}/4 部分已就绪`, `${readyCount}/4 ready`)}</span>
+            {exam.reading_result && (
+              <span className="pill ok">
+                {t(`阅读 ${exam.reading_result.correct}/${exam.reading_result.total}`, `Reading ${exam.reading_result.correct}/${exam.reading_result.total}`)}
+              </span>
+            )}
+            {exam.result && (
+              <span className="pill ok">{t(`听力 ${exam.result.correct}/${exam.result.total}`, `Listening ${exam.result.correct}/${exam.result.total}`)}</span>
+            )}
+          </>
         )}
         <span className="student-card-chevron" aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
+
 
       {open && (
         <div className="mock-card-body">
@@ -479,6 +486,31 @@ function MockExamCard({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The four bands on a collapsed card, so a finished sitting can be read
+ * without opening it. A skill still unmarked shows a dash rather than being
+ * left out — the gap is the useful part.
+ */
+function ExamBandPills({ exam }: { exam: MockExam }) {
+  const { t } = useLanguage();
+  const listening = exam.result ? listeningBand(exam.result.correct, exam.result.total) : null;
+  const reading = exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null;
+  const writing = exam.writing?.marked ? exam.writing.score : null;
+  const speaking = exam.speaking_score?.band ?? null;
+  const overall = overallBand([listening, reading, writing, speaking]);
+  const show = (band: number | null) => (typeof band === "number" ? band.toFixed(1) : "—");
+
+  return (
+    <>
+      <span className={`pill ${typeof listening === "number" ? "ok" : ""}`}>{t(`听力 ${show(listening)}`, `L ${show(listening)}`)}</span>
+      <span className={`pill ${typeof reading === "number" ? "ok" : ""}`}>{t(`阅读 ${show(reading)}`, `R ${show(reading)}`)}</span>
+      <span className={`pill ${typeof writing === "number" ? "ok" : ""}`}>{t(`写作 ${show(writing)}`, `W ${show(writing)}`)}</span>
+      <span className={`pill ${typeof speaking === "number" ? "ok" : ""}`}>{t(`口语 ${show(speaking)}`, `S ${show(speaking)}`)}</span>
+      {overall !== null && <span className="pill mock-overall-pill">{t(`总分 ${overall.toFixed(1)}`, `Overall ${overall.toFixed(1)}`)}</span>}
+    </>
   );
 }
 

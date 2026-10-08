@@ -87,7 +87,7 @@ function MockExamResults({ onOpen }: { onOpen: () => void }) {
   if (!loaded || !exams.length) return null;
 
   return (
-    <article className="card stack">
+    <article className="card stack mock-results-card">
       <div className="section-head compact">
         <div>
           <h2>{t("模考成绩", "Mock exam results")}</h2>
@@ -111,26 +111,34 @@ function MockExamResults({ onOpen }: { onOpen: () => void }) {
           { label: t("口语", "Speaking"), band: speaking }
         ];
         return (
-          <div className="mock-history" key={exam.id}>
-            <div className="mock-history-head">
+          <div className="exam-report" key={exam.id}>
+            <div className="exam-report-head">
               <strong>{exam.title}</strong>
               <span className="hint">{formatExamDate(exam.completed_at)}</span>
             </div>
-            <div className="overall-parts">
+
+            {/* The overall first and largest: it is the number they came for. */}
+            <div className="exam-report-hero">
+              <strong>{overall === null ? "—" : overall.toFixed(1)}</strong>
+              <span>{t("全科分数", "Overall band")}</span>
+            </div>
+
+            <div className="exam-report-grid">
               {parts.map((part) => (
-                <div className={`overall-part ${typeof part.band === "number" ? "" : "pending"}`} key={part.label}>
+                <div className="exam-report-cell" key={part.label}>
                   <span>{part.label}</span>
                   <strong>{typeof part.band === "number" ? part.band.toFixed(1) : "—"}</strong>
                 </div>
               ))}
-              <div className={`overall-part total ${overall === null ? "pending" : ""}`}>
-                <span>{t("总分", "Overall")}</span>
+              <div className="exam-report-cell total">
+                <span>{t("总分数", "Overall")}</span>
                 <strong>{overall === null ? "—" : overall.toFixed(1)}</strong>
               </div>
             </div>
           </div>
         );
       })}
+
     </article>
   );
 }
@@ -317,19 +325,24 @@ export function StudentHomePanels({
         <StudentDailyCheckinTile onOpenAll={onOpenDailyTasks} />
       </div>
 
-      {data && data.study_plan.length > 0 && (
-        <article className="card stack student-home-study-plan">
-          <div className="section-head compact">
-            <div>
-              <h2>{t("学习计划", "Study plan")}</h2>
-              <div className="hint">{t("老师为你定的阶段，进度按日期自动推进。", "The phases your teacher set; progress follows the calendar.")}</div>
+      {/* The plan and the scores answer the same question from two sides —
+          where am I, and is it working — so they sit together. A row with
+          one child in it spans the width rather than leaving a hole. */}
+      <div className="student-home-row loose">
+        {data && data.study_plan.length > 0 && (
+          <article className="card stack student-home-study-plan">
+            <div className="section-head compact">
+              <div>
+                <h2>{t("学习计划", "Study plan")}</h2>
+                <div className="hint">{t("老师为你定的阶段，进度按日期自动推进。", "The phases your teacher set; progress follows the calendar.")}</div>
+              </div>
             </div>
-          </div>
-          <StudyPlanBar phases={data.study_plan} today={today} />
-        </article>
-      )}
+            <StudyPlanBar phases={data.study_plan} today={today} />
+          </article>
+        )}
 
-      <MockExamResults onOpen={onOpenMockExams} />
+        <MockExamResults onOpen={onOpenMockExams} />
+      </div>
 
       <article className="card stack">
         <div className="section-head compact">

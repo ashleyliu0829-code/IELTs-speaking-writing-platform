@@ -22,6 +22,10 @@
   --accent: #f28c70;
   /* The mock exam button: the coral family taken down far enough to carry
      white type. --accent itself is too light for it. */
+  /* The results slip, after the official one: a violet overall over grey
+     skills, with the total the only cell picked out. */
+  --exam: #6a3fd1;
+  --exam-wash: #f2edfd;
   --mock: #c2512f;
   --mock-dark: #a83f25;
   --accent-dark: #e97c5e;
@@ -6315,22 +6319,109 @@ PLACEHOLDER
   align-self: flex-start;
 }
 
-/* One past sitting on the student's home page. */
-.mock-history {
+/* A row with one card in it spans the width rather than leaving a hole. */
+.student-home-row > :only-child {
+  grid-column: 1 / -1;
+}
+
+/* The scores are the answer to "is the plan working", so they carry more
+   weight on the page than the plan beside them. */
+.mock-results-card {
+  border-color: var(--exam);
+  box-shadow: 0 6px 20px rgba(106, 63, 209, .12);
+}
+
+.mock-results-card h2 {
+  color: var(--exam);
+}
+
+/* One past sitting, laid out the way a results slip is: the overall first
+   and largest, then the four skills under it with the total repeated at the
+   end of the row. */
+.exam-report {
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--white);
 }
 
-.mock-history-head {
+.exam-report-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.exam-report-hero {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 14px 10px;
+  border-radius: 12px;
+  background: var(--wash);
+}
+
+.exam-report-hero strong {
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--exam);
+}
+
+.exam-report-hero span {
+  color: var(--exam);
+  font-size: 13px;
+}
+
+.exam-report-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.exam-report-cell {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 10px 4px;
+  background: var(--white);
+}
+
+.exam-report-cell span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.exam-report-cell strong {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* The total is the one cell that is picked out. */
+.exam-report-cell.total {
+  background: var(--exam-wash);
+}
+
+.exam-report-cell.total span,
+.exam-report-cell.total strong {
+  color: var(--exam);
+}
+
+@media (max-width: 420px) {
+  .exam-report-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* Speaking: the four criteria on one row, as they are reported. */
