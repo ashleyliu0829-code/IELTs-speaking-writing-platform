@@ -72,7 +72,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("mock_exams")
     .select(
-      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_key, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(part, correct, total, detail, submitted_at)"
+      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_key, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(part, correct, total, detail, submitted_at), scores:mock_exam_scores(part, criteria, band, comment, published_at)"
     )
     .eq("student_account_id", account.id)
     .eq("is_active", true)
@@ -90,6 +90,7 @@ export async function GET() {
       reading_total: Array.isArray(key) ? key.length : 0,
       writing_assignment: one(row.writing_assignment),
       result: results.find((entry) => (entry.part || "listening") === "listening") || null,
+      speaking_score: ((Array.isArray(row.scores) ? row.scores : row.scores ? [row.scores] : []) as { part?: string }[]).find((entry) => entry.part === "speaking") || null,
       reading_result: results.find((entry) => entry.part === "reading") || null
     };
   });

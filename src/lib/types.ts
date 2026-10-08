@@ -88,6 +88,7 @@ export type MockExam = {
   /** Joined for display, not stored here. */
   writing_assignment?: { id: string; title: string } | null;
   result?: MockExamResult | null;
+  speaking_score?: SpeakingScore | null;
   writing?: MockExamWriting | null;
 };
 
@@ -108,6 +109,18 @@ export type ReadingResult = {
   total: number;
   detail: { question: number; answer: string; correct: boolean }[];
   submitted_at: string;
+  /** Set when the teacher changed the mark by hand. */
+  adjusted_at?: string | null;
+};
+
+/** The teacher's own marking of the speaking, held back until published. */
+export type SpeakingScore = {
+  part?: string;
+  criteria: Record<string, number>;
+  band: number | null;
+  comment: string;
+  published_at?: string | null;
+  updated_at?: string | null;
 };
 
 /** The essay the student wrote for the linked homework, and how it stands. */

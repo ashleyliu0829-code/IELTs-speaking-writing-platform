@@ -6172,6 +6172,68 @@ PLACEHOLDER
   font-size: 13px;
 }
 
+/* Speaking: the four criteria, side by side. */
+.speaking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.speaking-cell {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--white);
+}
+
+.speaking-cell span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.speaking-cell select {
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--white);
+  font-size: 14px;
+}
+
+.speaking-cell.read-only strong {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.speaking-comment {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--white);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.speaking-result {
+  display: grid;
+  gap: 4px;
+}
+
+.speaking-note {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: var(--wash);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 /* The one thing they can forget: the papers open elsewhere, the sheet is here. */
 .exam-start-warn {
   display: block;

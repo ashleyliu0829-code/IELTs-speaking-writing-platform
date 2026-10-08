@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
 import { base64ToBytes, looksLikeListeningPaper, prepareListeningPaper } from "@/lib/listeningPaper";
 import { defaultQuestionCount, readingBand } from "@/lib/readingSheet";
+import { bandSteps, speakingBand, speakingCriteria, type SpeakingCriteria } from "@/lib/speakingScore";
 import type { Assignment, MockExam, StudentProfile } from "@/lib/types";
 
 /**
@@ -365,7 +366,7 @@ function MockExamCard({
 
           <ReadingSetup exam={exam} onChanged={onChanged} />
 
-          {done && <MockExamReview exam={exam} />}
+          {done && <MockExamReview exam={exam} onChanged={onChanged} />}
 
           {error && <p className="error">{error}</p>}
 
@@ -585,6 +586,179 @@ function ReadingSetup({ exam, onChanged }: { exam: MockExam; onChanged: (exam: M
   );
 }
 
+/**
+ * The speaking score: four criteria the teacher gives, and the band they come
+ * to.
+ *
+ * The overall band is worked out rather than typed — the mean of the four
+ * rounded to the nearest half, which is the examiner's own arithmetic. It is
+ * held back until the teacher publishes it, so a score noted during the call
+ * is theirs until they say otherwise.
+ */
+function SpeakingScoreCard({ exam, onChanged }: { exam: MockExam; onChanged: (exam: MockExam) => void }) {
+  const { t } = useLanguage();
+  const score = exam.speaking_score;
+  const [criteria, setCriteria] = useState<SpeakingCriteria>(() => ({ ...(score?.criteria || {}) }));
+  const [comment, setComment] = useState(score?.comment || "");
+  const [saving, setSaving] = useState("");
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+
+  const band = speakingBand(criteria);
+  const published = Boolean(score?.published_at);
+
+  async function send(fields: Record<string, unknown>, label: string) {
+    setSaving(label);
+    setError("");
+    try {
+      const response = await fetch("/api/teacher/mock-exams/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, part: "speaking", criteria, comment, ...fields })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
+      onChanged({ ...exam, speaking_score: data.score });
+      setNote(t("已保存。", "Saved."));
+      window.setTimeout(() => setNote(""), 2000);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("保存失败。", "Could not save."));
+    } finally {
+      setSaving("");
+    }
+  }
+
+  return (
+    <div className="mock-review-part">
+      <span className="student-card-label">{t("口语", "Speaking")}</span>
+      <div className="speaking-grid">
+        {speakingCriteria.map((item) => (
+          <label className="speaking-cell" key={item.key}>
+            <span>{t(item.zh, item.en)}</span>
+            <select
+              value={criteria[item.key] === undefined ? "" : String(criteria[item.key])}
+              onChange={(event) =>
+                setCriteria((current) => {
+                  const next = { ...current };
+                  if (event.target.value === "") delete next[item.key];
+                  else next[item.key] = Number(event.target.value);
+                  return next;
+                })
+              }
+            >
+              <option value="">{t("未打分", "—")}</option>
+              {bandSteps.map((value) => (
+                <option key={value} value={value}>
+                  {value.toFixed(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+
+      <div className="overview-hours-row">
+        <span className="hint">{t("总分（四项平均，自动计算）", "Overall, the mean of the four")}</span>
+        <strong className="mock-result-score">{band === null ? t("四项打完才有总分", "—") : band.toFixed(1)}</strong>
+        <span className={`pill ${published ? "ok" : "warn"}`}>{published ? t("已发布给学生", "Published") : t("未发布", "Not published")}</span>
+      </div>
+
+      <textarea
+        className="speaking-comment"
+        rows={3}
+        placeholder={t("口语评语（可选，学生发布后可见）", "Comment (optional, shown once published)")}
+        value={comment}
+        onChange={(event) => setComment(event.target.value)}
+      />
+
+      <div className="overview-hours-row">
+        <button className="btn ghost" type="button" disabled={Boolean(saving)} onClick={() => void send({}, "save")}>
+          {saving === "save" ? t("保存中...", "Saving...") : t("保存", "Save")}
+        </button>
+        <button
+          className="btn"
+          type="button"
+          disabled={Boolean(saving) || (!published && band === null)}
+          onClick={() => void send({ published: !published }, "publish")}
+        >
+          {saving === "publish"
+            ? t("处理中...", "Working...")
+            : published
+              ? t("取消发布", "Unpublish")
+              : t("发布给学生", "Publish to the student")}
+        </button>
+        {note && <small className="hint">{note}</small>}
+      </div>
+      {!published && band === null && <p className="hint">{t("四项都打分之后才能发布。", "All four criteria have to be given before it can be published.")}</p>}
+      {error && <p className="error">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Changing a mark the platform made.
+ *
+ * The student has already seen this score, so the change lands at once and is
+ * recorded as an adjustment — a teacher who gives a mark back should be able
+ * to see later that they did.
+ */
+function ScoreAdjuster({
+  exam,
+  part,
+  result,
+  onChanged
+}: {
+  exam: MockExam;
+  part: "reading" | "listening";
+  result: { correct: number; total: number; adjusted_at?: string | null };
+  onChanged: (exam: MockExam) => void;
+}) {
+  const { t } = useLanguage();
+  const [correct, setCorrect] = useState(String(result.correct));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+
+  const changed = Number(correct) !== result.correct;
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/teacher/mock-exams/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, part, correct: Number(correct) })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
+      onChanged(part === "reading" ? { ...exam, reading_result: data.result } : { ...exam, result: data.result });
+      setNote(t("已更新，学生那边同步。", "Updated; the student sees it now."));
+      window.setTimeout(() => setNote(""), 2500);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("保存失败。", "Could not save."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="overview-hours-row">
+      <label className="mock-count">
+        <span>{t("修改正确题数", "Correct answers")}</span>
+        <input type="number" min={0} max={result.total} value={correct} onChange={(event) => setCorrect(event.target.value)} />
+      </label>
+      <small className="hint">/ {result.total}</small>
+      <button className="btn ghost" type="button" disabled={saving || !changed} onClick={() => void save()}>
+        {saving ? t("保存中...", "Saving...") : t("保存分数", "Save the score")}
+      </button>
+      {result.adjusted_at && <small className="hint">{t(`老师于 ${formatWhen(result.adjusted_at)} 调整过`, `Adjusted ${formatWhen(result.adjusted_at)}`)}</small>}
+      {note && <small className="hint">{note}</small>}
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
+}
+
 /** The key is held as one entry per question, blanks included. */
 function fillKey(key: string[], total: number) {
   return Array.from({ length: total }, (_, index) => key[index] || "");
@@ -595,7 +769,7 @@ function fillKey(key: string[], total: number) {
  * listening with a way back into the paper as the student left it, and the
  * answer key that went with the reading.
  */
-function MockExamReview({ exam }: { exam: MockExam }) {
+function MockExamReview({ exam, onChanged }: { exam: MockExam; onChanged: (exam: MockExam) => void }) {
   const { t } = useLanguage();
   return (
     <div className="mock-review">
@@ -603,6 +777,8 @@ function MockExamReview({ exam }: { exam: MockExam }) {
         <strong>{t("模考结果", "Exam results")}</strong>
         <span className="hint">{t(`学生于 ${formatWhen(exam.completed_at)} 交卷`, `Handed in ${formatWhen(exam.completed_at)}`)}</span>
       </div>
+
+      <SpeakingScoreCard exam={exam} onChanged={onChanged} />
 
       <div className="mock-review-part">
         <span className="student-card-label">{t("写作", "Writing")}</span>
@@ -645,6 +821,7 @@ function MockExamReview({ exam }: { exam: MockExam }) {
                 {t("原题", "Blank paper")}
               </a>
             </div>
+            <ScoreAdjuster exam={exam} part="listening" result={exam.result} onChanged={onChanged} />
             <MockExamResultView result={exam.result} />
           </>
         ) : (
@@ -675,6 +852,7 @@ function MockExamReview({ exam }: { exam: MockExam }) {
                 </a>
               )}
             </div>
+            <ScoreAdjuster exam={exam} part="reading" result={exam.reading_result} onChanged={onChanged} />
             <ReadingSheetResult result={exam.reading_result} answerKey={exam.reading_key || []} />
           </>
         ) : (

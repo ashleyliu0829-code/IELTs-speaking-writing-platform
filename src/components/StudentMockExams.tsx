@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
 import { readingBand } from "@/lib/readingSheet";
-import type { ReadingResult, ReadingTimerState } from "@/lib/types";
+import { speakingCriteria } from "@/lib/speakingScore";
+import type { ReadingResult, ReadingTimerState, SpeakingScore } from "@/lib/types";
 
 /**
  * The student's side of a mock exam.
@@ -34,6 +35,7 @@ type StudentMockExam = {
   reading_draft: string[];
   reading_timer: ReadingTimerState | null;
   reading_result: ReadingResult | null;
+  speaking_score: SpeakingScore | null;
   reading_answer_name: string;
   reading_answer_path: string;
   scheduled_at: string | null;
@@ -191,7 +193,11 @@ function StudentExamCard({
           <div className="mock-part">
             <span className="student-card-label">{t("1 · 口语", "1 · Speaking")}</span>
             {done ? (
-              <em>{t("请等待老师评分。", "Waiting for your teacher to mark it.")}</em>
+              exam.speaking_score && exam.speaking_score.published_at ? (
+                <SpeakingResult score={exam.speaking_score} />
+              ) : (
+                <em>{t("请等待老师评分。", "Waiting for your teacher to mark it.")}</em>
+              )
             ) : exam.speaking_url ? (
               <a className="btn" href={exam.speaking_url} target="_blank" rel="noreferrer">
                 {t("进入口语会议", "Join the speaking call")}
@@ -541,6 +547,28 @@ function formatClock(seconds: number) {
   const m = Math.floor(safe / 60);
   const s = safe % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** The speaking score, once the teacher has published it. */
+function SpeakingResult({ score }: { score: SpeakingScore }) {
+  const { t } = useLanguage();
+  return (
+    <div className="speaking-result">
+      <div className="overview-hours-row">
+        <span className="mock-result-score">{score.band === null ? "—" : score.band.toFixed(1)}</span>
+        <span className="hint">{t("口语总分", "Speaking band")}</span>
+      </div>
+      <div className="speaking-grid">
+        {speakingCriteria.map((item) => (
+          <div className="speaking-cell read-only" key={item.key}>
+            <span>{t(item.zh, item.en)}</span>
+            <strong>{score.criteria?.[item.key] === undefined ? "—" : Number(score.criteria[item.key]).toFixed(1)}</strong>
+          </div>
+        ))}
+      </div>
+      {score.comment && <p className="speaking-note">{score.comment}</p>}
+    </div>
+  );
 }
 
 /** Every listening question, the answer given, and whether it was right. */

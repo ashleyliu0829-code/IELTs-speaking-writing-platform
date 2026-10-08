@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   const studentName = request.nextUrl.searchParams.get("studentName");
   let query = supabase
     .from("mock_exams")
-    .select(`${columns}, writing_assignment:assignments(id, title), result:mock_exam_results(*)`)
+    .select(`${columns}, writing_assignment:assignments(id, title), result:mock_exam_results(*), scores:mock_exam_scores(part, criteria, band, comment, published_at, updated_at)`)
     .order("created_at", { ascending: false });
   if (studentName) query = query.ilike("student_name", studentName.trim());
 
@@ -187,6 +187,7 @@ function flatten(row: Record<string, unknown>): Record<string, unknown> {
     ...row,
     writing_assignment: one(row.writing_assignment),
     result: results.find((entry) => (entry.part || "listening") === "listening") || null,
+    speaking_score: ((Array.isArray(row.scores) ? row.scores : row.scores ? [row.scores] : []) as { part?: string }[]).find((entry) => entry.part === "speaking") || null,
     reading_result: results.find((entry) => entry.part === "reading") || null
   };
 }
