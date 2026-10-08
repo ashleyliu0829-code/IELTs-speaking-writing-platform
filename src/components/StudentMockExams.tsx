@@ -472,6 +472,14 @@ function StudentReading({
             `点开 P1 文件后，倒计时会启动。雅思正式考试时长是 60min，这里由于需要下载、输入答案，时间延长至 ${minutes}min。请把握好时间，准备好后再点击题目。`,
             `Opening P1 starts the clock. The real IELTS paper is 60 minutes; here it is ${minutes}, because the papers have to be downloaded and the answers typed. Take your time getting ready, then open the first paper.`
           )}
+          {/* The papers open in their own tabs, so the one thing a student can
+              forget is the sheet they have to come back to. */}
+          <strong className="exam-start-warn">
+            {t(
+              "完成后，请记得回到这个页面，把答案填写上。",
+              "When you have finished, come back to this page and fill in your answers."
+            )}
+          </strong>
         </p>
       ) : (
         <div className={`exam-clock ${remaining <= 300 ? "low" : ""}`}>

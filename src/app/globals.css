@@ -6172,6 +6172,13 @@ PLACEHOLDER
   font-size: 13px;
 }
 
+/* The one thing they can forget: the papers open elsewhere, the sheet is here. */
+.exam-start-warn {
+  display: block;
+  margin-top: 8px;
+  color: var(--accent-dark);
+}
+
 /* What the student reads before the clock starts. */
 .exam-start-note {
   margin: 0;
