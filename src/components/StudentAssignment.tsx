@@ -109,6 +109,17 @@ export function StudentAssignment({
     void loadCurrentAccount();
   }, []);
 
+  // Every 20 seconds while the clock runs. The request is cheap and idempotent
+  // — an upsert of the same text — and it is the difference between a teacher
+  // seeing the paper and seeing nothing.
+  useEffect(() => {
+    if (!isWriting || !assignment.timed_minutes) return;
+    if (!timer.startedAt || timer.expired) return;
+    const loop = window.setInterval(() => void autosaveWriting(), 20_000);
+    return () => window.clearInterval(loop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWriting, assignment.timed_minutes, timer.startedAt, timer.expired, writingDrafts, submissionId, studentName]);
+
   async function loadCurrentAccount() {
     try {
       const response = await fetch("/api/auth/me");
@@ -360,15 +371,72 @@ export function StudentAssignment({
   }
 
   /**
-   * The clock reached zero: hand in whatever is written.
+   * Everything written so far, whether or not the student pressed save.
    *
-   * The server stops accepting edits a few seconds after the deadline anyway,
-   * so a failure here costs nothing that was already saved — the page locks
-   * either way, which is what the rule promised.
+   * Saving by hand is the one step a student under time pressure forgets, and
+   * forgetting it used to mean the teacher saw nothing at all. Both the
+   * periodic autosave and the hand-in at zero send the whole paper.
+   */
+  function allWritingResponses() {
+    return writingTasks
+      .map((task) => ({
+        taskKey: task.key,
+        taskLabel: task.label,
+        taskTitle: task.title,
+        taskPrompt: task.prompt || "",
+        responseText: (writingDrafts[task.key] ?? savedWritingResponses[task.key]?.response_text ?? "").trim()
+      }))
+      .filter((response) => response.responseText);
+  }
+
+  /** A quiet save during the exam: no messages, no spinner, no interruption. */
+  async function autosaveWriting() {
+    const responses = allWritingResponses();
+    if (!responses.length) return;
+    try {
+      const response = await fetch("/api/student/writing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignmentId: assignment.id,
+          submissionId: validSubmissionId(submissionId) || undefined,
+          studentName: studentName.trim(),
+          mode: "save",
+          responses
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.submissionId) setSubmissionId(data.submissionId);
+    } catch (error) {
+      console.error("writing timer: autosave failed", error);
+    }
+  }
+
+  /**
+   * The clock reached zero: save the whole paper, then hand it in.
+   *
+   * This runs as one request rather than save-then-submit, so there is no
+   * window where the clock has expired between the two and the server refuses
+   * the second. The page locks whether or not it succeeds — but by then the
+   * autosave has been running throughout, so there is something to mark.
    */
   async function submitOnExpiry() {
+    const responses = allWritingResponses();
     try {
-      await saveWriting("submit");
+      if (responses.length) {
+        await fetch("/api/student/writing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assignmentId: assignment.id,
+            submissionId: validSubmissionId(submissionId) || undefined,
+            studentName: studentName.trim(),
+            mode: "submit",
+            responses
+          })
+        });
+        setSubmissionStatus("submitted");
+      }
     } catch (error) {
       console.error("writing timer: auto-submit failed", error);
     }
@@ -781,7 +849,7 @@ export function StudentAssignment({
 
   return (
     <main className="shell">
-      {isWriting && Boolean(assignment.timed_minutes) && account && submissionStatus === "in_progress" && (
+      {isWriting && Boolean(assignment.timed_minutes) && account && (timer.expired || submissionStatus === "in_progress") && (
         <WritingTimer timer={timer} starting={startingTimer} onStart={() => void syncTimer(true)} onExpire={() => void submitOnExpiry()} />
       )}
       {/* A homework link drops the student straight onto this page, and the

@@ -3,6 +3,7 @@ import { requireTeacher } from "@/lib/auth";
 import { getSupabaseAdmin, recordingsBucket } from "@/lib/supabase";
 import { signRecordingUrls } from "@/lib/recordingUrls";
 import { attachTeacherDemos } from "@/lib/teacherDemos";
+import { closeExpiredTimedPapers } from "@/lib/writingTimer";
 import type { Recording, Submission } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -16,6 +17,13 @@ export async function GET(request: NextRequest) {
   const assignmentId = request.nextUrl.searchParams.get("assignmentId");
   const studentName = request.nextUrl.searchParams.get("studentName");
   const assignmentType = request.nextUrl.searchParams.get("assignmentType");
+
+  // A paper whose clock ran out while the browser was shut never got submitted
+  // by the page, and this list only shows submitted work — so the teacher
+  // would see nothing at all. Close those out before reading.
+  await closeExpiredTimedPapers(supabase, assignmentId).catch((error) =>
+    console.error("submissions: could not close expired timed papers", error)
+  );
   let query = supabase
     .from("submissions")
     .select("*, assignments(id, title, deadline_text, due_date, assignment_type, p1_questions, p2_prompt, p3_questions, writing_tasks), recordings(*), writing_responses(*), feedback(*)")

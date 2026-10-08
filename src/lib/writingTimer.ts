@@ -97,3 +97,43 @@ export async function startTimer(supabase: SupabaseClient, assignmentId: string,
   const settled = await readStudentTimer(supabase, assignmentId, studentName);
   return settled.startedAt;
 }
+
+/**
+ * Submits timed papers whose clock has run out.
+ *
+ * The page hands in at zero, but only if it is open: a student who closed the
+ * laptop, lost the tab or ran out of battery leaves the paper `in_progress`,
+ * and the teacher's list only shows submitted work — so everything they wrote
+ * would be invisible. This closes those out on the teacher's next look, which
+ * is the moment it matters.
+ *
+ * Only the status moves. The text is whatever the autosave last stored.
+ */
+export async function closeExpiredTimedPapers(supabase: SupabaseClient, assignmentId?: string | null) {
+  let timedQuery = supabase.from("assignments").select("id, timed_minutes").gt("timed_minutes", 0);
+  if (assignmentId) timedQuery = timedQuery.eq("id", assignmentId);
+  const { data: timed, error: timedError } = await timedQuery;
+  if (timedError) throw new Error(timedError.message);
+  if (!timed?.length) return 0;
+
+  const minutesById = new Map(timed.map((row) => [row.id as string, Number(row.timed_minutes || 0)]));
+  const { data: open, error: openError } = await supabase
+    .from("submissions")
+    .select("id, assignment_id, timer_started_at")
+    .in("assignment_id", [...minutesById.keys()])
+    .eq("submission_status", "in_progress")
+    .not("timer_started_at", "is", null);
+  if (openError) throw new Error(openError.message);
+
+  const stale = (open || [])
+    .filter((row) => isPastGrace(minutesById.get(row.assignment_id as string), row.timer_started_at as string))
+    .map((row) => row.id as string);
+  if (!stale.length) return 0;
+
+  const { error } = await supabase
+    .from("submissions")
+    .update({ submission_status: "submitted", submitted_at: new Date().toISOString() })
+    .in("id", stale);
+  if (error) throw new Error(error.message);
+  return stale.length;
+}
