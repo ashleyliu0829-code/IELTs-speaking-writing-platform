@@ -116,6 +116,20 @@ export async function PATCH(request: Request) {
   if (fields.writingAssignmentId !== undefined) patch.writing_assignment_id = fields.writingAssignmentId;
   if (fields.scheduledAt !== undefined) patch.scheduled_at = fields.scheduledAt || null;
   if (fields.isActive !== undefined) patch.is_active = fields.isActive;
+
+  // Taking a sitting back puts it back to unsat. A paper withdrawn and given
+  // out again has to start from nothing — a clock that is already running, a
+  // sheet half full of last time's answers, or a score from the attempt that
+  // was withdrawn would all be wrong the moment it is published again.
+  if (fields.isActive === false) {
+    patch.reading_draft = [];
+    patch.reading_flags = [];
+    patch.reading_marks = [];
+    patch.reading_started_at = null;
+    patch.completed_at = null;
+    const { error: cleared } = await supabase.from("mock_exam_results").delete().eq("exam_id", examId);
+    if (cleared) return Response.json({ error: cleared.message }, { status: 500 });
+  }
   if (fields.readingKey !== undefined) patch.reading_key = fields.readingKey;
   if (fields.completed !== undefined) patch.completed_at = fields.completed ? new Date().toISOString() : null;
 

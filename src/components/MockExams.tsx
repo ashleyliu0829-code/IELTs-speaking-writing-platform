@@ -248,6 +248,25 @@ function MockExamCard({
   }
 
   /**
+   * Publishing is reversible; unpublishing takes the student's work with it,
+   * so it says what it is about to destroy and names the student. There is no
+   * undo once the answers are gone.
+   */
+  async function togglePublish() {
+    if (published) {
+      const hasWork = Boolean(exam.result || exam.reading_result || exam.completed_at || exam.reading_started_at);
+      const warning = hasWork
+        ? tr(
+            `取消发布会清空 ${exam.student_name} 这场模考的全部记录：作答、高亮笔记、听力和阅读成绩、计时，都会归零且无法恢复。确定吗？`,
+            `Unpublishing wipes ${exam.student_name}'s record of this sitting — answers, highlights, listening and reading scores, the clock — and it cannot be undone. Sure?`
+          )
+        : tr("取消发布后学生就看不到这场模考了。确定吗？", "The student will no longer see this sitting. Sure?");
+      if (!window.confirm(warning)) return;
+    }
+    await patch({ isActive: !published }, "publish");
+  }
+
+  /**
    * The listening paper never passes through the app.
    *
    * It is taken apart here and each piece goes straight to storage with a
@@ -458,7 +477,7 @@ function MockExamCard({
               <strong>{published ? t("学生已经可以看到这场模考", "Your student can see this sitting") : t("学生还看不到这场模考", "Your student cannot see this yet")}</strong>
               <span className="hint">
                 {published
-                  ? t("取消发布后学生立刻看不到，已交的听力成绩会保留。", "Unpublish and it disappears from their side at once; a listening score already in stays.")
+                  ? t("取消发布会清空这场模考的学生记录：作答、高亮、成绩、计时全部归零，学生那边也立刻看不到。", "Unpublishing clears the student's record of this sitting — answers, highlights, scores and the clock all go — and it disappears from their side at once.")
                   : readyCount
                     ? t("发布后学生端会出现这场模考，准备好的部分都能点开。", "Publishing puts it on their side, with whatever parts are ready.")
                     : t("四个部分至少填一个再发布。", "Fill in at least one part before publishing.")}
@@ -468,7 +487,7 @@ function MockExamCard({
               className={published ? "btn secondary" : "btn"}
               type="button"
               disabled={saving === "publish" || (!published && !readyCount)}
-              onClick={() => void patch({ isActive: !published }, "publish")}
+              onClick={() => void togglePublish()}
             >
               {saving === "publish"
                 ? t("处理中...", "Working...")
@@ -476,6 +495,7 @@ function MockExamCard({
                   ? t("取消发布", "Unpublish")
                   : t("发布给学生", "Publish")}
             </button>
+
           </div>
 
           {/* Normally the student presses 模考完成. One who runs out of time
