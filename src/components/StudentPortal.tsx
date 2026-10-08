@@ -7,6 +7,7 @@ import { StudentDailyTasksPanel } from "@/components/DailyTasks";
 import { StudentHomePanels } from "@/components/StudentHome";
 import { TranscriptDiff } from "@/components/TranscriptDiff";
 import { StudentMockExamsPanel } from "@/components/StudentMockExams";
+import { TopbarMockButton } from "@/components/TopbarMockButton";
 import { getSpeakingTopicIdsFromAssignments } from "@/lib/speakingProgress";
 import { tr, useLanguage } from "@/lib/i18n";
 import { activeAnnouncements } from "@/lib/announcements";
@@ -485,6 +486,7 @@ export function StudentPortal() {
       <div className="home-layout">
         {/* The same rail the teacher has. Home, then the two kinds of work,
             then booking; log out at the foot. */}
+        <TopbarMockButton active={activeView === "mockExams"} onClick={() => setActiveView("mockExams")} />
         <nav className="home-nav" aria-label={t("学生中心", "Student centre")}>
           <button
             className={`home-nav-home ${activeView === "home" ? "active" : ""}`}
@@ -519,13 +521,6 @@ export function StudentPortal() {
               onClick={() => setActiveView("dailyTasks")}
             >
               {t("每日任务", "Daily tasks")}
-            </button>
-            <button
-              className={`home-nav-item ${activeView === "mockExams" ? "active" : ""}`}
-              type="button"
-              onClick={() => setActiveView("mockExams")}
-            >
-              {t("模考", "Mock exam")}
             </button>
           </div>
 
@@ -571,6 +566,7 @@ export function StudentPortal() {
           practiceMessage={practiceMessage}
           onOpenSchedule={() => setActiveView("schedule")}
           onOpenDailyTasks={() => setActiveView("dailyTasks")}
+          onOpenMockExams={() => setActiveView("mockExams")}
         />
       )}
 

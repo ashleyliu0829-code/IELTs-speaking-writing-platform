@@ -26,8 +26,13 @@ export function MockExamsPanel({ students, assignments }: { students: StudentPro
   const [newStudent, setNewStudent] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState("");
+  // Two jobs, not one list: setting a sitting up, and reading what came back.
+  const [tab, setTab] = useState<"new" | "done">("new");
 
   const writingAssignments = assignments.filter((item) => (item.assignment_type || "speaking") === "writing");
+  const open = exams.filter((exam) => !exam.completed_at);
+  const finished = exams.filter((exam) => exam.completed_at);
+  const shown = tab === "new" ? open : finished;
 
   useEffect(() => {
     void load();
@@ -102,27 +107,56 @@ export function MockExamsPanel({ students, assignments }: { students: StudentPro
         </button>
       </div>
 
-      <div className="mock-create">
-        <select value={newStudent} onChange={(event) => setNewStudent(event.target.value)}>
-          <option value="">{t("选择学生…", "Pick a student…")}</option>
-          {students.map((student) => (
-            <option key={student.id} value={student.name}>
-              {student.name}
-            </option>
-          ))}
-        </select>
-        <button className="btn" type="button" disabled={!newStudent || creating} onClick={() => void create()}>
-          {creating ? t("创建中...", "Creating...") : t("新建模考", "New mock exam")}
+      <div className="mock-tabs" role="tablist">
+        <button
+          className={`mock-tab ${tab === "new" ? "active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={tab === "new"}
+          onClick={() => setTab("new")}
+        >
+          {t(`发布新模考 (${open.length})`, `Set a sitting (${open.length})`)}
+        </button>
+        <button
+          className={`mock-tab ${tab === "done" ? "active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={tab === "done"}
+          onClick={() => setTab("done")}
+        >
+          {t(`模考成绩 (${finished.length})`, `Results (${finished.length})`)}
         </button>
       </div>
+
+      {tab === "new" && (
+        <div className="mock-create">
+          <select value={newStudent} onChange={(event) => setNewStudent(event.target.value)}>
+            <option value="">{t("选择学生…", "Pick a student…")}</option>
+            {students.map((student) => (
+              <option key={student.id} value={student.name}>
+                {student.name}
+              </option>
+            ))}
+          </select>
+          <button className="btn" type="button" disabled={!newStudent || creating} onClick={() => void create()}>
+            {creating ? t("创建中...", "Creating...") : t("新建模考", "New mock exam")}
+          </button>
+        </div>
+      )}
 
       {status && <p className="error">{status}</p>}
       {loading && <p className="hint">{t("加载中...", "Loading...")}</p>}
 
-      {!loading && !exams.length && <p className="hint">{t("还没有模考。选一个学生新建一场。", "No mock exams yet. Pick a student to create one.")}</p>}
+      {!loading && !shown.length && (
+        <p className="hint">
+          {tab === "new"
+            ? t("还没有进行中的模考。选一个学生新建一场。", "No sittings under way. Pick a student to set one.")
+            : t("还没有完成的模考。学生交卷后会出现在这里。", "No finished sittings yet. They appear here once a student hands in.")}
+        </p>
+      )}
 
       <div className="mock-list">
-        {exams.map((exam) => (
+        {shown.map((exam) => (
           <MockExamCard
             key={exam.id}
             exam={exam}
@@ -137,6 +171,7 @@ export function MockExamsPanel({ students, assignments }: { students: StudentPro
     </div>
   );
 }
+
 
 function MockExamCard({
   exam,
@@ -159,6 +194,7 @@ function MockExamCard({
   const [uploadNote, setUploadNote] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [stage, setStage] = useState("");
+  const [showSetup, setShowSetup] = useState(false);
   const [error, setError] = useState("");
   const listeningPicker = useRef<HTMLInputElement | null>(null);
 
@@ -307,6 +343,19 @@ function MockExamCard({
 
       {open && (
         <div className="mock-card-body">
+          {done && <MockExamReview exam={exam} onChanged={onChanged} />}
+
+          {/* A finished sitting is its results. The papers stay reachable
+              behind a toggle, because a key with a typo in it has to be
+              fixable after the fact. */}
+          {done && (
+            <button className="btn ghost mock-reveal" type="button" onClick={() => setShowSetup((on) => !on)}>
+              {showSetup ? t("收起试卷设置", "Hide the setup") : t("编辑试卷内容", "Edit the papers")}
+            </button>
+          )}
+
+          {(!done || showSetup) && (
+          <>
           <div className="mock-part">
             <span className="student-card-label">{t("1 · 口语", "1 · Speaking")}</span>
             <div className="overview-hours-row">
@@ -366,8 +415,8 @@ function MockExamCard({
           </div>
 
           <ReadingSetup exam={exam} onChanged={onChanged} />
-
-          {done && <MockExamReview exam={exam} onChanged={onChanged} />}
+          </>
+          )}
 
           {error && <p className="error">{error}</p>}
 

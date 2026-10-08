@@ -6,6 +6,7 @@ import { StudentDailyCheckinTile } from "@/components/DailyTasks";
 import { LearningProgressPanel } from "@/components/LearningProgress";
 import { SpeakingTopicProgressPanel } from "@/components/SpeakingTopicProgress";
 import { StudyPlanBar } from "@/components/StudyPlan";
+import { listeningBand, overallBand, readingBand } from "@/lib/examBands";
 import type { StudyPlanPhase } from "@/lib/studyPlan";
 import type { Submission } from "@/lib/types";
 import { tr, useLanguage } from "@/lib/i18n";
@@ -50,6 +51,107 @@ type HomeData = {
 
 const monthOptions = [1, 2, 3, 6, 12];
 
+/**
+ * Mock exam results on the home page: when each sitting was, the four skills,
+ * and the overall.
+ *
+ * It reads the same endpoint the mock exam section does and shows only the
+ * finished sittings, newest first — the point here is the trend, not the
+ * paper. A skill the teacher has not published yet shows as a dash rather
+ * than being left out, so a missing number is visibly missing.
+ */
+function MockExamResults({ onOpen }: { onOpen: () => void }) {
+  const { t } = useLanguage();
+  const [exams, setExams] = useState<HomeMockExam[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/student/mock-exams");
+        const body = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        if (response.ok) setExams((body.exams || []).filter((exam: HomeMockExam) => exam.completed_at));
+      } catch {
+        // The home page should still render without it.
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!loaded || !exams.length) return null;
+
+  return (
+    <article className="card stack">
+      <div className="section-head compact">
+        <div>
+          <h2>{t("模考成绩", "Mock exam results")}</h2>
+          <div className="hint">{t("每一场的四科分数和总分。", "The four skills and the overall, sitting by sitting.")}</div>
+        </div>
+        <button className="btn secondary" type="button" onClick={onOpen}>
+          {t("打开模考", "Open mock exams")}
+        </button>
+      </div>
+
+      {exams.map((exam) => {
+        const listening = exam.result ? listeningBand(exam.result.correct, exam.result.total) : null;
+        const reading = exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null;
+        const writing = exam.writing?.marked ? exam.writing.score : null;
+        const speaking = exam.speaking_score?.published_at ? exam.speaking_score.band : null;
+        const overall = overallBand([listening, reading, writing, speaking]);
+        const parts = [
+          { label: t("听力", "Listening"), band: listening },
+          { label: t("阅读", "Reading"), band: reading },
+          { label: t("写作", "Writing"), band: writing },
+          { label: t("口语", "Speaking"), band: speaking }
+        ];
+        return (
+          <div className="mock-history" key={exam.id}>
+            <div className="mock-history-head">
+              <strong>{exam.title}</strong>
+              <span className="hint">{formatExamDate(exam.completed_at)}</span>
+            </div>
+            <div className="overall-parts">
+              {parts.map((part) => (
+                <div className={`overall-part ${typeof part.band === "number" ? "" : "pending"}`} key={part.label}>
+                  <span>{part.label}</span>
+                  <strong>{typeof part.band === "number" ? part.band.toFixed(1) : "—"}</strong>
+                </div>
+              ))}
+              <div className={`overall-part total ${overall === null ? "pending" : ""}`}>
+                <span>{t("总分", "Overall")}</span>
+                <strong>{overall === null ? "—" : overall.toFixed(1)}</strong>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </article>
+  );
+}
+
+type HomeMockExam = {
+  id: string;
+  title: string;
+  completed_at: string | null;
+  result: { correct: number; total: number } | null;
+  reading_result: { correct: number; total: number } | null;
+  writing: { marked: boolean; score: number | null } | null;
+  speaking_score: { band: number | null; published_at?: string | null } | null;
+};
+
+function formatExamDate(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+}
+
 export function StudentHomePanels({
   notifications,
   speakingSubmissions,
@@ -60,7 +162,8 @@ export function StudentHomePanels({
   practiceLoadingId,
   practiceMessage,
   onOpenSchedule,
-  onOpenDailyTasks
+  onOpenDailyTasks,
+  onOpenMockExams
 }: {
   notifications: StudentNotice[];
   speakingSubmissions: Submission[];
@@ -72,6 +175,7 @@ export function StudentHomePanels({
   practiceMessage: string;
   onOpenSchedule: () => void;
   onOpenDailyTasks: () => void;
+  onOpenMockExams: () => void;
 }) {
   const [data, setData] = useState<HomeData | null>(null);
   const [status, setStatus] = useState("");
@@ -224,6 +328,8 @@ export function StudentHomePanels({
           <StudyPlanBar phases={data.study_plan} today={today} />
         </article>
       )}
+
+      <MockExamResults onOpen={onOpenMockExams} />
 
       <article className="card stack">
         <div className="section-head compact">

@@ -12,9 +12,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <body>
         <LanguageProvider>
-          {/* Just the wordmark and the language switch every page shares. */}
+          {/* The wordmark, the language switch, and a slot beside the
+              wordmark that a signed-in dashboard fills with its mock exam
+              button — the one thing both sides need to reach from anywhere. */}
           <header className="topbar">
-            <BrandTitle />
+            <div className="topbar-brand">
+              <BrandTitle />
+              <div id="topbar-slot" className="topbar-slot" />
+            </div>
             <div className="topbar-tools">
               <LanguageSwitch />
             </div>

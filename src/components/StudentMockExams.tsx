@@ -50,6 +50,8 @@ export function StudentMockExamsPanel() {
   const [exams, setExams] = useState<StudentMockExam[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState("");
+  // A paper to sit and a result to read are different errands.
+  const [tab, setTab] = useState<"new" | "done">("new");
 
   useEffect(() => {
     void load();
@@ -60,7 +62,12 @@ export function StudentMockExamsPanel() {
     try {
       const response = await fetch("/api/student/mock-exams");
       const data = await response.json().catch(() => ({}));
-      if (response.ok) setExams(data.exams || []);
+      if (response.ok) {
+        const list: StudentMockExam[] = data.exams || [];
+        setExams(list);
+        // Land on whichever one they actually have.
+        if (!list.some((exam) => !exam.completed_at) && list.some((exam) => exam.completed_at)) setTab("done");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,20 +78,56 @@ export function StudentMockExamsPanel() {
     return <p className="hint">{t("老师还没有给你安排模考。", "Your teacher has not set a mock exam yet.")}</p>;
   }
 
+  const waiting = exams.filter((exam) => !exam.completed_at);
+  const finished = exams.filter((exam) => exam.completed_at);
+  const shown = tab === "new" ? waiting : finished;
+
   return (
-    <div className="mock-list">
-      {exams.map((exam) => (
-        <StudentExamCard
-          key={exam.id}
-          exam={exam}
-          open={openId === exam.id}
-          onToggle={() => setOpenId((current) => (current === exam.id ? "" : exam.id))}
-          onPatch={(patch) => setExams((current) => current.map((item) => (item.id === exam.id ? { ...item, ...patch } : item)))}
-        />
-      ))}
+    <div className="stack">
+      <div className="mock-tabs" role="tablist">
+        <button
+          className={`mock-tab ${tab === "new" ? "active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={tab === "new"}
+          onClick={() => setTab("new")}
+        >
+          {t(`新模考 (${waiting.length})`, `To sit (${waiting.length})`)}
+        </button>
+        <button
+          className={`mock-tab ${tab === "done" ? "active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={tab === "done"}
+          onClick={() => setTab("done")}
+        >
+          {t(`已完成模考 (${finished.length})`, `Finished (${finished.length})`)}
+        </button>
+      </div>
+
+      {!shown.length && (
+        <p className="hint">
+          {tab === "new"
+            ? t("没有待做的模考。", "Nothing to sit at the moment.")
+            : t("还没有完成的模考。", "Nothing finished yet.")}
+        </p>
+      )}
+
+      <div className="mock-list">
+        {shown.map((exam) => (
+          <StudentExamCard
+            key={exam.id}
+            exam={exam}
+            open={openId === exam.id}
+            onToggle={() => setOpenId((current) => (current === exam.id ? "" : exam.id))}
+            onPatch={(patch) => setExams((current) => current.map((item) => (item.id === exam.id ? { ...item, ...patch } : item)))}
+          />
+        ))}
+      </div>
     </div>
   );
 }
+
 
 function StudentExamCard({
   exam,
