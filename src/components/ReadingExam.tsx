@@ -24,6 +24,8 @@ import type { ReadingResult } from "@/lib/types";
 export type Stroke = {
   id: string;
   page: number;
+  /** Which of the two views it was drawn in; they are separate papers. */
+  side?: "left" | "right";
   color?: string;
   width?: number;
   points: [number, number][];
@@ -290,7 +292,7 @@ export function ReadingExam({ examId }: { examId: string }) {
       </header>
 
       <div className="exam-shell-body" style={{ gridTemplateColumns: `${split}% 6px 1fr` }}>
-        <PaperPane pdf={pdf} sizes={sizes} label={t("试卷 · 左", "Paper · left")} pen={pen} color={color} strokes={strokes} onDraw={(stroke) => setStrokes((list) => [...list, stroke])} />
+        <PaperPane pdf={pdf} sizes={sizes} side="left" label={t("试卷 · 左", "Paper · left")} pen={pen} color={color} strokes={strokes} onDraw={(stroke) => setStrokes((list) => [...list, stroke])} />
 
         <div
           className="exam-shell-grip"
@@ -310,7 +312,7 @@ export function ReadingExam({ examId }: { examId: string }) {
           }}
         />
 
-        <PaperPane pdf={pdf} sizes={sizes} label={t("试卷 · 右", "Paper · right")} pen={pen} color={color} strokes={strokes} onDraw={(stroke) => setStrokes((list) => [...list, stroke])} />
+        <PaperPane pdf={pdf} sizes={sizes} side="right" label={t("试卷 · 右", "Paper · right")} pen={pen} color={color} strokes={strokes} onDraw={(stroke) => setStrokes((list) => [...list, stroke])} />
       </div>
 
       <AnswerWindow

@@ -50,6 +50,8 @@ const readingAnswersSchema = z.object({
       z.object({
         id: z.string().max(40),
         page: z.number().int().min(1).max(200),
+        // The two views are separate papers, so a stroke says which it is on.
+        side: z.enum(["left", "right"]).optional(),
         color: z.string().max(20).optional(),
         width: z.number().min(0.1).max(20).optional(),
         points: z.array(z.tuple([z.number(), z.number()])).max(4000)

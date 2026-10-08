@@ -36,6 +36,7 @@ const maxRatio = 1.5;
 export function PaperPane({
   pdf,
   sizes,
+  side,
   label,
   pen,
   color,
@@ -44,6 +45,7 @@ export function PaperPane({
 }: {
   pdf: PdfDocument | null;
   sizes: PageSize[];
+  side: "left" | "right";
   label: string;
   pen: boolean;
   color: string;
@@ -160,8 +162,8 @@ export function PaperPane({
 
   // The ink is repainted whenever it changes or a page is drawn again.
   useEffect(() => {
-    inks.current.forEach((ink, page) => paint(ink, strokes.filter((stroke) => stroke.page === page)));
-  }, [strokes, painted]);
+    inks.current.forEach((ink, page) => paint(ink, mine(strokes, side, page)));
+  }, [strokes, painted, side]);
 
   function draw(event: React.PointerEvent) {
     if (!pen) return;
@@ -172,10 +174,10 @@ export function PaperPane({
     event.preventDefault();
     const bounds = slot.getBoundingClientRect();
     const points: [number, number][] = [];
-    const already = strokes.filter((stroke) => stroke.page === number);
+    const already = mine(strokes, side, number);
     const add = (clientX: number, clientY: number) => {
       points.push([(clientX - bounds.left) / bounds.width, (clientY - bounds.top) / bounds.height]);
-      paint(ink, [...already, { id: "live", page: number, color, points }]);
+      paint(ink, [...already, { id: "live", page: number, side, color, points }]);
     };
     add(event.clientX, event.clientY);
 
@@ -183,7 +185,7 @@ export function PaperPane({
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      if (points.length > 1) onDraw({ id: Math.random().toString(36).slice(2, 10), page: number, color, points });
+      if (points.length > 1) onDraw({ id: Math.random().toString(36).slice(2, 10), page: number, side, color, points });
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -228,6 +230,15 @@ export function PaperPane({
       </div>
     </section>
   );
+}
+
+/**
+ * The strokes belonging to one view's page. The two views are separate
+ * papers: a line drawn on the left is not on the right, even though both
+ * show the same file.
+ */
+function mine(strokes: Stroke[], side: "left" | "right", page: number) {
+  return strokes.filter((stroke) => stroke.page === page && (stroke.side || "left") === side);
 }
 
 /** What a page shows before it is drawn, and again once it is freed. */

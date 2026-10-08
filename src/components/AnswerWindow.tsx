@@ -104,6 +104,19 @@ export function AnswerWindow({
                   value={value}
                   onFocus={() => onFocus(number)}
                   onChange={(event) => onAnswer(index, event.target.value)}
+                  onKeyDown={(event) => {
+                    // Enter walks down the sheet, the way tabbing through a
+                    // paper form does, so forty answers can be typed without
+                    // reaching for the mouse between each one.
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    const step = event.shiftKey ? -1 : 1;
+                    const next = boxes.current[index + step];
+                    if (next) {
+                      next.focus();
+                      next.select();
+                    }
+                  }}
                 />
                 <button
                   className="answer-row-flag"
