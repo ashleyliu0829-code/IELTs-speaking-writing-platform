@@ -327,11 +327,9 @@ function MockExamCard({
         <span className={`pill ${done ? "ok" : ""}`}>
           {done ? t("已完成模考", "Exam finished") : published ? t("已发布", "Published") : t("未发布", "Draft")}
         </span>
-        {/* A finished sitting is summed up by its four bands; how much of it
-            was uploaded stopped mattering the moment it was sat. */}
-        {done ? (
-          <ExamBandPills exam={exam} />
-        ) : (
+        {/* A finished sitting shows its bands in full below, so the header
+            carries nothing but the fact that it is finished. */}
+        {!done && (
           <>
             <span className={`pill ${readyCount === 4 ? "ok" : "warn"}`}>{t(`${readyCount}/4 部分已就绪`, `${readyCount}/4 ready`)}</span>
             {exam.reading_result && (
@@ -344,8 +342,17 @@ function MockExamCard({
             )}
           </>
         )}
+
         <span className="student-card-chevron" aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
+
+      {/* The scores sit on the card itself, open or shut: a list of finished
+          sittings should be readable without opening any of them. */}
+      {done && (
+        <div className="mock-card-scores">
+          <OverallBandCard {...examBands(exam)} />
+        </div>
+      )}
 
 
       {open && (
@@ -489,29 +496,14 @@ function MockExamCard({
   );
 }
 
-/**
- * The four bands on a collapsed card, so a finished sitting can be read
- * without opening it. A skill still unmarked shows a dash rather than being
- * left out — the gap is the useful part.
- */
-function ExamBandPills({ exam }: { exam: MockExam }) {
-  const { t } = useLanguage();
-  const listening = exam.result ? listeningBand(exam.result.correct, exam.result.total) : null;
-  const reading = exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null;
-  const writing = exam.writing?.marked ? exam.writing.score : null;
-  const speaking = exam.speaking_score?.band ?? null;
-  const overall = overallBand([listening, reading, writing, speaking]);
-  const show = (band: number | null) => (typeof band === "number" ? band.toFixed(1) : "—");
-
-  return (
-    <>
-      <span className={`pill ${typeof listening === "number" ? "ok" : ""}`}>{t(`听力 ${show(listening)}`, `L ${show(listening)}`)}</span>
-      <span className={`pill ${typeof reading === "number" ? "ok" : ""}`}>{t(`阅读 ${show(reading)}`, `R ${show(reading)}`)}</span>
-      <span className={`pill ${typeof writing === "number" ? "ok" : ""}`}>{t(`写作 ${show(writing)}`, `W ${show(writing)}`)}</span>
-      <span className={`pill ${typeof speaking === "number" ? "ok" : ""}`}>{t(`口语 ${show(speaking)}`, `S ${show(speaking)}`)}</span>
-      {overall !== null && <span className="pill mock-overall-pill">{t(`总分 ${overall.toFixed(1)}`, `Overall ${overall.toFixed(1)}`)}</span>}
-    </>
-  );
+/** The four bands behind a sitting, wherever they come from. */
+function examBands(exam: MockExam) {
+  return {
+    listening: exam.result ? listeningBand(exam.result.correct, exam.result.total) : null,
+    reading: exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null,
+    writing: exam.writing?.marked ? exam.writing.score : null,
+    speaking: exam.speaking_score?.band ?? null
+  };
 }
 
 /** The paper is uploaded and every question has an answer. */
@@ -986,13 +978,6 @@ function MockExamReview({ exam, onChanged }: { exam: MockExam; onChanged: (exam:
         <strong>{t("模考结果", "Exam results")}</strong>
         <span className="hint">{t(`学生于 ${formatWhen(exam.completed_at)} 交卷`, `Handed in ${formatWhen(exam.completed_at)}`)}</span>
       </div>
-
-      <OverallBandCard
-        listening={exam.result ? listeningBand(exam.result.correct, exam.result.total) : null}
-        reading={exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null}
-        writing={exam.writing?.marked ? exam.writing.score : null}
-        speaking={exam.speaking_score?.band ?? null}
-      />
 
       <SpeakingScoreCard exam={exam} onChanged={onChanged} />
 

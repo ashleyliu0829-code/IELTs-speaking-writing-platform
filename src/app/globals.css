@@ -6319,6 +6319,15 @@ PLACEHOLDER
   align-self: flex-start;
 }
 
+/* The bands on the card itself, under the name, open or shut. */
+.mock-card-scores {
+  padding: 0 14px 14px;
+}
+
+.mock-card-scores .overall-card {
+  margin-bottom: 0;
+}
+
 /* A row with one card in it spans the width rather than leaving a hole. */
 .student-home-row > :only-child {
   grid-column: 1 / -1;
