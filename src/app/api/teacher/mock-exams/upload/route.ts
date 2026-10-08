@@ -79,14 +79,18 @@ export async function POST(request: NextRequest) {
     const stale = Object.values((exam.listening_audio || {}) as Record<string, string>).filter(Boolean);
     if (stale.length) await admin.storage.from(mockExamBucket).remove(stale);
 
-    const audioPaths: Record<string, string> = {};
-    for (const track of prepared.audio) {
-      const path = `${examId}/audio-${track.id}.mp3`;
-      await store(path, track.mp3, "audio/mpeg");
-      audioPaths[track.id] = path;
-    }
     const htmlPath = `${examId}/listening.html`;
-    await store(htmlPath, Buffer.from(prepared.html, "utf8"), "text/html");
+    const audioPaths: Record<string, string> = {};
+    const started = Date.now();
+    await Promise.all([
+      store(htmlPath, Buffer.from(prepared.html, "utf8"), "text/html"),
+      ...prepared.audio.map(async (track) => {
+        const path = `${examId}/audio-${track.id}.mp3`;
+        await store(path, track.mp3, "audio/mpeg");
+        audioPaths[track.id] = path;
+      })
+    ]);
+    const uploadSeconds = Math.round((Date.now() - started) / 1000);
 
     const { data, error } = await supabase
       .from("mock_exams")
@@ -107,7 +111,8 @@ export async function POST(request: NextRequest) {
         parts: prepared.parts,
         audio: prepared.audio.length,
         originalMb: Number((file.size / 1024 / 1024).toFixed(1)),
-        pageMb: Number((prepared.html.length / 1024 / 1024).toFixed(2))
+        pageMb: Number((prepared.html.length / 1024 / 1024).toFixed(2)),
+        seconds: uploadSeconds
       }
     });
   } catch (problem) {

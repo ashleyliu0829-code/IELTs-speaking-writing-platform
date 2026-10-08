@@ -153,6 +153,7 @@ function MockExamCard({
   const [speakingUrl, setSpeakingUrl] = useState(exam.speaking_url || "");
   const [saving, setSaving] = useState("");
   const [uploadNote, setUploadNote] = useState("");
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const listeningPicker = useRef<HTMLInputElement | null>(null);
   const readingPicker = useRef<HTMLInputElement | null>(null);
@@ -191,6 +192,8 @@ function MockExamCard({
     setSaving(kind);
     setError("");
     setUploadNote("");
+    setElapsed(0);
+    const ticking = window.setInterval(() => setElapsed((n) => n + 1), 1000);
     try {
       const body = new FormData();
       body.append("examId", exam.id);
@@ -203,15 +206,17 @@ function MockExamCard({
       if (data.summary) {
         setUploadNote(
           t(
-            `已处理：${data.summary.parts} 个部分，抽出 ${data.summary.audio} 段音频，页面从 ${data.summary.originalMb}MB 降到 ${data.summary.pageMb}MB。`,
-            `Done: ${data.summary.parts} parts, ${data.summary.audio} audio tracks lifted out, page down from ${data.summary.originalMb}MB to ${data.summary.pageMb}MB.`
+            `已处理：${data.summary.parts} 个部分，抽出 ${data.summary.audio} 段音频，页面从 ${data.summary.originalMb}MB 降到 ${data.summary.pageMb}MB，用时 ${data.summary.seconds ?? 0} 秒。`,
+            `Done: ${data.summary.parts} parts, ${data.summary.audio} tracks lifted out, page down from ${data.summary.originalMb}MB to ${data.summary.pageMb}MB in ${data.summary.seconds ?? 0}s.`
           )
         );
       }
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : tr("上传失败。", "Upload failed."));
     } finally {
+      window.clearInterval(ticking);
       setSaving("");
+      setElapsed(0);
       if (listeningPicker.current) listeningPicker.current.value = "";
       if (readingPicker.current) readingPicker.current.value = "";
       if (answerPicker.current) answerPicker.current.value = "";
@@ -274,7 +279,11 @@ function MockExamCard({
             <span className="student-card-label">{t("3 · 听力", "3 · Listening")}</span>
             <div className="overview-hours-row">
               <button className="btn ghost" type="button" disabled={saving === "listening"} onClick={() => listeningPicker.current?.click()}>
-                {saving === "listening" ? t("处理中...", "Processing...") : exam.listening_path ? t("重新上传", "Replace") : t("上传听力试卷 (HTML)", "Upload paper (HTML)")}
+                {saving === "listening"
+                  ? t(`处理中... ${elapsed}s`, `Processing... ${elapsed}s`)
+                  : exam.listening_path
+                    ? t("重新上传", "Replace")
+                    : t("上传听力试卷 (HTML)", "Upload paper (HTML)")}
               </button>
               {exam.listening_name && <small>{exam.listening_name}</small>}
               {exam.listening_path && (
@@ -284,7 +293,12 @@ function MockExamCard({
               )}
             </div>
             <input ref={listeningPicker} className="student-file-input" type="file" accept=".html,.htm" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("listening", file); }} />
-            <p className="hint">{t("上传导出的听力 HTML，系统会自动把音频拆出来，学生打开快很多。学生做完点 Finish 后，成绩自动回传。", "Upload the exported HTML; the audio is lifted out automatically so it opens quickly. When the student presses Finish the score comes back here.")}</p>
+            <p className="hint">
+              {t(
+                "上传导出的听力 HTML，系统会自动把音频拆出来，学生打开快很多。一份 50MB 的试卷大约需要半分钟到一分钟，期间不要关页面。学生做完点 Finish All 后，成绩自动回传。",
+                "Upload the exported HTML; the audio is lifted out automatically so it opens quickly. A 50MB paper takes roughly half a minute to a minute — leave the page open. When the student presses Finish All the score comes back here."
+              )}
+            </p>
             {uploadNote && <p className="hint">{uploadNote}</p>}
           </div>
 

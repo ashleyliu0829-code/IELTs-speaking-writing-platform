@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireStudent } from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 /**
  * The student's side of a mock exam: the sittings set for them, and the
@@ -115,13 +116,19 @@ export async function POST(request: Request) {
 
   const complete = completeSchema.safeParse(payload);
   if (complete.success) {
-    const { data, error } = await supabase
+    // A student may read their sitting but not write to it — the sitting is
+    // the teacher's. Finishing is the one thing they do own, so it goes
+    // through the admin client, pinned to the row already matched above as
+    // theirs, and touches nothing but this column.
+    const { data, error } = await getSupabaseAdmin()
       .from("mock_exams")
       .update({ completed_at: complete.data.completed ? new Date().toISOString() : null })
       .eq("id", exam.id)
+      .eq("student_account_id", account.id)
       .select("completed_at")
-      .single();
+      .maybeSingle();
     if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (!data) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
     return Response.json({ completedAt: data.completed_at });
   }
 
