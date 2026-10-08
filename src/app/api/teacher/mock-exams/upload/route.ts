@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const examId = String(form?.get("examId") || "");
   const kind = String(form?.get("kind") || "");
   const file = form?.get("file");
-  if (!form || !(file instanceof File) || !z.string().uuid().safeParse(examId).success || !["listening", "reading"].includes(kind)) {
+  if (!form || !(file instanceof File) || !z.string().uuid().safeParse(examId).success || !["listening", "reading", "readingAnswer"].includes(kind)) {
     return Response.json({ error: "请求不完整。" }, { status: 400 });
   }
   if (!file.size) return Response.json({ error: "这个文件是空的。" }, { status: 400 });
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   // RLS scopes the sitting to this teacher, so a foreign id finds nothing.
   const { data: exam } = await supabase
     .from("mock_exams")
-    .select("id, listening_path, listening_audio, reading_path")
+    .select("id, listening_path, listening_audio, reading_path, reading_answer_path")
     .eq("id", examId)
     .maybeSingle();
   if (!exam) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
@@ -48,15 +48,19 @@ export async function POST(request: NextRequest) {
   };
 
   try {
-    if (kind === "reading") {
+    if (kind === "reading" || kind === "readingAnswer") {
       if (file.type !== "application/pdf") return Response.json({ error: "阅读部分请上传 PDF。" }, { status: 400 });
-      const path = `${examId}/reading.pdf`;
+      const isKey = kind === "readingAnswer";
+      const path = `${examId}/${isKey ? "reading-answers" : "reading"}.pdf`;
       await store(path, Buffer.from(await file.arrayBuffer()), "application/pdf");
+      const patch = isKey
+        ? { reading_answer_name: file.name.slice(0, 200), reading_answer_path: path }
+        : { reading_name: file.name.slice(0, 200), reading_path: path };
       const { data, error } = await supabase
         .from("mock_exams")
-        .update({ reading_name: file.name.slice(0, 200), reading_path: path, updated_at: new Date().toISOString() })
+        .update({ ...patch, updated_at: new Date().toISOString() })
         .eq("id", examId)
-        .select("reading_name, reading_path")
+        .select("reading_name, reading_path, reading_answer_name, reading_answer_path")
         .single();
       if (error) throw new Error(error.message);
       return Response.json({ exam: data });

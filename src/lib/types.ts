@@ -69,12 +69,28 @@ export type MockExam = {
   listening_audio: Record<string, string>;
   reading_name: string;
   reading_path: string;
+  /** The key the student self-marks reading against, once they have finished. */
+  reading_answer_name: string;
+  reading_answer_path: string;
   scheduled_at?: string | null;
+  /** Set when the student says they have finished all four parts. */
+  completed_at?: string | null;
   is_active: boolean;
   created_at?: string;
   /** Joined for display, not stored here. */
   writing_assignment?: { id: string; title: string } | null;
   result?: MockExamResult | null;
+  writing?: MockExamWriting | null;
+};
+
+/** The essay the student wrote for the linked homework, and how it stands. */
+export type MockExamWriting = {
+  submission_id: string;
+  status: string;
+  marked: boolean;
+  score: number | null;
+  comment: string;
+  responses?: { task_label: string; response_text: string }[];
 };
 
 /** What the listening paper reported back. */

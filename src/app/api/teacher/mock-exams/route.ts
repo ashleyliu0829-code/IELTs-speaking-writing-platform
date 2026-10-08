@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
 
 /**
@@ -27,7 +28,7 @@ const updateSchema = z.object({
 });
 
 const columns =
-  "id, teacher_id, title, student_name, student_account_id, speaking_url, writing_assignment_id, listening_name, listening_path, listening_audio, reading_name, reading_path, scheduled_at, is_active, created_at";
+  "id, teacher_id, title, student_name, student_account_id, speaking_url, writing_assignment_id, listening_name, listening_path, listening_audio, reading_name, reading_path, reading_answer_name, reading_answer_path, scheduled_at, completed_at, is_active, created_at";
 
 export async function GET(request: NextRequest) {
   const auth = await requireTeacher();
@@ -43,7 +44,12 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ exams: (data || []).map(flatten) });
+
+  // The essay goes with the sitting, so the teacher reads it here rather than
+  // hunting for it in the marking list.
+  const exams: Record<string, unknown>[] = (data || []).map(flatten);
+  await Promise.all(exams.map((exam) => attachWriting(supabase, exam)));
+  return Response.json({ exams });
 }
 
 export async function POST(request: Request) {
@@ -110,13 +116,13 @@ export async function DELETE(request: Request) {
 
   const { data: exam } = await supabase
     .from("mock_exams")
-    .select("id, listening_path, listening_audio, reading_path")
+    .select("id, listening_path, listening_audio, reading_path, reading_answer_path")
     .eq("id", parsed.data.examId)
     .maybeSingle();
   if (!exam) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
 
   // The rows cascade; the files in storage do not.
-  const paths = [exam.listening_path, exam.reading_path, ...Object.values(exam.listening_audio || {})].filter(Boolean) as string[];
+  const paths = [exam.listening_path, exam.reading_path, exam.reading_answer_path, ...Object.values(exam.listening_audio || {})].filter(Boolean) as string[];
   if (paths.length) {
     const { error: storageError } = await getSupabaseAdmin().storage.from(mockExamBucket).remove(paths);
     if (storageError) console.error("mock-exams: leftover files", storageError.message);
@@ -128,7 +134,31 @@ export async function DELETE(request: Request) {
 }
 
 /** Supabase returns embedded rows as arrays; the page wants one or none. */
-function flatten(row: Record<string, unknown>) {
+function flatten(row: Record<string, unknown>): Record<string, unknown> {
   const one = (value: unknown) => (Array.isArray(value) ? value[0] || null : value || null);
   return { ...row, writing_assignment: one(row.writing_assignment), result: one(row.result) };
+}
+
+/** The student's essay for the linked homework, and whether it has been marked. */
+async function attachWriting(supabase: SupabaseClient, exam: Record<string, unknown>) {
+  const assignmentId = exam.writing_assignment_id as string | null;
+  if (!assignmentId) return;
+  const { data: submission } = await supabase
+    .from("submissions")
+    .select("id, submission_status, writing_responses(task_label, response_text), feedback(overall_score, overall_comment, published_at)")
+    .eq("assignment_id", assignmentId)
+    .ilike("student_name", exam.student_name as string)
+    .order("submitted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!submission) return;
+  const feedback = Array.isArray(submission.feedback) ? submission.feedback[0] : submission.feedback;
+  exam.writing = {
+    submission_id: submission.id,
+    status: submission.submission_status,
+    marked: Boolean(feedback?.published_at),
+    score: feedback?.published_at ? feedback.overall_score : null,
+    comment: feedback?.published_at ? feedback.overall_comment || "" : "",
+    responses: submission.writing_responses || []
+  };
 }

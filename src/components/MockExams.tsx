@@ -156,6 +156,7 @@ function MockExamCard({
   const [error, setError] = useState("");
   const listeningPicker = useRef<HTMLInputElement | null>(null);
   const readingPicker = useRef<HTMLInputElement | null>(null);
+  const answerPicker = useRef<HTMLInputElement | null>(null);
 
   const ready = [
     Boolean(exam.speaking_url),
@@ -165,6 +166,7 @@ function MockExamCard({
   ];
   const readyCount = ready.filter(Boolean).length;
   const published = exam.is_active;
+  const done = Boolean(exam.completed_at);
 
   async function patch(fields: Record<string, unknown>, label: string) {
     setSaving(label);
@@ -185,7 +187,7 @@ function MockExamCard({
     }
   }
 
-  async function upload(kind: "listening" | "reading", file: File) {
+  async function upload(kind: "listening" | "reading" | "readingAnswer", file: File) {
     setSaving(kind);
     setError("");
     setUploadNote("");
@@ -212,6 +214,7 @@ function MockExamCard({
       setSaving("");
       if (listeningPicker.current) listeningPicker.current.value = "";
       if (readingPicker.current) readingPicker.current.value = "";
+      if (answerPicker.current) answerPicker.current.value = "";
     }
   }
 
@@ -222,7 +225,9 @@ function MockExamCard({
           <strong>{exam.student_name}</strong>
           <small>{exam.title}</small>
         </div>
-        <span className={`pill ${published ? "ok" : ""}`}>{published ? t("已发布", "Published") : t("未发布", "Draft")}</span>
+        <span className={`pill ${done ? "ok" : published ? "" : ""}`}>
+          {done ? t("已完成模考", "Exam finished") : published ? t("已发布", "Published") : t("未发布", "Draft")}
+        </span>
         <span className={`pill ${readyCount === 4 ? "ok" : "warn"}`}>{t(`${readyCount}/4 部分已就绪`, `${readyCount}/4 ready`)}</span>
         {exam.result ? (
           <span className="pill ok">{t(`听力 ${exam.result.correct}/${exam.result.total}`, `Listening ${exam.result.correct}/${exam.result.total}`)}</span>
@@ -297,9 +302,22 @@ function MockExamCard({
               )}
             </div>
             <input ref={readingPicker} className="student-file-input" type="file" accept="application/pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("reading", file); }} />
+            <div className="overview-hours-row">
+              <button className="btn ghost" type="button" disabled={saving === "readingAnswer"} onClick={() => answerPicker.current?.click()}>
+                {saving === "readingAnswer" ? t("上传中...", "Uploading...") : exam.reading_answer_path ? t("重新上传答案", "Replace answers") : t("上传阅读答案 PDF", "Upload the answer key")}
+              </button>
+              {exam.reading_answer_name && <small>{exam.reading_answer_name}</small>}
+              {exam.reading_answer_path && (
+                <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
+                  {t("预览", "Preview")}
+                </a>
+              )}
+            </div>
+            <input ref={answerPicker} className="student-file-input" type="file" accept="application/pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("readingAnswer", file); }} />
+            <p className="hint">{t("答案在学生点「模考完成」之后才会解锁，之前看不到。", "The key unlocks only after the student finishes; they cannot see it before.")}</p>
           </div>
 
-          {exam.result && <MockExamResultView result={exam.result} />}
+          {done && <MockExamReview exam={exam} />}
 
           {error && <p className="error">{error}</p>}
 
@@ -337,6 +355,89 @@ function MockExamCard({
       )}
     </div>
   );
+}
+
+/**
+ * What the teacher looks at once the student has finished: the essay, the
+ * listening with a way back into the paper as the student left it, and the
+ * answer key that went with the reading.
+ */
+function MockExamReview({ exam }: { exam: MockExam }) {
+  const { t } = useLanguage();
+  return (
+    <div className="mock-review">
+      <div className="section-head compact">
+        <strong>{t("模考结果", "Exam results")}</strong>
+        <span className="hint">{t(`学生于 ${formatWhen(exam.completed_at)} 交卷`, `Handed in ${formatWhen(exam.completed_at)}`)}</span>
+      </div>
+
+      <div className="mock-review-part">
+        <span className="student-card-label">{t("写作", "Writing")}</span>
+        {exam.writing ? (
+          <>
+            <div className="overview-hours-row">
+              <span className={`pill ${exam.writing.marked ? "ok" : "warn"}`}>
+                {exam.writing.marked ? t(`已批改 ${exam.writing.score ?? ""}`, `Marked ${exam.writing.score ?? ""}`) : t("已提交，待批改", "Submitted, to mark")}
+              </span>
+              {exam.writing_assignment_id && (
+                <a className="btn ghost" href={`/s/${exam.writing_assignment_id}?submissionId=${exam.writing.submission_id}`} target="_blank" rel="noreferrer">
+                  {t("打开作文", "Open the essay")}
+                </a>
+              )}
+            </div>
+            {(exam.writing.responses || []).map((response) => (
+              <div className="mock-essay" key={response.task_label}>
+                <strong>{response.task_label}</strong>
+                <p>{response.response_text}</p>
+              </div>
+            ))}
+          </>
+        ) : (
+          <em>{t("学生还没有提交这篇作文。", "No essay handed in for this.")}</em>
+        )}
+      </div>
+
+      <div className="mock-review-part">
+        <span className="student-card-label">{t("听力", "Listening")}</span>
+        {exam.result ? (
+          <>
+            <div className="overview-hours-row">
+              <span className="mock-result-score">
+                {exam.result.correct}/{exam.result.total}
+              </span>
+              <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&review=1`} target="_blank" rel="noreferrer">
+                {t("查看学生作答的试卷", "Open the paper as they left it")}
+              </a>
+              <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}`} target="_blank" rel="noreferrer">
+                {t("原题", "Blank paper")}
+              </a>
+            </div>
+            <MockExamResultView result={exam.result} />
+          </>
+        ) : (
+          <em>{t("学生没有提交听力成绩。", "No listening score was handed in.")}</em>
+        )}
+      </div>
+
+      <div className="mock-review-part">
+        <span className="student-card-label">{t("阅读答案", "Reading answers")}</span>
+        {exam.reading_answer_path ? (
+          <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
+            {exam.reading_answer_name || t("打开答案 PDF", "Open the answer key")}
+          </a>
+        ) : (
+          <em>{t("还没有上传阅读答案，学生那边也看不到。", "No answer key uploaded, so the student cannot see one either.")}</em>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatWhen(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 /** The listening result: the counts, then every answer behind them. */

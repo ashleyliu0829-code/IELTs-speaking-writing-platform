@@ -11,6 +11,17 @@ import { requireStudent } from "@/lib/auth";
  * always sees the latest attempt rather than a pile.
  */
 
+/**
+ * Marking the whole sitting done. Only the student can know: the platform
+ * sees the listening and nothing else, and this is also what turns their
+ * page from a paper into a results page.
+ */
+const completeSchema = z.object({
+  examId: z.string().uuid(),
+  action: z.literal("complete"),
+  completed: z.boolean().default(true)
+});
+
 const resultSchema = z.object({
   examId: z.string().uuid(),
   correct: z.number().int().min(0).max(200),
@@ -41,7 +52,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("mock_exams")
     .select(
-      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, scheduled_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(correct, total, submitted_at)"
+      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(correct, total, detail, submitted_at)"
     )
     .eq("student_account_id", account.id)
     .eq("is_active", true)
@@ -49,9 +60,39 @@ export async function GET() {
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   const one = (value: unknown) => (Array.isArray(value) ? value[0] || null : value || null);
-  return Response.json({
-    exams: (data || []).map((row) => ({ ...row, writing_assignment: one(row.writing_assignment), result: one(row.result) }))
-  });
+  const exams: Record<string, unknown>[] = (data || []).map((row) => ({
+    ...row,
+    writing_assignment: one(row.writing_assignment),
+    result: one(row.result)
+  }));
+
+  // Their own essay for the linked homework, so the results page can say
+  // whether it has been marked without sending them off to look.
+  await Promise.all(
+    exams.map(async (exam) => {
+      const assignmentId = exam.writing_assignment_id as string | null;
+      if (!assignmentId) return;
+      const { data: submission } = await supabase
+        .from("submissions")
+        .select("id, submission_status, feedback(overall_score, overall_comment, published_at)")
+        .eq("assignment_id", assignmentId)
+        .ilike("student_name", account.display_name)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!submission) return;
+      const feedback = Array.isArray(submission.feedback) ? submission.feedback[0] : submission.feedback;
+      exam.writing = {
+        submission_id: submission.id,
+        status: submission.submission_status,
+        marked: Boolean(feedback?.published_at),
+        score: feedback?.published_at ? feedback.overall_score : null,
+        comment: feedback?.published_at ? feedback.overall_comment || "" : ""
+      };
+    })
+  );
+
+  return Response.json({ exams });
 }
 
 export async function POST(request: Request) {
@@ -59,18 +100,33 @@ export async function POST(request: Request) {
   if (auth instanceof Response) return auth;
   const { account, supabase } = auth;
 
-  const parsed = resultSchema.safeParse(await request.json().catch(() => ({})));
-  if (!parsed.success) return Response.json({ error: "成绩内容不完整。" }, { status: 400 });
+  const payload = await request.json().catch(() => ({}));
 
   // RLS lets a student reach only their own sitting; the teacher id comes
-  // from the row rather than the request so the result cannot be misfiled.
+  // from the row rather than the request so nothing can be misfiled.
+  const examId = typeof payload?.examId === "string" ? payload.examId : "";
   const { data: exam } = await supabase
     .from("mock_exams")
     .select("id, teacher_id")
-    .eq("id", parsed.data.examId)
+    .eq("id", examId)
     .eq("student_account_id", account.id)
     .maybeSingle();
   if (!exam) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
+
+  const complete = completeSchema.safeParse(payload);
+  if (complete.success) {
+    const { data, error } = await supabase
+      .from("mock_exams")
+      .update({ completed_at: complete.data.completed ? new Date().toISOString() : null })
+      .eq("id", exam.id)
+      .select("completed_at")
+      .single();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ completedAt: data.completed_at });
+  }
+
+  const parsed = resultSchema.safeParse(payload);
+  if (!parsed.success) return Response.json({ error: "成绩内容不完整。" }, { status: 400 });
 
   const { data, error } = await supabase
     .from("mock_exam_results")
