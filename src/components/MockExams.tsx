@@ -164,6 +164,7 @@ function MockExamCard({
     Boolean(exam.reading_path)
   ];
   const readyCount = ready.filter(Boolean).length;
+  const published = exam.is_active;
 
   async function patch(fields: Record<string, unknown>, label: string) {
     setSaving(label);
@@ -221,6 +222,7 @@ function MockExamCard({
           <strong>{exam.student_name}</strong>
           <small>{exam.title}</small>
         </div>
+        <span className={`pill ${published ? "ok" : ""}`}>{published ? t("已发布", "Published") : t("未发布", "Draft")}</span>
         <span className={`pill ${readyCount === 4 ? "ok" : "warn"}`}>{t(`${readyCount}/4 部分已就绪`, `${readyCount}/4 ready`)}</span>
         {exam.result ? (
           <span className="pill ok">{t(`听力 ${exam.result.correct}/${exam.result.total}`, `Listening ${exam.result.correct}/${exam.result.total}`)}</span>
@@ -300,6 +302,32 @@ function MockExamCard({
           {exam.result && <MockExamResultView result={exam.result} />}
 
           {error && <p className="error">{error}</p>}
+
+          <div className="mock-publish">
+            <div>
+              <strong>{published ? t("学生已经可以看到这场模考", "Your student can see this sitting") : t("学生还看不到这场模考", "Your student cannot see this yet")}</strong>
+              <span className="hint">
+                {published
+                  ? t("取消发布后学生立刻看不到，已交的听力成绩会保留。", "Unpublish and it disappears from their side at once; a listening score already in stays.")
+                  : readyCount
+                    ? t("发布后学生端会出现这场模考，准备好的部分都能点开。", "Publishing puts it on their side, with whatever parts are ready.")
+                    : t("四个部分至少填一个再发布。", "Fill in at least one part before publishing.")}
+              </span>
+            </div>
+            <button
+              className={published ? "btn secondary" : "btn"}
+              type="button"
+              disabled={saving === "publish" || (!published && !readyCount)}
+              onClick={() => void patch({ isActive: !published }, "publish")}
+            >
+              {saving === "publish"
+                ? t("处理中...", "Working...")
+                : published
+                  ? t("取消发布", "Unpublish")
+                  : t("发布给学生", "Publish")}
+            </button>
+          </div>
+
           <div className="student-card-actions">
             <button className="btn link" type="button" onClick={onRemove}>
               {t("删除这场模考", "Delete this sitting")}

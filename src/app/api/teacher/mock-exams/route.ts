@@ -68,7 +68,9 @@ export async function POST(request: Request) {
       teacher_id: teacher.id,
       title: parsed.data.title || `模考 · ${parsed.data.studentName}`,
       student_name: parsed.data.studentName,
-      student_account_id: profile?.account_id || null
+      student_account_id: profile?.account_id || null,
+      // Unpublished until the teacher presses publish.
+      is_active: false
     })
     .select(columns)
     .single();
