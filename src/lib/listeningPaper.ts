@@ -72,7 +72,11 @@ window.__audioBlob = function(id){ return window.__AUDIO[id] || ""; };
 const reporter = `<script>
 (function () {
   var post = function (payload) {
-    try { parent.postMessage(Object.assign({ type: "graderley:listening" }, payload), "*"); } catch (e) {}
+    var message = Object.assign({ type: "graderley:listening" }, payload);
+    // Embedded in a page, the listener is the parent; opened in its own tab
+    // it is the opener. Posting to both costs nothing and covers either.
+    try { if (parent && parent !== window) parent.postMessage(message, "*"); } catch (e) {}
+    try { if (window.opener) window.opener.postMessage(message, "*"); } catch (e) {}
   };
 
   var collect = function () {

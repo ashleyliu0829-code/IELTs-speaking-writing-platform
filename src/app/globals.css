@@ -6112,3 +6112,25 @@ PLACEHOLDER
 .mock-publish strong {
   font-size: 13.5px;
 }
+
+/* After a timed paper closes: a banner instead of a blocking dialog, so the
+   student can read back what they wrote. */
+.exam-closed-note {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 11px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.exam-closed-note strong {
+  font-size: 13.5px;
+}
+
+.exam-closed-note span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}

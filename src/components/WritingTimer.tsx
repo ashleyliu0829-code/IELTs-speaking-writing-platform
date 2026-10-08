@@ -37,6 +37,7 @@ export function WritingTimer({
 }) {
   const { t } = useLanguage();
   const [remaining, setRemaining] = useState(() => secondsLeft(timer));
+  const [dismissed, setDismissed] = useState(false);
   const fired = useRef(false);
 
   useEffect(() => {
@@ -78,6 +79,16 @@ export function WritingTimer({
   }
 
   if (remaining <= 0 || timer.expired) {
+    // Dismissed, the page is readable but not writable — the save and submit
+    // buttons are already refused by the server past the deadline.
+    if (dismissed) {
+      return (
+        <div className="exam-closed-note">
+          <strong>{t("本场计时已结束", "This timed paper is closed")}</strong>
+          <span>{t("作文已自动提交，下面是你写的内容，不能再修改。", "Your paper was submitted automatically. What you wrote is below and can no longer be edited.")}</span>
+        </div>
+      );
+    }
     return (
       <div className="exam-overlay" role="dialog" aria-modal="true">
         <div className="exam-dialog">
@@ -85,6 +96,9 @@ export function WritingTimer({
           <p className="exam-dialog-rule">
             {t("倒计时已结束，作文已自动提交，请退出页面。", "The time is up. Your paper has been submitted automatically. You can close this page.")}
           </p>
+          <button className="btn secondary" type="button" onClick={() => setDismissed(true)}>
+            {t("查看我写的内容", "See what I wrote")}
+          </button>
         </div>
       </div>
     );

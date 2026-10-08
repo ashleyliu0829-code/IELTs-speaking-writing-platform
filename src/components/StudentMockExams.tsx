@@ -80,9 +80,20 @@ function StudentExamCard({
   onResult: (result: { correct: number; total: number; submitted_at: string }) => void;
 }) {
   const { t } = useLanguage();
-  const [part, setPart] = useState<"listening" | "reading" | "">("");
+  const [part, setPart] = useState<"reading" | "">("");
   const [saved, setSaved] = useState("");
-  const frame = useRef<HTMLIFrameElement | null>(null);
+  const paperTab = useRef<Window | null>(null);
+
+  function openListening() {
+    // Reuse the tab if it is still open, so a second click does not leave two
+    // copies of the same paper running their own audio.
+    if (paperTab.current && !paperTab.current.closed) {
+      paperTab.current.focus();
+      return;
+    }
+    paperTab.current = window.open(`/api/mock-exam/paper?examId=${exam.id}`, `mock-listening-${exam.id}`);
+    if (!paperTab.current) setSaved(tr("浏览器拦截了新标签页，请允许弹出窗口后再试。", "Your browser blocked the new tab; allow pop-ups and try again."));
+  }
 
   // The paper posts its result up when the student presses Finish.
   useEffect(() => {
@@ -157,19 +168,16 @@ function StudentExamCard({
             <span className="student-card-label">{t("3 · 听力", "3 · Listening")}</span>
             {exam.listening_path ? (
               <>
-                <button className="btn" type="button" onClick={() => setPart(part === "listening" ? "" : "listening")}>
-                  {part === "listening" ? t("收起听力", "Close listening") : t("开始听力", "Start listening")}
+                <button className="btn" type="button" onClick={openListening}>
+                  {t("开始听力（新标签页）", "Start listening (new tab)")}
                 </button>
-                <p className="hint">{t("四个部分都做完后点右下角 Finish All，成绩会自动交给老师。", "Do all four parts, then press Finish All; the score goes to your teacher automatically.")}</p>
+                <p className="hint">
+                  {t(
+                    "听力会在新标签页打开，整屏做题。四个部分都做完后点右下角 Finish All，成绩会自动交给老师——交完再关掉那个标签页。",
+                    "The paper opens in its own tab so you have the whole screen. Do all four parts, press Finish All, and the score comes back here — then you can close that tab."
+                  )}
+                </p>
                 {saved && <p className="hint">{saved}</p>}
-                {part === "listening" && (
-                  <iframe
-                    ref={frame}
-                    className="mock-paper-frame"
-                    title={t("听力试卷", "Listening paper")}
-                    src={`/api/mock-exam/paper?examId=${exam.id}`}
-                  />
-                )}
               </>
             ) : (
               <em>{t("老师还没有上传听力试卷。", "No listening paper yet.")}</em>
