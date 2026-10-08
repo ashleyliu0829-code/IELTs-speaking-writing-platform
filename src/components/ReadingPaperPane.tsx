@@ -2,213 +2,307 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
-import type { Mark } from "@/components/ReadingExam";
+import type { Stroke } from "@/components/ReadingExam";
 
 /**
- * The paper itself, drawn page by page with a real text layer over it.
+ * One view of the paper, with a sheet of glass over it to draw on.
  *
- * The browser's own PDF viewer would be less work, but it is a sealed box:
- * nothing can be drawn on it and nothing can be read out of it. Rendering the
- * pages here means the words are selectable, so a student can highlight them
- * the way they would in the real test, and a highlight can be put back on the
- * page afterwards — the rectangles are stored as fractions of the page, so
- * they land on the same words whatever the window is doing.
+ * Two of these sit side by side showing the same document, scrolled wherever
+ * each is wanted — the passage held still on one side while the questions
+ * move on the other, which is how the test is actually read. They share one
+ * loaded document, so the file is fetched and parsed once however many views
+ * there are.
+ *
+ * The pages are drawn here rather than handed to the browser's own viewer,
+ * which is a sealed box: a layer floated over it would stay where it was put
+ * while the paper scrolled underneath. Owning the pages is what lets a line
+ * drawn across a sentence stay across that sentence.
+ *
+ * Only the pages near the view are held as pixels. A page of this paper is
+ * some megabytes of canvas, and two panes keeping all thirteen was most of a
+ * gigabyte between them — a tab that stops rather than a paper that scrolls.
+ * Pages outside the view go back to an empty frame of the right size and are
+ * drawn again on the way back.
  */
+
+type PageSize = { width: number; height: number };
+
+/** Enough either side of the view that scrolling rarely outruns the drawing. */
+const keepNear = 2;
+
+/** Retina canvases of a whole page cost more than they are worth here. */
+const maxRatio = 1.5;
+
 export function PaperPane({
-  src,
-  marks,
-  onAdd,
-  onOpenNote
+  pdf,
+  sizes,
+  label,
+  pen,
+  color,
+  strokes,
+  onDraw
 }: {
-  src: string;
-  marks: Mark[];
-  onAdd: (mark: Mark) => void;
-  onOpenNote: (mark: Mark) => void;
+  pdf: PdfDocument | null;
+  sizes: PageSize[];
+  label: string;
+  pen: boolean;
+  color: string;
+  strokes: Stroke[];
+  onDraw: (stroke: Stroke) => void;
 }) {
   const { t } = useLanguage();
-  const holder = useRef<HTMLDivElement | null>(null);
-  const [pages, setPages] = useState(0);
-  const [status, setStatus] = useState("");
-  const [zoom, setZoom] = useState(1.25);
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const [zoom, setZoom] = useState(1.1);
+  const [centre, setCentre] = useState(1);
+  const [painted, setPainted] = useState(0);
+  const slots = useRef(new Map<number, HTMLDivElement>());
+  const inks = useRef(new Map<number, HTMLCanvasElement>());
+  const held = useRef(new Set<number>());
 
-  // PDF.js draws a page in chunks scheduled on animation frames, and a
-  // browser gives none of those to a tab that is not on screen. The exam
-  // opens in its own tab, so it is often exactly that tab: rendering stopped
-  // on the first page and stayed there, which looked like a paper missing
-  // most of itself. Standing in for the scheduler while the tab is hidden is
-  // the only way through — the frames are never coming.
+  // Which page is in the middle of the view, which decides what is worth
+  // holding as pixels.
   useEffect(() => {
-    const nativeRequest = window.requestAnimationFrame.bind(window);
-    const nativeCancel = window.cancelAnimationFrame.bind(window);
-    const standIns = new Set<number>();
-
-    window.requestAnimationFrame = (callback: FrameRequestCallback) => {
-      if (document.visibilityState !== "hidden") return nativeRequest(callback);
-      const id = window.setTimeout(() => {
-        standIns.delete(id);
-        callback(performance.now());
-      }, 16);
-      standIns.add(id);
-      return id;
+    const root = scroller.current;
+    if (!root || !sizes.length) return;
+    const look = () => {
+      const middle = root.scrollTop + root.clientHeight / 2;
+      let edge = 0;
+      let page = sizes.length;
+      for (let index = 0; index < sizes.length; index += 1) {
+        edge += sizes[index].height * zoom + 16;
+        if (middle <= edge) {
+          page = index + 1;
+          break;
+        }
+      }
+      setCentre(page);
     };
-    window.cancelAnimationFrame = (id: number) => {
-      if (standIns.delete(id)) window.clearTimeout(id);
-      else nativeCancel(id);
-    };
+    look();
+    root.addEventListener("scroll", look, { passive: true });
+    return () => root.removeEventListener("scroll", look);
+  }, [sizes, zoom]);
 
-    return () => {
-      window.requestAnimationFrame = nativeRequest;
-      window.cancelAnimationFrame = nativeCancel;
-      standIns.forEach((id) => window.clearTimeout(id));
-    };
-  }, []);
-
+  // Everything held goes back to an empty frame when the scale changes.
   useEffect(() => {
+    held.current.forEach((page) => {
+      const slot = slots.current.get(page);
+      if (slot) slot.replaceChildren(placeholder(page));
+    });
+    held.current.clear();
+    inks.current.clear();
+  }, [zoom]);
+
+  // Draw what is near, free what is not.
+  useEffect(() => {
+    if (!pdf || !sizes.length) return;
     let cancelled = false;
-    let doc: { destroy: () => void } | null = null;
+
+    const wanted = new Set<number>();
+    for (let page = centre - keepNear; page <= centre + keepNear; page += 1) {
+      if (page >= 1 && page <= sizes.length) wanted.add(page);
+    }
+
+    [...held.current].forEach((page) => {
+      if (wanted.has(page)) return;
+      const slot = slots.current.get(page);
+      if (slot) slot.replaceChildren(placeholder(page));
+      inks.current.delete(page);
+      held.current.delete(page);
+    });
 
     void (async () => {
-      try {
-        setStatus("loading");
-        const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const task = pdfjs.getDocument({ url: src });
-        const pdf = await task.promise;
-        if (cancelled) {
-          void pdf.destroy();
-          return;
-        }
-        doc = pdf;
-        setPages(pdf.numPages);
-
-        const root = holder.current;
-        if (!root) return;
-        root.replaceChildren();
-
-        for (let number = 1; number <= pdf.numPages; number += 1) {
+      const order = [...wanted].sort((a, b) => Math.abs(a - centre) - Math.abs(b - centre));
+      for (const number of order) {
+        if (cancelled) return;
+        if (held.current.has(number)) continue;
+        const slot = slots.current.get(number);
+        if (!slot) continue;
+        // Claimed before the first await, so a second pass cannot start the
+        // same page again — and a page that fails is not retried for ever.
+        held.current.add(number);
+        try {
           const page = await pdf.getPage(number);
           if (cancelled) return;
           const viewport = page.getViewport({ scale: zoom });
-
-          const wrap = document.createElement("div");
-          wrap.className = "pdf-page";
-          wrap.dataset.page = String(number);
-          wrap.style.width = `${viewport.width}px`;
-          wrap.style.height = `${viewport.height}px`;
+          const ratio = Math.min(window.devicePixelRatio || 1, maxRatio);
 
           const canvas = document.createElement("canvas");
-          const ratio = window.devicePixelRatio || 1;
           canvas.width = Math.floor(viewport.width * ratio);
           canvas.height = Math.floor(viewport.height * ratio);
           canvas.style.width = `${viewport.width}px`;
           canvas.style.height = `${viewport.height}px`;
-          wrap.appendChild(canvas);
-
-          const layer = document.createElement("div");
-          layer.className = "pdf-text";
-          layer.style.width = `${viewport.width}px`;
-          layer.style.height = `${viewport.height}px`;
-          wrap.appendChild(layer);
-
-          const overlay = document.createElement("div");
-          overlay.className = "pdf-marks";
-          wrap.appendChild(overlay);
-
-          root.appendChild(wrap);
-
           const context = canvas.getContext("2d");
           if (!context) continue;
           context.scale(ratio, ratio);
-          const task = page.render({ canvas, canvasContext: context, viewport });
-          // Rendering is scheduled on animation frames, which a hidden tab
-          // does not get: a paper opened and then left in the background
-          // stops where it is and carries on when the student looks back.
-          await task.promise;
+          await inTurn(number, () => page.render({ canvas, canvasContext: context, viewport }).promise);
           if (cancelled) return;
 
-          const text = await page.getTextContent();
-          const textLayer = new pdfjs.TextLayer({ textContentSource: text, container: layer, viewport });
-          await textLayer.render();
+          const ink = document.createElement("canvas");
+          ink.className = "pdf-ink";
+          ink.width = canvas.width;
+          ink.height = canvas.height;
+          ink.style.width = `${viewport.width}px`;
+          ink.style.height = `${viewport.height}px`;
+
+          slot.replaceChildren(canvas, ink);
+          inks.current.set(number, ink);
+          setPainted((n) => n + 1);
+        } catch {
+          held.current.delete(number);
         }
-        if (!cancelled) setStatus("");
-      } catch (problem) {
-        if (!cancelled) setStatus(problem instanceof Error ? problem.message : "failed");
       }
     })();
 
     return () => {
       cancelled = true;
-      doc?.destroy();
     };
-  }, [src, zoom]);
+  }, [pdf, sizes, centre, zoom]);
 
-  // Highlights are painted after every render and whenever they change, so a
-  // zoom or a reload puts them back over the same words.
+  // The ink is repainted whenever it changes or a page is drawn again.
   useEffect(() => {
-    const root = holder.current;
-    if (!root) return;
-    root.querySelectorAll<HTMLDivElement>(".pdf-marks").forEach((overlay) => {
-      const page = Number((overlay.parentElement as HTMLElement)?.dataset.page || 0);
-      const width = overlay.parentElement?.clientWidth || 0;
-      const height = overlay.parentElement?.clientHeight || 0;
-      overlay.replaceChildren();
-      marks
-        .filter((mark) => mark.page === page)
-        .forEach((mark) => {
-          mark.rects.forEach((rect, index) => {
-            const box = document.createElement("button");
-            box.type = "button";
-            box.className = `pdf-mark ${mark.note ? "has-note" : ""}`;
-            box.style.left = `${rect.x * width}px`;
-            box.style.top = `${rect.y * height}px`;
-            box.style.width = `${rect.w * width}px`;
-            box.style.height = `${rect.h * height}px`;
-            box.title = mark.note || "";
-            if (index === 0 && mark.note) box.dataset.note = "1";
-            box.addEventListener("click", () => onOpenNote(mark));
-            overlay.appendChild(box);
-          });
-        });
-    });
-  }, [marks, pages, zoom, status, onOpenNote]);
+    inks.current.forEach((ink, page) => paint(ink, strokes.filter((stroke) => stroke.page === page)));
+  }, [strokes, painted]);
 
-  function highlight() {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) return;
-    const range = selection.getRangeAt(0);
-    const page = (range.startContainer.parentElement as HTMLElement)?.closest(".pdf-page") as HTMLElement | null;
-    if (!page) return;
-    const bounds = page.getBoundingClientRect();
-    const rects = [...range.getClientRects()]
-      .filter((rect) => rect.width > 1 && rect.height > 1)
-      .map((rect) => ({
-        x: (rect.left - bounds.left) / bounds.width,
-        y: (rect.top - bounds.top) / bounds.height,
-        w: rect.width / bounds.width,
-        h: rect.height / bounds.height
-      }));
-    if (!rects.length) return;
-    onAdd({ id: Math.random().toString(36).slice(2, 10), page: Number(page.dataset.page || 1), rects });
-    selection.removeAllRanges();
+  function draw(event: React.PointerEvent) {
+    if (!pen) return;
+    const slot = (event.target as HTMLElement).closest(".pdf-page") as HTMLElement | null;
+    const number = Number(slot?.dataset.page || 0);
+    const ink = inks.current.get(number);
+    if (!slot || !ink) return;
+    event.preventDefault();
+    const bounds = slot.getBoundingClientRect();
+    const points: [number, number][] = [];
+    const already = strokes.filter((stroke) => stroke.page === number);
+    const add = (clientX: number, clientY: number) => {
+      points.push([(clientX - bounds.left) / bounds.width, (clientY - bounds.top) / bounds.height]);
+      paint(ink, [...already, { id: "live", page: number, color, points }]);
+    };
+    add(event.clientX, event.clientY);
+
+    const move = (e: PointerEvent) => add(e.clientX, e.clientY);
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (points.length > 1) onDraw({ id: Math.random().toString(36).slice(2, 10), page: number, color, points });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   }
 
   return (
     <section className="exam-paper">
       <div className="exam-paper-tools">
-        <button className="btn ghost" type="button" onClick={highlight}>
-          {t("高亮选中的文字", "Highlight the selection")}
-        </button>
-        <button className="btn ghost" type="button" onClick={() => setZoom((z) => Math.max(0.6, Number((z - 0.15).toFixed(2))))}>
+        <strong className="exam-paper-label">
+          {label}
+          {sizes.length ? ` · ${centre}/${sizes.length}` : ""}
+        </strong>
+        <button className="btn ghost" type="button" onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.15).toFixed(2))))}>
           −
         </button>
         <span className="hint">{Math.round(zoom * 100)}%</span>
         <button className="btn ghost" type="button" onClick={() => setZoom((z) => Math.min(2.5, Number((z + 0.15).toFixed(2))))}>
           +
         </button>
-        {status === "loading" && <span className="hint">{t("试卷加载中...", "Loading the paper...")}</span>}
-        {status && status !== "loading" && <span className="error">{status}</span>}
+        {!pdf && <span className="hint">{t("加载中...", "Loading...")}</span>}
       </div>
-      <div className="exam-paper-scroll" ref={holder} onMouseUp={highlight} />
+      <div className={`exam-paper-scroll ${pen ? "penning" : ""}`} ref={scroller} onPointerDown={draw}>
+        {sizes.map((size, index) => {
+          const number = index + 1;
+          return (
+            <div
+              key={number}
+              className="pdf-page"
+              data-page={number}
+              style={{ width: size.width * zoom, height: size.height * zoom }}
+              ref={(node) => {
+                // React hands the callback a null and then the node again on
+                // every render, because its identity changes each time. The
+                // null pass must therefore not throw anything away: it used
+                // to clear the ink layers, so the pen found nothing to draw
+                // on. Stale entries go when the component does.
+                if (node) slots.current.set(number, node);
+              }}
+            />
+          );
+        })}
+      </div>
     </section>
   );
 }
+
+/** What a page shows before it is drawn, and again once it is freed. */
+function placeholder(page: number) {
+  const mark = document.createElement("span");
+  mark.className = "pdf-page-waiting";
+  mark.textContent = String(page);
+  return mark;
+}
+
+/**
+ * Both views share one document, and PDF.js lets a page be drawn in only one
+ * place at a time — ask twice at once and it cancels the first, which left
+ * both panes blank. Renders of the same page therefore queue.
+ */
+const turns = new Map<number, Promise<unknown>>();
+
+function inTurn<T>(page: number, job: () => Promise<T>): Promise<T> {
+  const queue = (turns.get(page) || Promise.resolve()).catch(() => undefined);
+  const mine = queue.then(job);
+  turns.set(page, mine.catch(() => undefined));
+  return mine;
+}
+
+/** Repaints one page's ink from scratch; strokes are fractions of the page. */
+function paint(ink: HTMLCanvasElement, strokes: Stroke[]) {
+  const context = ink.getContext("2d");
+  if (!context) return;
+  const ratio = Math.min(window.devicePixelRatio || 1, maxRatio);
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, ink.width, ink.height);
+  context.scale(ratio, ratio);
+  const width = ink.width / ratio;
+  const height = ink.height / ratio;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  strokes.forEach((stroke) => {
+    if (stroke.points.length < 2) return;
+    context.strokeStyle = stroke.color || "#d64a2f";
+    context.lineWidth = stroke.width || 2.4;
+    context.beginPath();
+    stroke.points.forEach(([x, y], index) => {
+      const px = x * width;
+      const py = y * height;
+      if (index === 0) context.moveTo(px, py);
+      else context.lineTo(px, py);
+    });
+    context.stroke();
+  });
+}
+
+/** The bits of PDF.js this file uses, without pulling its types in. */
+type PdfDocument = {
+  numPages: number;
+  getPage: (number: number) => Promise<{
+    getViewport: (options: { scale: number }) => { width: number; height: number };
+    render: (options: Record<string, unknown>) => { promise: Promise<void> };
+  }>;
+  destroy: () => void;
+};
+
+type Pdfjs = {
+  getDocument: (options: { url: string }) => { promise: Promise<PdfDocument> };
+  GlobalWorkerOptions: { workerSrc: string };
+};
+
+let pdfjsOnce: Promise<Pdfjs> | null = null;
+
+export function loadPdfjs(): Promise<Pdfjs> {
+  pdfjsOnce ||= import("pdfjs-dist").then((module) => {
+    const pdfjs = module as unknown as Pdfjs;
+    pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    return pdfjs;
+  });
+  return pdfjsOnce;
+}
+
+export type { PdfDocument, PageSize };

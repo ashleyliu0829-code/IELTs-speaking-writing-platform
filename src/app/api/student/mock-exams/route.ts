@@ -43,19 +43,19 @@ const readingAnswersSchema = z.object({
   // Which questions they flagged to come back to, and what they highlighted.
   // Both travel with the answers so one save covers the whole paper.
   flags: z.array(z.number().int().min(1).max(60)).max(60).optional(),
+  // What they drew on the paper: one entry per stroke, its points held as
+  // fractions of the page so a line lands on the same words at any zoom.
   marks: z
     .array(
       z.object({
         id: z.string().max(40),
         page: z.number().int().min(1).max(200),
         color: z.string().max(20).optional(),
-        note: z.string().max(2000).optional(),
-        rects: z
-          .array(z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }))
-          .max(60)
+        width: z.number().min(0.1).max(20).optional(),
+        points: z.array(z.tuple([z.number(), z.number()])).max(4000)
       })
     )
-    .max(300)
+    .max(2000)
     .optional()
 });
 

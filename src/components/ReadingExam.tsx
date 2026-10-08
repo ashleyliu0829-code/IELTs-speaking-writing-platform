@@ -1,33 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnswerWindow } from "@/components/AnswerWindow";
+import { PaperPane, loadPdfjs, type PageSize, type PdfDocument } from "@/components/ReadingPaperPane";
 import { tr, useLanguage } from "@/lib/i18n";
 import { readReadingTimer } from "@/lib/readingSheet";
-import { PaperPane } from "@/components/ReadingPaperPane";
 import type { ReadingResult } from "@/lib/types";
 
 /**
- * The reading paper, sat the way the computer-based test is sat: the passage
- * on the left and the answer sheet on the right, a clock in the corner and a
- * row of question numbers along the bottom.
+ * The reading paper, sat the way the computer-based test is sat.
  *
- * The paper is a PDF, so the right-hand side is numbered boxes rather than
- * the real test's radio buttons — the platform cannot know that question 7
- * is a three-way choice when the question only exists inside the file. What
- * it can do is everything around that: the split screen, the clock that
- * cannot be restarted, highlighting, notes, flagging a question to come back
- * to, and a hand-in that marks itself.
+ * The screen is the paper twice over — one document open in two windows,
+ * each scrolled wherever it is wanted, because that is how the test is read:
+ * the passage held still on one side while the questions move on the other.
+ * The answer sheet floats over them as a small window dragged wherever it
+ * suits, and a pen lets the student scribble on the paper as they would on
+ * a printed one.
  *
- * Everything the student does is saved as they go. A reading exam that loses
- * work because a laptop closed is worse than no reading exam.
+ * Everything they type or draw is saved as they go. A reading exam that
+ * loses work because a laptop closed is worse than no reading exam.
  */
 
-type Mark = {
+export type Stroke = {
   id: string;
   page: number;
   color?: string;
-  note?: string;
-  rects: { x: number; y: number; w: number; h: number }[];
+  width?: number;
+  points: [number, number][];
 };
 
 type Exam = {
@@ -41,12 +40,13 @@ type Exam = {
   reading_started_at: string | null;
   reading_draft: string[];
   reading_flags: number[];
-  reading_marks: Mark[];
+  reading_marks: Stroke[];
   reading_result: ReadingResult | null;
   completed_at: string | null;
 };
 
 const saveEvery = 15_000;
+const inks = ["#d64a2f", "#2f7fd6", "#3f9e5a"];
 
 export function ReadingExam({ examId }: { examId: string }) {
   const { t } = useLanguage();
@@ -54,18 +54,20 @@ export function ReadingExam({ examId }: { examId: string }) {
   const [error, setError] = useState("");
   const [answers, setAnswers] = useState<string[]>([]);
   const [flags, setFlags] = useState<number[]>([]);
-  const [marks, setMarks] = useState<Mark[]>([]);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState(1);
   const [remaining, setRemaining] = useState(0);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState("");
-  const [split, setSplit] = useState(58);
-  const [noteFor, setNoteFor] = useState<Mark | null>(null);
+  const [split, setSplit] = useState(50);
+  const [pen, setPen] = useState(false);
+  const [color, setColor] = useState(inks[0]);
+  const [pdf, setPdf] = useState<PdfDocument | null>(null);
+  const [sizes, setSizes] = useState<PageSize[]>([]);
 
-  const state = useRef({ answers, flags, marks });
-  state.current = { answers, flags, marks };
+  const state = useRef({ answers, flags, strokes });
+  state.current = { answers, flags, strokes };
   const handedIn = useRef(false);
-  const boxes = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -78,26 +80,86 @@ export function ReadingExam({ examId }: { examId: string }) {
         setExam(found);
         setAnswers(Array.from({ length: found.reading_total || 0 }, (_, i) => found.reading_draft?.[i] || ""));
         setFlags(found.reading_flags || []);
-        setMarks(found.reading_marks || []);
+        setStrokes(found.reading_marks || []);
       } catch (problem) {
         setError(problem instanceof Error ? problem.message : tr("无法加载试卷。", "Could not load the paper."));
       }
     })();
   }, [examId]);
 
+  // One document for both views: fetched, parsed and measured once.
+  useEffect(() => {
+    if (!exam?.reading_path) return;
+    let cancelled = false;
+    let doc: PdfDocument | null = null;
+    void (async () => {
+      try {
+        const pdfjs = await loadPdfjs();
+        const loaded = await pdfjs.getDocument({ url: `/api/mock-exam/paper?examId=${exam.id}&part=reading&stream=1` }).promise;
+        if (cancelled) {
+          loaded.destroy();
+          return;
+        }
+        doc = loaded;
+        const measured: PageSize[] = [];
+        for (let number = 1; number <= loaded.numPages; number += 1) {
+          const page = await loaded.getPage(number);
+          const viewport = page.getViewport({ scale: 1 });
+          measured.push({ width: viewport.width, height: viewport.height });
+        }
+        if (cancelled) return;
+        setSizes(measured);
+        setPdf(loaded);
+      } catch (problem) {
+        if (!cancelled) setError(problem instanceof Error ? problem.message : tr("试卷打不开。", "The paper would not open."));
+      }
+    })();
+    return () => {
+      cancelled = true;
+      doc?.destroy();
+    };
+  }, [exam?.id, exam?.reading_path]);
+
+  // PDF.js draws in chunks scheduled on animation frames, and a browser gives
+  // none of those to a tab that is not on screen — the exam opens in its own
+  // tab, so it is often exactly that tab. Standing in for the scheduler while
+  // it is hidden is the only way through; the frames are never coming.
+  useEffect(() => {
+    const nativeRequest = window.requestAnimationFrame.bind(window);
+    const nativeCancel = window.cancelAnimationFrame.bind(window);
+    const standIns = new Set<number>();
+    window.requestAnimationFrame = (callback: FrameRequestCallback) => {
+      if (document.visibilityState !== "hidden") return nativeRequest(callback);
+      const id = window.setTimeout(() => {
+        standIns.delete(id);
+        callback(performance.now());
+      }, 16);
+      standIns.add(id);
+      return id;
+    };
+    window.cancelAnimationFrame = (id: number) => {
+      if (standIns.delete(id)) window.clearTimeout(id);
+      else nativeCancel(id);
+    };
+    return () => {
+      window.requestAnimationFrame = nativeRequest;
+      window.cancelAnimationFrame = nativeCancel;
+      standIns.forEach((id) => window.clearTimeout(id));
+    };
+  }, []);
+
   const save = useCallback(
     async (action: "reading-save" | "reading-submit") => {
-      const body = {
-        examId,
-        action,
-        answers: state.current.answers,
-        flags: state.current.flags,
-        marks: state.current.marks
-      };
       const response = await fetch("/api/student/mock-exams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+          examId,
+          action,
+          answers: state.current.answers,
+          flags: state.current.flags,
+          marks: state.current.strokes
+        })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
@@ -113,7 +175,7 @@ export function ReadingExam({ examId }: { examId: string }) {
       setBusy("submit");
       try {
         const data = await save("reading-submit");
-        setExam((current) => (current ? { ...current, reading_result: data.result } : current));
+        setExam((item) => (item ? { ...item, reading_result: data.result } : item));
         setNote(auto ? tr("时间到，答案已自动提交。", "Time is up; your sheet was handed in.") : "");
       } catch (problem) {
         handedIn.current = false;
@@ -125,7 +187,6 @@ export function ReadingExam({ examId }: { examId: string }) {
     [save]
   );
 
-  // The clock, worked out from the moment the server stored.
   useEffect(() => {
     if (!exam || exam.reading_result) return;
     const tick = () => {
@@ -138,7 +199,6 @@ export function ReadingExam({ examId }: { examId: string }) {
     return () => window.clearInterval(loop);
   }, [exam, hand]);
 
-  // Saved as they go: answers, flags and highlights together.
   useEffect(() => {
     if (!exam || exam.reading_result) return;
     const loop = window.setInterval(() => {
@@ -147,27 +207,22 @@ export function ReadingExam({ examId }: { examId: string }) {
     return () => window.clearInterval(loop);
   }, [exam, save]);
 
-  // Leaving mid-exam saves rather than losing the last few answers.
+  // Closing the tab saves rather than losing the last few answers.
   useEffect(() => {
     const onHide = () => {
       if (!exam || exam.reading_result) return;
-      const body = JSON.stringify({ examId, action: "reading-save", answers: state.current.answers, flags: state.current.flags, marks: state.current.marks });
+      const body = JSON.stringify({
+        examId,
+        action: "reading-save",
+        answers: state.current.answers,
+        flags: state.current.flags,
+        marks: state.current.strokes
+      });
       navigator.sendBeacon?.("/api/student/mock-exams", new Blob([body], { type: "application/json" }));
     };
     window.addEventListener("pagehide", onHide);
     return () => window.removeEventListener("pagehide", onHide);
   }, [exam, examId]);
-
-  function go(number: number) {
-    setCurrent(number);
-    const box = boxes.current[number - 1];
-    box?.focus();
-    box?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }
-
-  function toggleFlag(number: number) {
-    setFlags((list) => (list.includes(number) ? list.filter((n) => n !== number) : [...list, number]));
-  }
 
   if (error) return <div className="exam-shell-message">{error}</div>;
   if (!exam) return <div className="exam-shell-message">{t("加载中...", "Loading...")}</div>;
@@ -197,25 +252,45 @@ export function ReadingExam({ examId }: { examId: string }) {
           <strong>{exam.student_name}</strong>
           <small>{exam.title}</small>
         </div>
+
+        <div className="exam-pen">
+          <button className={`btn ghost ${pen ? "on" : ""}`} type="button" onClick={() => setPen((on) => !on)}>
+            {pen ? t("画笔：开", "Pen: on") : t("画笔：关", "Pen: off")}
+          </button>
+          {pen && (
+            <>
+              {inks.map((ink) => (
+                <button
+                  key={ink}
+                  type="button"
+                  className={`exam-ink ${color === ink ? "on" : ""}`}
+                  style={{ background: ink }}
+                  title={t("换颜色", "Change colour")}
+                  onClick={() => setColor(ink)}
+                />
+              ))}
+              <button className="btn ghost" type="button" disabled={!strokes.length} onClick={() => setStrokes((list) => list.slice(0, -1))}>
+                {t("撤销", "Undo")}
+              </button>
+              <button className="btn ghost" type="button" disabled={!strokes.length} onClick={() => clearInk()}>
+                {t("清除", "Clear")}
+              </button>
+            </>
+          )}
+        </div>
+
         <div className={`exam-shell-clock ${remaining <= 300 ? "low" : ""}`}>
           <span>{t("剩余", "Time left")}</span>
           <strong>{clock(remaining)}</strong>
         </div>
-        <div className="exam-shell-count">
-          {t(`已答 ${answered}/${answers.length}`, `${answered}/${answers.length} answered`)}
-        </div>
+        <div className="exam-shell-count">{t(`已答 ${answered}/${answers.length}`, `${answered}/${answers.length} answered`)}</div>
         <button className="btn" type="button" disabled={busy === "submit"} onClick={() => void confirmHand()}>
           {busy === "submit" ? t("提交中...", "Handing in...") : t("交卷", "Hand in")}
         </button>
       </header>
 
       <div className="exam-shell-body" style={{ gridTemplateColumns: `${split}% 6px 1fr` }}>
-        <PaperPane
-          src={`/api/mock-exam/paper?examId=${exam.id}&part=reading&stream=1`}
-          marks={marks}
-          onAdd={(mark) => setMarks((list) => [...list, mark])}
-          onOpenNote={setNoteFor}
-        />
+        <PaperPane pdf={pdf} sizes={sizes} label={t("试卷 · 左", "Paper · left")} pen={pen} color={color} strokes={strokes} onDraw={(stroke) => setStrokes((list) => [...list, stroke])} />
 
         <div
           className="exam-shell-grip"
@@ -225,10 +300,7 @@ export function ReadingExam({ examId }: { examId: string }) {
             const start = event.clientX;
             const from = split;
             const width = event.currentTarget.parentElement?.clientWidth || 1;
-            const move = (e: PointerEvent) => {
-              const next = from + ((e.clientX - start) / width) * 100;
-              setSplit(Math.min(75, Math.max(30, next)));
-            };
+            const move = (e: PointerEvent) => setSplit(Math.min(80, Math.max(20, from + ((e.clientX - start) / width) * 100)));
             const up = () => {
               window.removeEventListener("pointermove", move);
               window.removeEventListener("pointerup", up);
@@ -238,40 +310,17 @@ export function ReadingExam({ examId }: { examId: string }) {
           }}
         />
 
-        <section className="exam-sheet">
-          <h2>{t("答题卡", "Answer sheet")}</h2>
-          <p className="hint">{t("在 PDF 上拖选文字可以高亮，高亮后可以加笔记。", "Drag across the passage to highlight it; a highlight can carry a note.")}</p>
-          <div className="exam-sheet-grid">
-            {answers.map((value, index) => {
-              const number = index + 1;
-              return (
-                <label className={`exam-sheet-cell ${current === number ? "current" : ""} ${flags.includes(number) ? "flagged" : ""}`} key={number}>
-                  <span>{number}</span>
-                  <input
-                    ref={(node) => {
-                      boxes.current[index] = node;
-                    }}
-                    value={value}
-                    onFocus={() => setCurrent(number)}
-                    onChange={(event) => setAnswers((list) => list.map((entry, at) => (at === index ? event.target.value : entry)))}
-                  />
-                  <button
-                    className="exam-sheet-flag"
-                    type="button"
-                    title={t("标记这道题", "Flag this question")}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      toggleFlag(number);
-                    }}
-                  >
-                    ⚑
-                  </button>
-                </label>
-              );
-            })}
-          </div>
-        </section>
+        <PaperPane pdf={pdf} sizes={sizes} label={t("试卷 · 右", "Paper · right")} pen={pen} color={color} strokes={strokes} onDraw={(stroke) => setStrokes((list) => [...list, stroke])} />
       </div>
+
+      <AnswerWindow
+        answers={answers}
+        flags={flags}
+        current={current}
+        onAnswer={(index, value) => setAnswers((list) => list.map((entry, at) => (at === index ? value : entry)))}
+        onFlag={(number) => setFlags((list) => (list.includes(number) ? list.filter((n) => n !== number) : [...list, number]))}
+        onFocus={setCurrent}
+      />
 
       <footer className="exam-shell-nav">
         {answers.map((value, index) => {
@@ -281,7 +330,7 @@ export function ReadingExam({ examId }: { examId: string }) {
               key={number}
               type="button"
               className={`exam-nav-dot ${value.trim() ? "done" : ""} ${flags.includes(number) ? "flagged" : ""} ${current === number ? "current" : ""}`}
-              onClick={() => go(number)}
+              onClick={() => setCurrent(number)}
             >
               {number}
             </button>
@@ -289,24 +338,14 @@ export function ReadingExam({ examId }: { examId: string }) {
         })}
       </footer>
 
-      {noteFor && (
-        <NoteEditor
-          mark={noteFor}
-          onClose={() => setNoteFor(null)}
-          onSave={(text) => {
-            setMarks((list) => list.map((item) => (item.id === noteFor.id ? { ...item, note: text } : item)));
-            setNoteFor(null);
-          }}
-          onRemove={() => {
-            setMarks((list) => list.filter((item) => item.id !== noteFor.id));
-            setNoteFor(null);
-          }}
-        />
-      )}
-
       {note && <p className="exam-shell-note">{note}</p>}
     </div>
   );
+
+  function clearInk() {
+    if (!window.confirm(tr("清除这份试卷上画的全部内容？", "Clear everything drawn on this paper?"))) return;
+    setStrokes([]);
+  }
 
   async function confirmHand() {
     const left = answers.length - answered;
@@ -322,40 +361,3 @@ function clock(seconds: number) {
   const safe = Math.max(0, seconds);
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
 }
-
-/** A highlight's note, written in a small panel rather than a prompt box. */
-function NoteEditor({
-  mark,
-  onClose,
-  onSave,
-  onRemove
-}: {
-  mark: Mark;
-  onClose: () => void;
-  onSave: (text: string) => void;
-  onRemove: () => void;
-}) {
-  const { t } = useLanguage();
-  const [text, setText] = useState(mark.note || "");
-  return (
-    <div className="exam-note-backdrop" role="dialog" aria-modal="true">
-      <div className="exam-note">
-        <h3>{t("笔记", "Note")}</h3>
-        <textarea rows={4} value={text} autoFocus onChange={(event) => setText(event.target.value)} />
-        <div className="overview-hours-row">
-          <button className="btn" type="button" onClick={() => onSave(text)}>
-            {t("保存", "Save")}
-          </button>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            {t("取消", "Cancel")}
-          </button>
-          <button className="btn ghost" type="button" onClick={onRemove}>
-            {t("删除高亮", "Remove the highlight")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export type { Mark };
