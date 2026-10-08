@@ -119,8 +119,14 @@ export async function PATCH(request: Request) {
   if (fields.readingKey !== undefined) patch.reading_key = fields.readingKey;
   if (fields.completed !== undefined) patch.completed_at = fields.completed ? new Date().toISOString() : null;
 
-  const { data, error } = await supabase.from("mock_exams").update(patch).eq("id", examId).select(columns).maybeSingle();
+  const { error } = await supabase.from("mock_exams").update(patch).eq("id", examId).select("id").maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // Read it back with everything the card shows. An update alone returns the
+  // sitting's own columns and none of the marking hanging off it, and the
+  // card replaces itself with whatever comes back — which made the scores
+  // look as though they had vanished the moment anything else was saved.
+  const data = await loadExam(supabase, examId);
   if (!data) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
 
   // Marking again is for a key that was wrong when the sheet came in — a
@@ -137,13 +143,15 @@ export async function PATCH(request: Request) {
     if (!result) return Response.json({ error: "这份阅读还没有提交，没有可以重判的内容。" }, { status: 400 });
     try {
       const fresh = await storeReadingResult(data as unknown as ExamForMarking, (data.reading_draft || []) as string[]);
-      return Response.json({ exam: { ...flatten(data), reading_result: { part: "reading", ...fresh } } });
+      return Response.json({ exam: { ...data, reading_result: { part: "reading", ...fresh } } });
     } catch (problem) {
       return Response.json({ error: problem instanceof Error ? problem.message : "重判失败。" }, { status: 500 });
     }
   }
 
-  return Response.json({ exam: flatten(data) });
+  // Already flattened by loadExam; flattening twice would throw the marking
+  // away, since the second pass sees one row where it expects the list.
+  return Response.json({ exam: data });
 }
 
 export async function DELETE(request: Request) {
@@ -176,6 +184,30 @@ export async function DELETE(request: Request) {
   const { error } = await supabase.from("mock_exams").delete().eq("id", parsed.data.examId);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ removed: true });
+}
+
+/**
+ * One sitting with everything the teacher's card shows: the marking, the
+ * speaking score, the clock and the essay.
+ *
+ * An update returns the sitting's own columns and nothing hanging off it, and
+ * the card replaces itself with whatever comes back — so anything that writes
+ * has to read it back through here, or the scores look as though they have
+ * vanished the moment something else is saved.
+ */
+async function loadExam(supabase: SupabaseClient, examId: string) {
+  const { data } = await supabase
+    .from("mock_exams")
+    .select(
+      `${columns}, writing_assignment:assignments(id, title), result:mock_exam_results(*), scores:mock_exam_scores(part, criteria, band, comment, published_at, updated_at)`
+    )
+    .eq("id", examId)
+    .maybeSingle();
+  if (!data) return null;
+  const exam = flatten(data);
+  exam.reading_timer = readReadingTimer(Number(exam.reading_minutes) || 0, (exam.reading_started_at as string) || null);
+  await attachWriting(supabase, exam);
+  return exam;
 }
 
 /**
