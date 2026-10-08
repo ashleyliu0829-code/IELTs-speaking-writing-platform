@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { closeExpiredReading } from "@/lib/readingExam";
+import { readReadingTimer } from "@/lib/readingSheet";
 import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
 
 /**
@@ -12,6 +14,8 @@ import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
  * papers are uploaded whenever they are ready. So every field is optional on
  * update, and the student simply sees whichever parts are present.
  */
+
+type ReadingPaper = { part: number; name: string; path: string; count: number };
 
 const createSchema = z.object({
   title: z.string().trim().max(120).default(""),
@@ -24,11 +28,16 @@ const updateSchema = z.object({
   speakingUrl: z.string().trim().max(600).optional(),
   writingAssignmentId: z.string().uuid().nullable().optional(),
   scheduledAt: z.string().nullable().optional(),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
+  // The answer key in question order, as typed. Blank entries are questions
+  // the paper does not have.
+  readingKey: z.array(z.string().trim().max(120)).max(60).optional(),
+  // How many questions each part carries, which is what numbers the sheet.
+  readingCounts: z.array(z.number().int().min(0).max(40)).length(3).optional()
 });
 
 const columns =
-  "id, teacher_id, title, student_name, student_account_id, speaking_url, writing_assignment_id, listening_name, listening_path, listening_audio, reading_name, reading_path, reading_answer_name, reading_answer_path, scheduled_at, completed_at, is_active, created_at";
+  "id, teacher_id, title, student_name, student_account_id, speaking_url, writing_assignment_id, listening_name, listening_path, listening_audio, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_papers, reading_key, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, is_active, created_at";
 
 export async function GET(request: NextRequest) {
   const auth = await requireTeacher();
@@ -48,6 +57,12 @@ export async function GET(request: NextRequest) {
   // The essay goes with the sitting, so the teacher reads it here rather than
   // hunting for it in the marking list.
   const exams: Record<string, unknown>[] = (data || []).map(flatten);
+  // A reading whose clock ran out without the student handing in is marked
+  // here too, so the teacher is not waiting on a result that will never come.
+  await closeExpiredReading(exams);
+  for (const exam of exams) {
+    exam.reading_timer = readReadingTimer(Number(exam.reading_minutes) || 0, (exam.reading_started_at as string) || null);
+  }
   await Promise.all(exams.map((exam) => attachWriting(supabase, exam)));
   return Response.json({ exams });
 }
@@ -99,6 +114,19 @@ export async function PATCH(request: Request) {
   if (fields.writingAssignmentId !== undefined) patch.writing_assignment_id = fields.writingAssignmentId;
   if (fields.scheduledAt !== undefined) patch.scheduled_at = fields.scheduledAt || null;
   if (fields.isActive !== undefined) patch.is_active = fields.isActive;
+  if (fields.readingKey !== undefined) patch.reading_key = fields.readingKey;
+
+  // The counts live on the paper entries, so changing them means rewriting
+  // the list — and a part with no PDF yet still needs its count remembered.
+  if (fields.readingCounts !== undefined) {
+    const { data: current } = await supabase.from("mock_exams").select("reading_papers").eq("id", examId).maybeSingle();
+    const papers = ((current?.reading_papers || []) as ReadingPaper[]).slice();
+    patch.reading_papers = fields.readingCounts.map((count, index) => {
+      const part = index + 1;
+      const existing = papers.find((entry) => entry.part === part);
+      return { part, name: existing?.name || "", path: existing?.path || "", count };
+    });
+  }
 
   const { data, error } = await supabase.from("mock_exams").update(patch).eq("id", examId).select(columns).maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });
@@ -116,13 +144,19 @@ export async function DELETE(request: Request) {
 
   const { data: exam } = await supabase
     .from("mock_exams")
-    .select("id, listening_path, listening_audio, reading_path, reading_answer_path")
+    .select("id, listening_path, listening_audio, reading_path, reading_answer_path, reading_papers")
     .eq("id", parsed.data.examId)
     .maybeSingle();
   if (!exam) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
 
   // The rows cascade; the files in storage do not.
-  const paths = [exam.listening_path, exam.reading_path, exam.reading_answer_path, ...Object.values(exam.listening_audio || {})].filter(Boolean) as string[];
+  const paths = [
+    exam.listening_path,
+    exam.reading_path,
+    exam.reading_answer_path,
+    ...((exam.reading_papers || []) as ReadingPaper[]).map((entry) => entry.path),
+    ...Object.values(exam.listening_audio || {})
+  ].filter(Boolean) as string[];
   if (paths.length) {
     const { error: storageError } = await getSupabaseAdmin().storage.from(mockExamBucket).remove(paths);
     if (storageError) console.error("mock-exams: leftover files", storageError.message);
@@ -133,10 +167,22 @@ export async function DELETE(request: Request) {
   return Response.json({ removed: true });
 }
 
-/** Supabase returns embedded rows as arrays; the page wants one or none. */
+/**
+ * Supabase returns embedded rows as arrays; the page wants one or none.
+ *
+ * There are now two results per sitting — the listening paper's own marking
+ * and the reading answer sheet — so they are handed over separately rather
+ * than as whichever row came back first.
+ */
 function flatten(row: Record<string, unknown>): Record<string, unknown> {
   const one = (value: unknown) => (Array.isArray(value) ? value[0] || null : value || null);
-  return { ...row, writing_assignment: one(row.writing_assignment), result: one(row.result) };
+  const results = (Array.isArray(row.result) ? row.result : row.result ? [row.result] : []) as { part?: string }[];
+  return {
+    ...row,
+    writing_assignment: one(row.writing_assignment),
+    result: results.find((entry) => (entry.part || "listening") === "listening") || null,
+    reading_result: results.find((entry) => entry.part === "reading") || null
+  };
 }
 
 /** The student's essay for the linked homework, and whether it has been marked. */

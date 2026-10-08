@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { requireStudent } from "@/lib/auth";
+import { closeExpiredReading, storeReadingResult, type ExamForMarking } from "@/lib/readingExam";
+import { readReadingTimer } from "@/lib/readingSheet";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 /**
@@ -21,6 +23,23 @@ const completeSchema = z.object({
   examId: z.string().uuid(),
   action: z.literal("complete"),
   completed: z.boolean().default(true)
+});
+
+/**
+ * The reading clock, the answer sheet as it is being filled in, and handing
+ * it in. Starting is a separate call because it happens when the student
+ * opens the first paper, not when the page loads — a sitting they look at the
+ * day before must not already be running.
+ */
+const readingStartSchema = z.object({
+  examId: z.string().uuid(),
+  action: z.literal("reading-start")
+});
+
+const readingAnswersSchema = z.object({
+  examId: z.string().uuid(),
+  action: z.enum(["reading-save", "reading-submit"]),
+  answers: z.array(z.string().trim().max(200)).max(60)
 });
 
 const resultSchema = z.object({
@@ -53,19 +72,31 @@ export async function GET() {
   const { data, error } = await supabase
     .from("mock_exams")
     .select(
-      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(correct, total, detail, submitted_at)"
+      "id, title, student_name, speaking_url, writing_assignment_id, listening_name, listening_path, reading_name, reading_path, reading_answer_name, reading_answer_path, reading_papers, reading_started_at, reading_minutes, reading_draft, scheduled_at, completed_at, created_at, writing_assignment:assignments(id, title), result:mock_exam_results(part, correct, total, detail, submitted_at)"
     )
     .eq("student_account_id", account.id)
     .eq("is_active", true)
     .order("created_at", { ascending: false });
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
+  // reading_key is deliberately not selected: the answers stay on the server.
   const one = (value: unknown) => (Array.isArray(value) ? value[0] || null : value || null);
-  const exams: Record<string, unknown>[] = (data || []).map((row) => ({
-    ...row,
-    writing_assignment: one(row.writing_assignment),
-    result: one(row.result)
-  }));
+  const exams: Record<string, unknown>[] = (data || []).map((row) => {
+    const results = (Array.isArray(row.result) ? row.result : row.result ? [row.result] : []) as { part?: string }[];
+    return {
+      ...row,
+      writing_assignment: one(row.writing_assignment),
+      result: results.find((entry) => (entry.part || "listening") === "listening") || null,
+      reading_result: results.find((entry) => entry.part === "reading") || null
+    };
+  });
+
+  // A sitting whose clock ran out without the student pressing anything is
+  // marked here, from what they had saved.
+  await closeExpiredReading(exams);
+  for (const exam of exams) {
+    exam.reading_timer = readReadingTimer(Number(exam.reading_minutes) || 0, (exam.reading_started_at as string) || null);
+  }
 
   // Their own essay for the linked homework, so the results page can say
   // whether it has been marked without sending them off to look.
@@ -108,11 +139,64 @@ export async function POST(request: Request) {
   const examId = typeof payload?.examId === "string" ? payload.examId : "";
   const { data: exam } = await supabase
     .from("mock_exams")
-    .select("id, teacher_id")
+    .select("id, teacher_id, reading_started_at, reading_minutes")
     .eq("id", examId)
     .eq("student_account_id", account.id)
     .maybeSingle();
   if (!exam) return Response.json({ error: "找不到这场模考。" }, { status: 404 });
+
+  const start = readingStartSchema.safeParse(payload);
+  if (start.success) {
+    // Written once. A reload, a second tab or coming back tomorrow must not
+    // hand time back, so an existing start is returned untouched.
+    if (exam.reading_started_at) {
+      return Response.json({ startedAt: exam.reading_started_at, minutes: exam.reading_minutes || 0 });
+    }
+    const { data, error } = await getSupabaseAdmin()
+      .from("mock_exams")
+      .update({ reading_started_at: new Date().toISOString() })
+      .eq("id", exam.id)
+      .eq("student_account_id", account.id)
+      .is("reading_started_at", null)
+      .select("reading_started_at, reading_minutes")
+      .maybeSingle();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (data) return Response.json({ startedAt: data.reading_started_at, minutes: data.reading_minutes || 0 });
+    // Lost a race with another tab; whichever start won is the real one.
+    const { data: again } = await supabase.from("mock_exams").select("reading_started_at, reading_minutes").eq("id", exam.id).maybeSingle();
+    return Response.json({ startedAt: again?.reading_started_at || null, minutes: again?.reading_minutes || 0 });
+  }
+
+  const reading = readingAnswersSchema.safeParse(payload);
+  if (reading.success) {
+    const { data: existing } = await supabase
+      .from("mock_exam_results")
+      .select("correct, total, submitted_at")
+      .eq("exam_id", exam.id)
+      .eq("part", "reading")
+      .maybeSingle();
+    // Once it is marked the score is on screen, so it cannot be redone.
+    if (existing) return Response.json({ error: "这份阅读已经提交过了。", result: existing }, { status: 409 });
+
+    // The sheet is saved on every pass, including the one that hands it in,
+    // so a submission that fails halfway still leaves the answers behind.
+    const { error: saveError } = await getSupabaseAdmin()
+      .from("mock_exams")
+      .update({ reading_draft: reading.data.answers })
+      .eq("id", exam.id)
+      .eq("student_account_id", account.id);
+    if (saveError) return Response.json({ error: saveError.message }, { status: 500 });
+    if (reading.data.action === "reading-save") return Response.json({ saved: true });
+
+    // Marking needs the key, which the student's own client may never read.
+    const { data: full } = await getSupabaseAdmin().from("mock_exams").select("id, teacher_id, reading_key").eq("id", exam.id).single();
+    try {
+      const result = await storeReadingResult(full as ExamForMarking, reading.data.answers);
+      return Response.json({ result });
+    } catch (problem) {
+      return Response.json({ error: problem instanceof Error ? problem.message : "提交失败。" }, { status: 500 });
+    }
+  }
 
   const complete = completeSchema.safeParse(payload);
   if (complete.success) {

@@ -6090,6 +6090,101 @@ PLACEHOLDER
   overflow-wrap: anywhere;
 }
 
+/* The reading sheet shows what was wanted beside what was written. */
+.mock-answer-list.reading {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+.mock-answer-list.reading li {
+  grid-template-columns: 26px minmax(0, 1fr) auto auto;
+}
+
+.mock-answer-key {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--done-ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* The answer key the teacher types in, and the sheet the student fills. */
+.mock-key-part {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.mock-key-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 6px;
+}
+
+.mock-key-cell {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.mock-key-cell span {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mock-key-cell input {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--white);
+  font-size: 13px;
+}
+
+.mock-key-cell input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mock-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mock-count input {
+  width: 58px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--white);
+  font-size: 13px;
+}
+
+.mock-part-no {
+  min-width: 24px;
+  font-size: 13px;
+}
+
+/* What the student reads before the clock starts. */
+.exam-start-note {
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--wash);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
 /* Publish: the line between a sitting being assembled and one a student sees. */
 .mock-publish {
   display: flex;

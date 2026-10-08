@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
+import { partRanges, readingBand } from "@/lib/readingSheet";
+import type { ReadingPaperPart, ReadingResult, ReadingTimerState } from "@/lib/types";
 
 /**
  * The student's side of a mock exam.
@@ -26,6 +28,12 @@ type StudentMockExam = {
   listening_path: string;
   reading_name: string;
   reading_path: string;
+  reading_papers: ReadingPaperPart[];
+  reading_minutes: number;
+  reading_started_at: string | null;
+  reading_draft: string[];
+  reading_timer: ReadingTimerState | null;
+  reading_result: ReadingResult | null;
   reading_answer_name: string;
   reading_answer_path: string;
   scheduled_at: string | null;
@@ -88,7 +96,6 @@ function StudentExamCard({
   onPatch: (patch: Partial<StudentMockExam>) => void;
 }) {
   const { t } = useLanguage();
-  const [showReading, setShowReading] = useState(false);
   const [note, setNote] = useState("");
   const [finishing, setFinishing] = useState(false);
   const paperTab = useRef<Window | null>(null);
@@ -156,7 +163,7 @@ function StudentExamCard({
     { label: t("口语", "Speaking"), ready: Boolean(exam.speaking_url) },
     { label: t("写作", "Writing"), ready: Boolean(exam.writing_assignment_id) },
     { label: t("听力", "Listening"), ready: Boolean(exam.listening_path) },
-    { label: t("阅读", "Reading"), ready: Boolean(exam.reading_path) }
+    { label: t("阅读", "Reading"), ready: (exam.reading_papers || []).some((paper) => paper.path) }
   ];
 
   return (
@@ -172,6 +179,9 @@ function StudentExamCard({
         </div>
         {done && <span className="pill ok">{t("已完成", "Done")}</span>}
         {exam.result && <span className="pill">{t(`听力 ${exam.result.correct}/${exam.result.total}`, `Listening ${exam.result.correct}/${exam.result.total}`)}</span>}
+        {exam.reading_result && (
+          <span className="pill">{t(`阅读 ${exam.reading_result.correct}/${exam.reading_result.total}`, `Reading ${exam.reading_result.correct}/${exam.reading_result.total}`)}</span>
+        )}
         <span className="student-card-chevron" aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
 
@@ -260,45 +270,7 @@ function StudentExamCard({
             )}
           </div>
 
-          {/* 4 · Reading */}
-          <div className="mock-part">
-            <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
-            {done ? (
-              exam.reading_answer_path ? (
-                <>
-                  <div className="overview-hours-row">
-                    <button className="btn" type="button" onClick={() => setShowReading(!showReading)}>
-                      {showReading ? t("收起答案", "Hide answers") : t("查看阅读答案", "See the reading answers")}
-                    </button>
-                    <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
-                      {t("在新标签页打开", "Open in a new tab")}
-                    </a>
-                  </div>
-                  {showReading && (
-                    <iframe className="mock-paper-frame" title={t("阅读答案", "Reading answers")} src={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} />
-                  )}
-                </>
-              ) : (
-                <em>{t("老师还没有上传阅读答案。", "Your teacher has not uploaded the answers yet.")}</em>
-              )
-            ) : exam.reading_path ? (
-              <>
-                <div className="overview-hours-row">
-                  <button className="btn" type="button" onClick={() => setShowReading(!showReading)}>
-                    {showReading ? t("收起阅读", "Close reading") : t("打开阅读", "Open reading")}
-                  </button>
-                  <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=reading`} target="_blank" rel="noreferrer">
-                    {t("在新标签页打开", "Open in a new tab")}
-                  </a>
-                </div>
-                {showReading && (
-                  <iframe className="mock-paper-frame" title={t("阅读试卷", "Reading paper")} src={`/api/mock-exam/paper?examId=${exam.id}&part=reading`} />
-                )}
-              </>
-            ) : (
-              <em>{t("老师还没有上传阅读 PDF。", "No reading PDF yet.")}</em>
-            )}
-          </div>
+          <StudentReading exam={exam} onPatch={onPatch} done={done} />
 
           {note && <p className="hint">{note}</p>}
 
@@ -322,6 +294,253 @@ function StudentExamCard({
       )}
     </div>
   );
+}
+
+/**
+ * Reading: three papers, one answer sheet, and a clock that starts when the
+ * first paper is opened.
+ *
+ * The clock is anchored to a moment the server stored, so a reload or a
+ * second tab carries on rather than starting over, and nothing the browser
+ * keeps can hand time back. The sheet is saved as it is filled in, which is
+ * what makes running out of time survivable: at zero it is handed in and
+ * marked from what was saved, whether or not the student is still there.
+ */
+function StudentReading({
+  exam,
+  onPatch,
+  done
+}: {
+  exam: StudentMockExam;
+  onPatch: (patch: Partial<StudentMockExam>) => void;
+  done: boolean;
+}) {
+  const { t } = useLanguage();
+  const papers = (exam.reading_papers || []).filter((paper) => paper.path).sort((a, b) => a.part - b.part);
+  const counts = [1, 2, 3].map((part) => exam.reading_papers?.find((paper) => paper.part === part)?.count || 0);
+  const ranges = partRanges(counts);
+  const total = counts.reduce((sum, count) => sum + count, 0);
+
+  const [answers, setAnswers] = useState<string[]>(() => Array.from({ length: total }, (_, i) => exam.reading_draft?.[i] || ""));
+  const [startedAt, setStartedAt] = useState<string | null>(exam.reading_started_at);
+  const [remaining, setRemaining] = useState(exam.reading_timer?.remainingSeconds ?? (exam.reading_minutes || 0) * 60);
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const answersRef = useRef(answers);
+  const handedIn = useRef(false);
+  answersRef.current = answers;
+
+  const minutes = exam.reading_minutes || 0;
+  const endsAt = startedAt ? new Date(startedAt).getTime() + minutes * 60 * 1000 : 0;
+  const result = exam.reading_result;
+
+  const submit = useCallback(
+    async (auto: boolean) => {
+      if (handedIn.current) return;
+      handedIn.current = true;
+      setBusy("submit");
+      try {
+        const response = await fetch("/api/student/mock-exams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ examId: exam.id, action: "reading-submit", answers: answersRef.current })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || tr("提交失败。", "Could not hand it in."));
+        onPatch({ reading_result: data.result });
+        setNote(auto ? tr("时间到，答案已自动提交。", "Time is up; your sheet was handed in.") : "");
+      } catch (problem) {
+        handedIn.current = false;
+        setNote(problem instanceof Error ? problem.message : tr("提交失败。", "Could not hand it in."));
+      } finally {
+        setBusy("");
+      }
+    },
+    [exam.id, onPatch]
+  );
+
+  // The countdown, and handing in by itself at zero.
+  useEffect(() => {
+    if (!startedAt || !minutes || result) return;
+    const tick = () => {
+      const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+      setRemaining(left);
+      if (left <= 0) void submit(true);
+    };
+    tick();
+    const loop = window.setInterval(tick, 1000);
+    return () => window.clearInterval(loop);
+  }, [startedAt, minutes, endsAt, result, submit]);
+
+  // Saved as they go, so the automatic hand-in has something to mark even if
+  // the page is closed before the clock runs out.
+  useEffect(() => {
+    if (!startedAt || result) return;
+    const loop = window.setInterval(() => {
+      void fetch("/api/student/mock-exams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, action: "reading-save", answers: answersRef.current })
+      }).catch(() => undefined);
+    }, 20_000);
+    return () => window.clearInterval(loop);
+  }, [exam.id, startedAt, result]);
+
+  function openPaper(part: number) {
+    // The tab is opened on the click itself, before anything is awaited, or
+    // the browser treats it as a pop-up and blocks it.
+    const tab = window.open(`/api/mock-exam/paper?examId=${exam.id}&part=reading${part}`, `mock-reading-${exam.id}-${part}`);
+    if (!tab) setNote(tr("浏览器拦截了新标签页，请允许弹出窗口后再试。", "Your browser blocked the new tab; allow pop-ups and try again."));
+    if (!startedAt) void beginClock();
+  }
+
+  async function beginClock() {
+    setBusy("start");
+    try {
+      const response = await fetch("/api/student/mock-exams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, action: "reading-start" })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("计时启动失败。", "Could not start the clock."));
+      setStartedAt(data.startedAt);
+      onPatch({ reading_started_at: data.startedAt });
+    } catch (problem) {
+      setNote(problem instanceof Error ? problem.message : tr("计时启动失败。", "Could not start the clock."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // Marked: the score, what they put, and the key if the teacher uploaded one.
+  if (result) {
+    return (
+      <div className="mock-part">
+        <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
+        <div className="overview-hours-row">
+          <span className="mock-result-score">
+            {result.correct}/{result.total}
+          </span>
+          <span className="pill">{t(`参考 Band ${readingBand(result.correct, result.total)}`, `Band ${readingBand(result.correct, result.total)}`)}</span>
+        </div>
+        {note && <p className="hint">{note}</p>}
+        <ol className="mock-answer-list reading">
+          {(result.detail || []).map((item) => (
+            <li className={item.correct ? "right" : "wrong"} key={item.question}>
+              <span className="mock-answer-no">{item.question}</span>
+              <span className="mock-answer-text">{item.answer || t("（未作答）", "(blank)")}</span>
+              <span aria-hidden="true">{item.correct ? "✓" : "✕"}</span>
+            </li>
+          ))}
+        </ol>
+        {done && exam.reading_answer_path && (
+          <>
+            <div className="overview-hours-row">
+              <button className="btn" type="button" onClick={() => setShowKey(!showKey)}>
+                {showKey ? t("收起答案", "Hide the key") : t("查看阅读答案", "See the answer key")}
+              </button>
+              <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
+                {t("在新标签页打开", "Open in a new tab")}
+              </a>
+            </div>
+            {showKey && <iframe className="mock-paper-frame" title={t("阅读答案", "Reading answers")} src={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} />}
+          </>
+        )}
+        {!done && <p className="hint">{t("答案解析会在你点「模考完成」之后解锁。", "The key unlocks once you press Finish the exam.")}</p>}
+      </div>
+    );
+  }
+
+  if (!papers.length) {
+    return (
+      <div className="mock-part">
+        <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
+        <em>{t("老师还没有上传阅读试卷。", "No reading papers yet.")}</em>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mock-part">
+      <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
+
+      {!startedAt ? (
+        <p className="exam-start-note">
+          {t(
+            `点开 P1 文件后，倒计时会启动。雅思正式考试时长是 60min，这里由于需要下载、输入答案，时间延长至 ${minutes}min。请把握好时间，准备好后再点击题目。`,
+            `Opening P1 starts the clock. The real IELTS paper is 60 minutes; here it is ${minutes}, because the papers have to be downloaded and the answers typed. Take your time getting ready, then open the first paper.`
+          )}
+        </p>
+      ) : (
+        <div className={`exam-clock ${remaining <= 300 ? "low" : ""}`}>
+          <span className="exam-clock-label">{t("阅读剩余", "Reading left")}</span>
+          <strong>{formatClock(remaining)}</strong>
+        </div>
+      )}
+
+      <div className="overview-hours-row">
+        {papers.map((paper) => (
+          <button className="btn ghost" type="button" key={paper.part} disabled={busy === "start"} onClick={() => openPaper(paper.part)}>
+            {t(`打开 P${paper.part}`, `Open P${paper.part}`)}
+          </button>
+        ))}
+      </div>
+
+      {startedAt && (
+        <>
+          {ranges.map((range) =>
+            range.count ? (
+              <div className="mock-key-part" key={range.part}>
+                <span className="student-card-label">{t(`P${range.part} · 第 ${range.from}–${range.to} 题`, `P${range.part} · ${range.from}–${range.to}`)}</span>
+                <div className="mock-key-grid">
+                  {Array.from({ length: range.count }, (_, offset) => {
+                    const number = range.from + offset;
+                    return (
+                      <label className="mock-key-cell" key={number}>
+                        <span>{number}</span>
+                        <input
+                          value={answers[number - 1] || ""}
+                          onChange={(event) =>
+                            setAnswers((current) => current.map((entry, index) => (index === number - 1 ? event.target.value : entry)))
+                          }
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null
+          )}
+
+          <div className="mock-publish">
+            <div>
+              <strong>{t("答案填完了吗？", "Finished the sheet?")}</strong>
+              <span className="hint">
+                {t(
+                  "提交后立刻出分，不能再修改。时间到了还没提交的话，系统会把你填好的内容自动交上去。",
+                  "Handing in marks it straight away and cannot be undone. If the clock runs out first, whatever you have typed is handed in for you."
+                )}
+              </span>
+            </div>
+            <button className="btn" type="button" disabled={busy === "submit"} onClick={() => void submit(false)}>
+              {busy === "submit" ? t("提交中...", "Handing in...") : t("提交阅读答案", "Hand in the sheet")}
+            </button>
+          </div>
+        </>
+      )}
+
+      {note && <p className="hint">{note}</p>}
+    </div>
+  );
+}
+
+function formatClock(seconds: number) {
+  const safe = Math.max(0, seconds);
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /** Every listening question, the answer given, and whether it was right. */

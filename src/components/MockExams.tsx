@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
 import { base64ToBytes, looksLikeListeningPaper, prepareListeningPaper } from "@/lib/listeningPaper";
+import { defaultReadingCounts, partRanges, readingBand } from "@/lib/readingSheet";
 import type { Assignment, MockExam, StudentProfile } from "@/lib/types";
 
 /**
@@ -89,8 +90,8 @@ export function MockExamsPanel({ students, assignments }: { students: StudentPro
           <h2>{t("模考", "Mock exams")}</h2>
           <div className="hint">
             {t(
-              "一场模考四个部分：口语（会议链接）、写作（平台上的作业）、听力（上传试卷，学生在线做、自动判分）、阅读（PDF）。可以先建好再陆续补齐。",
-              "Four parts to a sitting: speaking on a call, writing from a homework already here, listening as an uploaded paper the student does and the platform grades, reading as a PDF. Create it first and fill it in as the pieces are ready."
+              "一场模考四个部分：口语（会议链接）、写作（平台上的作业）、听力（上传试卷，学生在线做、自动判分）、阅读（P1–P3 三个 PDF + 你填的答案，学生在答题框里作答，系统自动判分）。可以先建好再陆续补齐。",
+              "Four parts to a sitting: speaking on a call, writing from a homework already here, listening as an uploaded paper the student does and the platform grades, reading as three PDFs with an answer key you type in — the student fills in a numbered sheet and it marks itself. Create the sitting first and fill it in as the pieces are ready."
             )}
           </div>
         </div>
@@ -158,14 +159,13 @@ function MockExamCard({
   const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const listeningPicker = useRef<HTMLInputElement | null>(null);
-  const readingPicker = useRef<HTMLInputElement | null>(null);
-  const answerPicker = useRef<HTMLInputElement | null>(null);
 
   const ready = [
     Boolean(exam.speaking_url),
     Boolean(exam.writing_assignment_id),
     Boolean(exam.listening_path),
-    Boolean(exam.reading_path)
+    // Reading counts as ready when all three papers are up and the key is in.
+    readingReady(exam)
   ];
   const readyCount = ready.filter(Boolean).length;
   const published = exam.is_active;
@@ -279,41 +279,6 @@ function MockExamCard({
     }
   }
 
-  async function upload(kind: "listening" | "reading" | "readingAnswer", file: File) {
-    setSaving(kind);
-    setError("");
-    setUploadNote("");
-    setElapsed(0);
-    const ticking = window.setInterval(() => setElapsed((n) => n + 1), 1000);
-    try {
-      const body = new FormData();
-      body.append("examId", exam.id);
-      body.append("kind", kind);
-      body.append("file", file);
-      const response = await fetch("/api/teacher/mock-exams/upload", { method: "POST", body });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || tr("上传失败。", "Upload failed."));
-      onChanged({ ...exam, ...data.exam });
-      if (data.summary) {
-        setUploadNote(
-          t(
-            `已处理：${data.summary.parts} 个部分，抽出 ${data.summary.audio} 段音频，页面从 ${data.summary.originalMb}MB 降到 ${data.summary.pageMb}MB，用时 ${data.summary.seconds ?? 0} 秒。`,
-            `Done: ${data.summary.parts} parts, ${data.summary.audio} tracks lifted out, page down from ${data.summary.originalMb}MB to ${data.summary.pageMb}MB in ${data.summary.seconds ?? 0}s.`
-          )
-        );
-      }
-    } catch (problem) {
-      setError(problem instanceof Error ? problem.message : tr("上传失败。", "Upload failed."));
-    } finally {
-      window.clearInterval(ticking);
-      setSaving("");
-      setElapsed(0);
-      if (listeningPicker.current) listeningPicker.current.value = "";
-      if (readingPicker.current) readingPicker.current.value = "";
-      if (answerPicker.current) answerPicker.current.value = "";
-    }
-  }
-
   return (
     <div className={`mock-card ${open ? "open" : ""}`}>
       <button className="mock-card-head" type="button" onClick={onToggle} aria-expanded={open}>
@@ -325,6 +290,11 @@ function MockExamCard({
           {done ? t("已完成模考", "Exam finished") : published ? t("已发布", "Published") : t("未发布", "Draft")}
         </span>
         <span className={`pill ${readyCount === 4 ? "ok" : "warn"}`}>{t(`${readyCount}/4 部分已就绪`, `${readyCount}/4 ready`)}</span>
+        {exam.reading_result && (
+          <span className="pill ok">
+            {t(`阅读 ${exam.reading_result.correct}/${exam.reading_result.total}`, `Reading ${exam.reading_result.correct}/${exam.reading_result.total}`)}
+          </span>
+        )}
         {exam.result ? (
           <span className="pill ok">{t(`听力 ${exam.result.correct}/${exam.result.total}`, `Listening ${exam.result.correct}/${exam.result.total}`)}</span>
         ) : (
@@ -393,34 +363,7 @@ function MockExamCard({
             {uploadNote && <p className="hint">{uploadNote}</p>}
           </div>
 
-          <div className="mock-part">
-            <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
-            <div className="overview-hours-row">
-              <button className="btn ghost" type="button" disabled={saving === "reading"} onClick={() => readingPicker.current?.click()}>
-                {saving === "reading" ? t("上传中...", "Uploading...") : exam.reading_path ? t("重新上传", "Replace") : t("上传阅读 PDF", "Upload PDF")}
-              </button>
-              {exam.reading_name && <small>{exam.reading_name}</small>}
-              {exam.reading_path && (
-                <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=reading`} target="_blank" rel="noreferrer">
-                  {t("预览", "Preview")}
-                </a>
-              )}
-            </div>
-            <input ref={readingPicker} className="student-file-input" type="file" accept="application/pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("reading", file); }} />
-            <div className="overview-hours-row">
-              <button className="btn ghost" type="button" disabled={saving === "readingAnswer"} onClick={() => answerPicker.current?.click()}>
-                {saving === "readingAnswer" ? t("上传中...", "Uploading...") : exam.reading_answer_path ? t("重新上传答案", "Replace answers") : t("上传阅读答案 PDF", "Upload the answer key")}
-              </button>
-              {exam.reading_answer_name && <small>{exam.reading_answer_name}</small>}
-              {exam.reading_answer_path && (
-                <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
-                  {t("预览", "Preview")}
-                </a>
-              )}
-            </div>
-            <input ref={answerPicker} className="student-file-input" type="file" accept="application/pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("readingAnswer", file); }} />
-            <p className="hint">{t("答案在学生点「模考完成」之后才会解锁，之前看不到。", "The key unlocks only after the student finishes; they cannot see it before.")}</p>
-          </div>
+          <ReadingSetup exam={exam} onChanged={onChanged} />
 
           {done && <MockExamReview exam={exam} />}
 
@@ -460,6 +403,208 @@ function MockExamCard({
       )}
     </div>
   );
+}
+
+/** All three papers uploaded and an answer for every question. */
+function readingReady(exam: MockExam) {
+  const papers = exam.reading_papers || [];
+  if (papers.length < 3 || papers.some((paper) => !paper.path)) return false;
+  const total = papers.reduce((sum, paper) => sum + (paper.count || 0), 0);
+  const key = exam.reading_key || [];
+  return total > 0 && key.length >= total && key.slice(0, total).every((answer) => Boolean((answer || "").trim()));
+}
+
+/**
+ * Reading: the three papers, how many questions each carries, and the answer
+ * key the platform marks against.
+ *
+ * The key is typed the way an answer key is written — "TRUE", "20/twenty",
+ * "(the) police station" — because that is what the teacher is copying from.
+ * It is stored on the sitting and never sent to the student's browser.
+ */
+function ReadingSetup({ exam, onChanged }: { exam: MockExam; onChanged: (exam: MockExam) => void }) {
+  const { t } = useLanguage();
+  const papers = exam.reading_papers || [];
+  const counts = [1, 2, 3].map((part) => papers.find((paper) => paper.part === part)?.count ?? defaultReadingCounts[part - 1]);
+  const total = counts.reduce((sum, count) => sum + count, 0);
+
+  const [key, setKey] = useState<string[]>(() => fillKey(exam.reading_key || [], total));
+  const [saving, setSaving] = useState("");
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const pickers = [useRef<HTMLInputElement | null>(null), useRef<HTMLInputElement | null>(null), useRef<HTMLInputElement | null>(null)];
+  const answerPicker = useRef<HTMLInputElement | null>(null);
+
+  // A changed question count renumbers the sheet, so the key grows or
+  // shrinks with it rather than silently losing its tail.
+  useEffect(() => {
+    setKey((current) => fillKey(current, total));
+  }, [total]);
+
+  const ranges = partRanges(counts);
+  const filled = key.slice(0, total).filter((answer) => (answer || "").trim()).length;
+
+  async function patch(fields: Record<string, unknown>, label: string) {
+    setSaving(label);
+    setError("");
+    try {
+      const response = await fetch("/api/teacher/mock-exams", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, ...fields })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
+      onChanged(data.exam);
+      setNote(t("已保存。", "Saved."));
+      window.setTimeout(() => setNote(""), 2000);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("保存失败。", "Could not save."));
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function upload(kind: string, file: File) {
+    setSaving(kind);
+    setError("");
+    try {
+      if (file.type !== "application/pdf") throw new Error(tr("请上传 PDF 文件。", "Please upload a PDF."));
+      const body = new FormData();
+      body.append("examId", exam.id);
+      body.append("kind", kind);
+      body.append("file", file);
+      const response = await fetch("/api/teacher/mock-exams/upload", { method: "POST", body });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("上传失败。", "Upload failed."));
+      onChanged({ ...exam, ...data.exam });
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("上传失败。", "Upload failed."));
+    } finally {
+      setSaving("");
+      pickers.forEach((picker) => { if (picker.current) picker.current.value = ""; });
+      if (answerPicker.current) answerPicker.current.value = "";
+    }
+  }
+
+  return (
+    <div className="mock-part">
+      <span className="student-card-label">{t("4 · 阅读", "4 · Reading")}</span>
+
+      {[1, 2, 3].map((part) => {
+        const paper = papers.find((entry) => entry.part === part);
+        const range = ranges[part - 1];
+        return (
+          <div className="overview-hours-row" key={part}>
+            <strong className="mock-part-no">P{part}</strong>
+            <button className="btn ghost" type="button" disabled={saving === `reading${part}`} onClick={() => pickers[part - 1].current?.click()}>
+              {saving === `reading${part}` ? t("上传中...", "Uploading...") : paper?.path ? t("重新上传", "Replace") : t("上传 PDF", "Upload PDF")}
+            </button>
+            {paper?.name && <small>{paper.name}</small>}
+            {paper?.path && (
+              <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=reading${part}`} target="_blank" rel="noreferrer">
+                {t("预览", "Preview")}
+              </a>
+            )}
+            <label className="mock-count">
+              <span>{t("题数", "Questions")}</span>
+              <input
+                type="number"
+                min={0}
+                max={40}
+                value={counts[part - 1]}
+                onChange={(event) => {
+                  const next = counts.slice();
+                  next[part - 1] = Math.max(0, Math.min(40, Number(event.target.value) || 0));
+                  void patch({ readingCounts: next }, `count${part}`);
+                }}
+              />
+            </label>
+            <small className="hint">{range.count ? t(`第 ${range.from}–${range.to} 题`, `Questions ${range.from}–${range.to}`) : ""}</small>
+            <input
+              ref={pickers[part - 1]}
+              className="student-file-input"
+              type="file"
+              accept="application/pdf"
+              onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(`reading${part}`, file); }}
+            />
+          </div>
+        );
+      })}
+
+      <div className="section-head compact">
+        <span className="student-card-label">{t("答案", "Answer key")}</span>
+        <span className="hint">{t(`已填 ${filled}/${total}`, `${filled}/${total} filled in`)}</span>
+      </div>
+      <p className="hint">
+        {t(
+          "按题号填写答案。多个可接受答案用「/」分隔（20/twenty）；可省略的部分放进括号（(the) police station）；选两项的题，两行填同样的内容即可，顺序不限。大小写、前后空格、连字符都不影响判分。",
+          "One answer per question. Separate alternatives with “/” (20/twenty); put optional words in brackets ((the) police station); for a choose-two question put the same thing on both lines and either order counts. Case, spacing and hyphens are ignored."
+        )}
+      </p>
+      {ranges.map((range) =>
+        range.count ? (
+          <div className="mock-key-part" key={range.part}>
+            <span className="student-card-label">{t(`P${range.part} · 第 ${range.from}–${range.to} 题`, `P${range.part} · ${range.from}–${range.to}`)}</span>
+            <div className="mock-key-grid">
+              {Array.from({ length: range.count }, (_, offset) => {
+                const number = range.from + offset;
+                return (
+                  <label className="mock-key-cell" key={number}>
+                    <span>{number}</span>
+                    <input
+                      value={key[number - 1] || ""}
+                      onChange={(event) => setKey((current) => current.map((entry, index) => (index === number - 1 ? event.target.value : entry)))}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : null
+      )}
+      <div className="overview-hours-row">
+        <button className="btn" type="button" disabled={saving === "key"} onClick={() => void patch({ readingKey: key.slice(0, total) }, "key")}>
+          {saving === "key" ? t("保存中...", "Saving...") : t("保存答案", "Save the key")}
+        </button>
+        {note && <small className="hint">{note}</small>}
+      </div>
+
+      <div className="overview-hours-row">
+        <button className="btn ghost" type="button" disabled={saving === "readingAnswer"} onClick={() => answerPicker.current?.click()}>
+          {saving === "readingAnswer" ? t("上传中...", "Uploading...") : exam.reading_answer_path ? t("重新上传答案 PDF", "Replace the key PDF") : t("上传答案 PDF（可选）", "Upload a key PDF (optional)")}
+        </button>
+        {exam.reading_answer_name && <small>{exam.reading_answer_name}</small>}
+        {exam.reading_answer_path && (
+          <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
+            {t("预览", "Preview")}
+          </a>
+        )}
+        <input
+          ref={answerPicker}
+          className="student-file-input"
+          type="file"
+          accept="application/pdf"
+          onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload("readingAnswer", file); }}
+        />
+      </div>
+      <p className="hint">
+        {t(
+          `学生点开 P1 后开始计时 ${exam.reading_minutes || 65} 分钟，到点自动提交。答案 PDF 和讲解只在学生交卷后才解锁。`,
+          `The clock starts at ${exam.reading_minutes || 65} minutes when the student opens P1, and hands in by itself at zero. The key PDF unlocks only after they finish.`
+        )}
+      </p>
+      {exam.reading_started_at && (
+        <p className="hint">{t(`学生已于 ${formatWhen(exam.reading_started_at)} 开始阅读。`, `Started reading at ${formatWhen(exam.reading_started_at)}.`)}</p>
+      )}
+      {error && <p className="error">{error}</p>}
+    </div>
+  );
+}
+
+/** The key is held as one entry per question, blanks included. */
+function fillKey(key: string[], total: number) {
+  return Array.from({ length: total }, (_, index) => key[index] || "");
 }
 
 /**
@@ -525,13 +670,32 @@ function MockExamReview({ exam }: { exam: MockExam }) {
       </div>
 
       <div className="mock-review-part">
-        <span className="student-card-label">{t("阅读答案", "Reading answers")}</span>
-        {exam.reading_answer_path ? (
+        <span className="student-card-label">{t("阅读", "Reading")}</span>
+        {exam.reading_result ? (
+          <>
+            <div className="overview-hours-row">
+              <span className="mock-result-score">
+                {exam.reading_result.correct}/{exam.reading_result.total}
+              </span>
+              <span className="pill">{t(`参考 Band ${readingBand(exam.reading_result.correct, exam.reading_result.total)}`, `Band ${readingBand(exam.reading_result.correct, exam.reading_result.total)}`)}</span>
+              <span className="hint">{t(`交卷于 ${formatWhen(exam.reading_result.submitted_at)}`, `Handed in ${formatWhen(exam.reading_result.submitted_at)}`)}</span>
+              {(exam.reading_papers || []).map((paper) =>
+                paper.path ? (
+                  <a className="btn ghost" key={paper.part} href={`/api/mock-exam/paper?examId=${exam.id}&part=reading${paper.part}`} target="_blank" rel="noreferrer">
+                    {t(`P${paper.part} 原题`, `P${paper.part} paper`)}
+                  </a>
+                ) : null
+              )}
+            </div>
+            <ReadingSheetResult result={exam.reading_result} answerKey={exam.reading_key || []} />
+          </>
+        ) : (
+          <em>{t("学生还没有提交阅读答案。", "No reading sheet handed in yet.")}</em>
+        )}
+        {exam.reading_answer_path && (
           <a className="btn ghost" href={`/api/mock-exam/paper?examId=${exam.id}&part=readingAnswer`} target="_blank" rel="noreferrer">
             {exam.reading_answer_name || t("打开答案 PDF", "Open the answer key")}
           </a>
-        ) : (
-          <em>{t("还没有上传阅读答案，学生那边也看不到。", "No answer key uploaded, so the student cannot see one either.")}</em>
         )}
       </div>
     </div>
@@ -543,6 +707,29 @@ function formatWhen(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * The marked answer sheet, with the key beside it.
+ *
+ * The teacher is shown what the student wrote and what was wanted on the same
+ * line, because the useful question after a mock is not "how many" but "what
+ * did they put instead".
+ */
+function ReadingSheetResult({ result, answerKey }: { result: NonNullable<MockExam["reading_result"]>; answerKey: string[] }) {
+  const { t } = useLanguage();
+  return (
+    <ol className="mock-answer-list reading">
+      {(result.detail || []).map((item) => (
+        <li className={item.correct ? "right" : "wrong"} key={item.question}>
+          <span className="mock-answer-no">{item.question}</span>
+          <span className="mock-answer-text">{item.answer || t("（未作答）", "(blank)")}</span>
+          {!item.correct && answerKey[item.question - 1] && <span className="mock-answer-key">{answerKey[item.question - 1]}</span>}
+          <span aria-hidden="true">{item.correct ? "✓" : "✕"}</span>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 /** The listening result: the counts, then every answer behind them. */

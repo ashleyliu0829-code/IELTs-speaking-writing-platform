@@ -67,9 +67,19 @@ export type MockExam = {
   listening_name: string;
   listening_path: string;
   listening_audio: Record<string, string>;
+  /** The single reading PDF of the earlier sittings, kept so they still open. */
   reading_name: string;
   reading_path: string;
-  /** The key the student self-marks reading against, once they have finished. */
+  /** One PDF per part, and how many questions each part carries. */
+  reading_papers?: ReadingPaperPart[];
+  /** The key, in question order, as the teacher typed it. Teacher side only. */
+  reading_key?: string[];
+  reading_minutes?: number;
+  reading_started_at?: string | null;
+  reading_draft?: string[];
+  reading_timer?: ReadingTimerState | null;
+  reading_result?: ReadingResult | null;
+  /** The answer key PDF, which the student sees only once they have finished. */
   reading_answer_name: string;
   reading_answer_path: string;
   scheduled_at?: string | null;
@@ -81,6 +91,28 @@ export type MockExam = {
   writing_assignment?: { id: string; title: string } | null;
   result?: MockExamResult | null;
   writing?: MockExamWriting | null;
+};
+
+/** One of the three reading papers, and the questions it carries. */
+export type ReadingPaperPart = { part: number; name: string; path: string; count: number };
+
+/** The reading clock, worked out on the server from when the student started. */
+export type ReadingTimerState = {
+  minutes: number;
+  startedAt: string | null;
+  endsAt: string | null;
+  remainingSeconds: number;
+  running: boolean;
+  expired: boolean;
+};
+
+/** The marked answer sheet. */
+export type ReadingResult = {
+  part?: string;
+  correct: number;
+  total: number;
+  detail: { question: number; answer: string; correct: boolean }[];
+  submitted_at: string;
 };
 
 /** The essay the student wrote for the linked homework, and how it stands. */

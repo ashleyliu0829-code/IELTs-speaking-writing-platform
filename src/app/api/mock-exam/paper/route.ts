@@ -19,6 +19,7 @@ import { getSupabaseAdmin, mockExamBucket } from "@/lib/supabase";
 export const runtime = "nodejs";
 
 type ReplayPart = { part: string; questions: { question: string; answer: string; correct: boolean }[] };
+type ReadingPaper = { part: number; name: string; path: string; count: number };
 
 export async function GET(request: NextRequest) {
   const account = await getCurrentAccount();
@@ -31,7 +32,9 @@ export async function GET(request: NextRequest) {
   const admin = getSupabaseAdmin();
   const { data: exam } = await admin
     .from("mock_exams")
-    .select("id, teacher_id, student_account_id, is_active, completed_at, listening_path, listening_audio, reading_path, reading_name, reading_answer_path")
+    .select(
+      "id, teacher_id, student_account_id, is_active, completed_at, listening_path, listening_audio, reading_path, reading_name, reading_answer_path, reading_papers"
+    )
     .eq("id", examId)
     .maybeSingle();
   if (!exam) return new Response("找不到这场模考。", { status: 404 });
@@ -60,6 +63,18 @@ export async function GET(request: NextRequest) {
     if (!isTeacher && !exam.completed_at) return new Response("交卷之后才能看答案。", { status: 403 });
     const url = await signed(exam.reading_answer_path, 60 * 60 * 3);
     if (!url) return new Response("答案暂时不可用。", { status: 500 });
+    return Response.redirect(url, 302);
+  }
+
+  // One of the three reading parts. The paper itself is never withheld — it
+  // is the exam; only the key waits for the student to finish.
+  const readingPart = want.match(/^reading([123])$/);
+  if (readingPart) {
+    const part = Number(readingPart[1]);
+    const entry = ((exam.reading_papers || []) as ReadingPaper[]).find((item) => item.part === part);
+    if (!entry?.path) return new Response(`这场模考还没有上传 P${part} 的 PDF。`, { status: 404 });
+    const url = await signed(entry.path, 60 * 60 * 3);
+    if (!url) return new Response("PDF 暂时不可用。", { status: 500 });
     return Response.redirect(url, 302);
   }
 
