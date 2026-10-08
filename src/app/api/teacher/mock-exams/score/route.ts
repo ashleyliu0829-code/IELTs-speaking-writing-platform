@@ -23,7 +23,10 @@ const speakingSchema = z.object({
 const adjustSchema = z.object({
   examId: z.string().uuid(),
   part: z.enum(["reading", "listening"]),
-  correct: z.number().int().min(0).max(200)
+  correct: z.number().int().min(0).max(200),
+  // Only used when there is nothing to adjust yet: a listening paper done on
+  // paper, or one the student did without the score coming back.
+  total: z.number().int().min(1).max(200).optional()
 });
 
 export async function POST(request: Request) {
@@ -83,7 +86,36 @@ export async function POST(request: Request) {
       .eq("exam_id", exam.id)
       .eq("part", adjust.data.part)
       .maybeSingle();
-    if (!current) return Response.json({ error: "这个部分还没有成绩可以修改。" }, { status: 400 });
+    // Nothing to adjust yet. Reading always has a sheet behind it, so this is
+    // the listening: done on paper, or done in the page without the score
+    // finding its way back. The teacher types the mark in and there is no
+    // breakdown, because there are no answers to show.
+    if (!current) {
+      if (adjust.data.part !== "listening") {
+        return Response.json({ error: "这个部分还没有成绩可以修改。" }, { status: 400 });
+      }
+      const total = adjust.data.total || 40;
+      if (adjust.data.correct > total) {
+        return Response.json({ error: `正确题数不能超过总题数（${total}）。` }, { status: 400 });
+      }
+      const { data, error } = await supabase
+        .from("mock_exam_results")
+        .insert({
+          exam_id: exam.id,
+          teacher_id: teacher.id,
+          part: "listening",
+          correct: adjust.data.correct,
+          total,
+          detail: [],
+          submitted_at: new Date().toISOString(),
+          adjusted_at: new Date().toISOString()
+        })
+        .select("part, correct, total, detail, submitted_at, adjusted_at")
+        .single();
+      if (error) return Response.json({ error: error.message }, { status: 500 });
+      return Response.json({ result: data });
+    }
+
     if (adjust.data.correct > (current.total || 0)) {
       return Response.json({ error: `正确题数不能超过总题数（${current.total}）。` }, { status: 400 });
     }

@@ -157,34 +157,3 @@ export function gradeReading(keys: string[], answers: string[]): ReadingGrade {
 
   return { correct, total, detail };
 }
-
-/**
- * The band a raw reading score is worth, for the Academic paper.
- *
- * Reported as a guide rather than a result: the table is the public IELTS
- * one, and real papers vary a little either way. Only a full forty-question
- * paper gets one — scaling six questions up to a band says more about the
- * arithmetic than about the student.
- */
-export function readingBand(correct: number, total: number): number | null {
-  if (total !== 40) return null;
-  const scaled = Math.round((correct / total) * 40);
-  const table: [number, number][] = [
-    [39, 9],
-    [37, 8.5],
-    [35, 8],
-    [33, 7.5],
-    [30, 7],
-    [27, 6.5],
-    [23, 6],
-    [19, 5.5],
-    [15, 5],
-    [13, 4.5],
-    [10, 4],
-    [8, 3.5],
-    [6, 3],
-    [4, 2.5]
-  ];
-  for (const [threshold, band] of table) if (scaled >= threshold) return band;
-  return 0;
-}

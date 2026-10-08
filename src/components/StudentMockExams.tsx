@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
-import { readingBand } from "@/lib/readingSheet";
+import { listeningBand, overallBand, readingBand } from "@/lib/examBands";
 import { speakingCriteria } from "@/lib/speakingScore";
 import type { ReadingResult, ReadingTimerState, SpeakingScore } from "@/lib/types";
 
@@ -189,6 +189,16 @@ function StudentExamCard({
 
       {open && (
         <div className="mock-card-body">
+          {/* The four skills and the overall, once the sitting is over. */}
+          {done && (
+            <StudentOverall
+              listening={exam.result ? listeningBand(exam.result.correct, exam.result.total) : null}
+              reading={exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null}
+              writing={exam.writing?.marked ? exam.writing.score : null}
+              speaking={exam.speaking_score?.published_at ? exam.speaking_score.band : null}
+            />
+          )}
+
           {/* 1 · Speaking */}
           <div className="mock-part">
             <span className="student-card-label">{t("1 · 口语", "1 · Speaking")}</span>
@@ -547,6 +557,55 @@ function formatClock(seconds: number) {
   const m = Math.floor(safe / 60);
   const s = safe % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * The four skills and the overall, as the certificate reports them.
+ *
+ * Shown in full only once all four are there; until then the student sees
+ * which ones are still being marked rather than a number that is three
+ * quarters of an answer.
+ */
+function StudentOverall({
+  listening,
+  reading,
+  writing,
+  speaking
+}: {
+  listening: number | null;
+  reading: number | null;
+  writing: number | null;
+  speaking: number | null;
+}) {
+  const { t } = useLanguage();
+  const parts = [
+    { label: t("听力", "Listening"), band: listening },
+    { label: t("阅读", "Reading"), band: reading },
+    { label: t("写作", "Writing"), band: writing },
+    { label: t("口语", "Speaking"), band: speaking }
+  ];
+  const overall = overallBand([listening, reading, writing, speaking]);
+  const waiting = parts.filter((part) => typeof part.band !== "number").map((part) => part.label);
+
+  return (
+    <div className="overall-card">
+      <div className="overall-parts">
+        {parts.map((part) => (
+          <div className={`overall-part ${typeof part.band === "number" ? "" : "pending"}`} key={part.label}>
+            <span>{part.label}</span>
+            <strong>{typeof part.band === "number" ? part.band.toFixed(1) : "—"}</strong>
+          </div>
+        ))}
+        <div className={`overall-part total ${overall === null ? "pending" : ""}`}>
+          <span>{t("总分", "Overall")}</span>
+          <strong>{overall === null ? "—" : overall.toFixed(1)}</strong>
+        </div>
+      </div>
+      {overall === null && (
+        <p className="hint">{t(`等待评分：${waiting.join("、")}`, `Still being marked: ${waiting.join(", ")}`)}</p>
+      )}
+    </div>
+  );
 }
 
 /** The speaking score, once the teacher has published it. */

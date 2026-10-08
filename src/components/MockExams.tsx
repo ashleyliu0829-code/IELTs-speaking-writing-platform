@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { tr, useLanguage } from "@/lib/i18n";
 import { base64ToBytes, looksLikeListeningPaper, prepareListeningPaper } from "@/lib/listeningPaper";
-import { defaultQuestionCount, readingBand } from "@/lib/readingSheet";
+import { listeningBand, overallBand, readingBand } from "@/lib/examBands";
+import { defaultQuestionCount } from "@/lib/readingSheet";
 import { bandSteps, speakingBand, speakingCriteria, type SpeakingCriteria } from "@/lib/speakingScore";
 import type { Assignment, MockExam, StudentProfile } from "@/lib/types";
 
@@ -785,6 +786,107 @@ function ScoreAdjuster({
   );
 }
 
+/**
+ * The four skills and the overall band.
+ *
+ * The overall is the mean of the four rounded to the nearest half, the way
+ * the certificate reports it, and it appears only once all four are there —
+ * an average of three is a number that looks finished and is not. Until then
+ * the card says which ones are still missing, because "no overall yet" is
+ * only useful if it also says what it is waiting for.
+ */
+function OverallBandCard({
+  listening,
+  reading,
+  writing,
+  speaking
+}: {
+  listening: number | null;
+  reading: number | null;
+  writing: number | null;
+  speaking: number | null;
+}) {
+  const { t } = useLanguage();
+  const parts = [
+    { label: t("听力", "Listening"), band: listening },
+    { label: t("阅读", "Reading"), band: reading },
+    { label: t("写作", "Writing"), band: writing },
+    { label: t("口语", "Speaking"), band: speaking }
+  ];
+  const overall = overallBand([listening, reading, writing, speaking]);
+  const missing = parts.filter((part) => typeof part.band !== "number").map((part) => part.label);
+
+  return (
+    <div className="overall-card">
+      <div className="overall-parts">
+        {parts.map((part) => (
+          <div className={`overall-part ${typeof part.band === "number" ? "" : "pending"}`} key={part.label}>
+            <span>{part.label}</span>
+            <strong>{typeof part.band === "number" ? part.band.toFixed(1) : "—"}</strong>
+          </div>
+        ))}
+        <div className={`overall-part total ${overall === null ? "pending" : ""}`}>
+          <span>{t("总分", "Overall")}</span>
+          <strong>{overall === null ? "—" : overall.toFixed(1)}</strong>
+        </div>
+      </div>
+      {overall === null && <p className="hint">{t(`还差：${missing.join("、")}`, `Still needed: ${missing.join(", ")}`)}</p>}
+    </div>
+  );
+}
+
+/**
+ * The listening score typed in by hand.
+ *
+ * The paper reports its own score when the student presses Finish All, so
+ * this is for the sitting where that never happened — done on paper, done
+ * somewhere else, or simply closed before the score came back. There is no
+ * breakdown to show afterwards, because there are no answers behind it.
+ */
+function ListeningScoreEntry({ exam, onChanged }: { exam: MockExam; onChanged: (exam: MockExam) => void }) {
+  const { t } = useLanguage();
+  const [correct, setCorrect] = useState("");
+  const [total, setTotal] = useState("40");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/teacher/mock-exams/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: exam.id, part: "listening", correct: Number(correct), total: Number(total) })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || tr("保存失败。", "Could not save."));
+      onChanged({ ...exam, result: data.result });
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : tr("保存失败。", "Could not save."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="overview-hours-row">
+      <label className="mock-count">
+        <span>{t("正确题数", "Correct")}</span>
+        <input type="number" min={0} max={Number(total) || 40} value={correct} onChange={(event) => setCorrect(event.target.value)} />
+      </label>
+      <label className="mock-count">
+        <span>{t("总题数", "Out of")}</span>
+        <input type="number" min={1} max={200} value={total} onChange={(event) => setTotal(event.target.value)} />
+      </label>
+      <button className="btn ghost" type="button" disabled={saving || correct === ""} onClick={() => void save()}>
+        {saving ? t("保存中...", "Saving...") : t("保存听力成绩", "Save the listening score")}
+      </button>
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
+}
+
 /** The key is held as one entry per question, blanks included. */
 function fillKey(key: string[], total: number) {
   return Array.from({ length: total }, (_, index) => key[index] || "");
@@ -803,6 +905,13 @@ function MockExamReview({ exam, onChanged }: { exam: MockExam; onChanged: (exam:
         <strong>{t("模考结果", "Exam results")}</strong>
         <span className="hint">{t(`学生于 ${formatWhen(exam.completed_at)} 交卷`, `Handed in ${formatWhen(exam.completed_at)}`)}</span>
       </div>
+
+      <OverallBandCard
+        listening={exam.result ? listeningBand(exam.result.correct, exam.result.total) : null}
+        reading={exam.reading_result ? readingBand(exam.reading_result.correct, exam.reading_result.total) : null}
+        writing={exam.writing?.marked ? exam.writing.score : null}
+        speaking={exam.speaking_score?.band ?? null}
+      />
 
       <SpeakingScoreCard exam={exam} onChanged={onChanged} />
 
@@ -851,7 +960,10 @@ function MockExamReview({ exam, onChanged }: { exam: MockExam; onChanged: (exam:
             <MockExamResultView result={exam.result} />
           </>
         ) : (
-          <em>{t("学生没有提交听力成绩。", "No listening score was handed in.")}</em>
+          <>
+            <em>{t("学生没有提交听力成绩，可以手动填写。", "No listening score came back; you can enter it.")}</em>
+            <ListeningScoreEntry exam={exam} onChanged={onChanged} />
+          </>
         )}
       </div>
 
