@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireStudent } from "@/lib/auth";
 import { upsertStudentProfile } from "@/lib/students";
-import { isPastGrace } from "@/lib/writingTimer";
+import { isPastGrace, readStudentTimer } from "@/lib/writingTimer";
 
 const responseSchema = z.object({
   taskKey: z.string().min(1),
@@ -95,7 +95,10 @@ export async function POST(request: NextRequest) {
     submission = created;
   }
 
-  if (isPastGrace(assignment.timed_minutes, submission.timer_started_at)) {
+  const clock = Number(assignment.timed_minutes || 0)
+    ? await readStudentTimer(supabase, payload.assignmentId, studentName).catch(() => null)
+    : null;
+  if (isPastGrace(assignment.timed_minutes, clock?.startedAt)) {
     return Response.json(
       { error: "倒计时已结束，这份作文已经提交，不能再修改了。", code: "timer_expired" },
       { status: 409 }

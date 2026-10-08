@@ -119,6 +119,7 @@ export function StudentAssignment({
         setAuthName(data.account.display_name);
         setAuthPhone(data.account.phone);
         await loadSubmissionDraftForName(data.account.display_name);
+        await syncTimer();
       }
     } finally {
       setAccountChecked(true);

@@ -54,32 +54,46 @@ export function isPastGrace(timedMinutes: number | null | undefined, startedAt: 
 }
 
 /**
+ * The clock for one student on one homework: the earliest start recorded
+ * across every submission they have for it.
+ *
+ * A student can legitimately have more than one submission row for the same
+ * homework, and two tabs pressing start at the same moment can create another.
+ * Taking the earliest means an extra row can never hand back time — the worst
+ * a race can do is start the clock a few milliseconds early.
+ */
+export async function readStudentTimer(supabase: SupabaseClient, assignmentId: string, studentName: string) {
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("id, timer_started_at, submitted_at")
+    .eq("assignment_id", assignmentId)
+    .ilike("student_name", studentName)
+    .order("submitted_at", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const rows = data || [];
+  const started = rows.map((row) => row.timer_started_at as string | null).filter((value): value is string => Boolean(value));
+  const earliest = started.sort()[0] || null;
+  return { rows, startedAt: earliest, submissionId: (rows[rows.length - 1]?.id as string) || "" };
+}
+
+/**
  * Starts the clock, or hands back the moment it already started.
  *
- * The write is conditional on `timer_started_at` still being null, so two
- * tabs pressing start at once cannot give the second one a fresh hour.
+ * The write is conditional on `timer_started_at` still being null, and the
+ * answer is read back across all of the student's rows, so whichever tab wins
+ * a race, every tab ends up on the same — earliest — deadline.
  */
-export async function startTimer(supabase: SupabaseClient, submissionId: string) {
-  const { data: current, error } = await supabase
-    .from("submissions")
-    .select("id, timer_started_at")
-    .eq("id", submissionId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!current) throw new Error("Submission not found.");
-  if (current.timer_started_at) return current.timer_started_at as string;
+export async function startTimer(supabase: SupabaseClient, assignmentId: string, studentName: string, submissionId: string) {
+  const existing = await readStudentTimer(supabase, assignmentId, studentName);
+  if (existing.startedAt) return existing.startedAt;
 
-  const startedAt = new Date().toISOString();
-  const { data: claimed } = await supabase
+  await supabase
     .from("submissions")
-    .update({ timer_started_at: startedAt })
+    .update({ timer_started_at: new Date().toISOString() })
     .eq("id", submissionId)
-    .is("timer_started_at", null)
-    .select("timer_started_at")
-    .maybeSingle();
-  if (claimed?.timer_started_at) return claimed.timer_started_at as string;
+    .is("timer_started_at", null);
 
-  // Someone else claimed it between the read and the write; theirs stands.
-  const { data: settled } = await supabase.from("submissions").select("timer_started_at").eq("id", submissionId).maybeSingle();
-  return (settled?.timer_started_at as string) || startedAt;
+  const settled = await readStudentTimer(supabase, assignmentId, studentName);
+  return settled.startedAt;
 }

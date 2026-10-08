@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireStudent } from "@/lib/auth";
-import { readTimer, startTimer } from "@/lib/writingTimer";
+import { readStudentTimer, readTimer, startTimer } from "@/lib/writingTimer";
 
 /**
  * Starts the exam clock on a timed writing homework, and reports where it is.
@@ -38,21 +38,16 @@ export async function POST(request: NextRequest) {
   const minutes = Number(assignment.timed_minutes || 0);
   if (!minutes) return Response.json({ timer: readTimer(0, null) });
 
-  // The student's own latest attempt at this homework; RLS keeps it theirs.
-  let submissionId = parsed.data.submissionId || "";
-  let startedAt: string | null = null;
-  const { data: existing } = await supabase
-    .from("submissions")
-    .select("id, timer_started_at, submission_status")
-    .eq("assignment_id", assignmentId)
-    .ilike("student_name", account.display_name)
-    .order("submitted_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    submissionId = existing.id;
-    startedAt = existing.timer_started_at;
+  // The clock is the earliest start across every row this student has for
+  // the homework, so an extra submission cannot hand back time.
+  let current;
+  try {
+    current = await readStudentTimer(supabase, assignmentId, account.display_name);
+  } catch (problem) {
+    return Response.json({ error: problem instanceof Error ? problem.message : "Could not read the timer." }, { status: 500 });
   }
+  let submissionId = current.submissionId;
+  let startedAt = current.startedAt;
 
   if (start && !startedAt) {
     if (!submissionId) {
@@ -71,7 +66,7 @@ export async function POST(request: NextRequest) {
       submissionId = created.id;
     }
     try {
-      startedAt = await startTimer(supabase, submissionId);
+      startedAt = await startTimer(supabase, assignmentId, account.display_name, submissionId);
     } catch (problem) {
       return Response.json({ error: problem instanceof Error ? problem.message : "Could not start the timer." }, { status: 500 });
     }
