@@ -31,7 +31,11 @@ const updateSchema = z.object({
   // the paper does not have.
   readingKey: z.array(z.string().trim().max(120)).max(60).optional(),
   // Mark the sheet again against the key as it now stands.
-  remarkReading: z.boolean().optional()
+  remarkReading: z.boolean().optional(),
+  // Finishing the sitting on the student's behalf. Normally they press it;
+  // a student who runs out of time and closes the tab never does, and the
+  // sitting would otherwise stay open for ever.
+  completed: z.boolean().optional()
 });
 
 const columns =
@@ -113,6 +117,7 @@ export async function PATCH(request: Request) {
   if (fields.scheduledAt !== undefined) patch.scheduled_at = fields.scheduledAt || null;
   if (fields.isActive !== undefined) patch.is_active = fields.isActive;
   if (fields.readingKey !== undefined) patch.reading_key = fields.readingKey;
+  if (fields.completed !== undefined) patch.completed_at = fields.completed ? new Date().toISOString() : null;
 
   const { data, error } = await supabase.from("mock_exams").update(patch).eq("id", examId).select(columns).maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });

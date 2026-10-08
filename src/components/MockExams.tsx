@@ -395,6 +395,32 @@ function MockExamCard({
             </button>
           </div>
 
+          {/* Normally the student presses 模考完成. One who runs out of time
+              and closes the tab never does, and the sitting stays open. */}
+          {published && (
+            <div className="mock-publish">
+              <div>
+                <strong>{done ? t("这场模考已结束", "This sitting is finished") : t("学生还没有点「模考完成」", "The student has not pressed finish")}</strong>
+                <span className="hint">
+                  {done
+                    ? t(`已于 ${formatWhen(exam.completed_at)} 结束，学生看到的是成绩页。`, `Finished ${formatWhen(exam.completed_at)}; the student sees their results.`)
+                    : t(
+                        "学生考完没点这个按钮的话，页面会一直停在答题状态，阅读答案也不会解锁。你可以代他结束。",
+                        "Until it is pressed their page stays on the paper and the reading key stays shut. You can finish it for them."
+                      )}
+                </span>
+              </div>
+              <button
+                className={done ? "btn secondary" : "btn"}
+                type="button"
+                disabled={saving === "complete"}
+                onClick={() => void patch({ completed: !done }, "complete")}
+              >
+                {saving === "complete" ? t("处理中...", "Working...") : done ? t("撤销结束", "Reopen") : t("标记为已完成", "Finish it")}
+              </button>
+            </div>
+          )}
+
           <div className="student-card-actions">
             <button className="btn link" type="button" onClick={onRemove}>
               {t("删除这场模考", "Delete this sitting")}
